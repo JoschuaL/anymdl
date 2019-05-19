@@ -56,7 +56,8 @@ class Mdlc
         TL_HLSL,        ///< HLSL
         TL_JIT,         ///< Executable machine code
         TL_PTX,         ///< PTX code
-        TL_BIN          ///< binary output (serialization result)
+        TL_BIN,         ///< binary output (serialization result)
+        TL_ANYDSL       ///< AnyDSL Impala Source Code
     };
 
 public:
@@ -128,6 +129,9 @@ private:
     /// If set, dump DAGs in the DAG backend.
     bool m_dump_dag;
 
+    // Id set, dump AST after compilation and before code gen
+    bool m_dump_ast;
+
     /// True if verbose mode enabled.
     bool m_verbose;
 
@@ -160,6 +164,8 @@ private:
 
     /// If set and target equals MDL, inline all imports except for stdlib/builtins
     bool m_inline;
+
+    void dump_module_ast(const mi::mdl::IModule *pModule);
 };
 
 #endif
