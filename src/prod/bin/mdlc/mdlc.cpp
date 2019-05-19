@@ -27,6 +27,7 @@
  *****************************************************************************/
 
 #include "mdlc.h"
+#include "ast_dumper.h"
 
 #if defined(LINUX)
 #include <dirent.h>
@@ -36,8 +37,10 @@
 #include <io.h>
 #define access(a, b) _access(a, b)
 #else
+
 #include <sys/dir.h>
 #include <unistd.h>
+
 #endif
 
 #include <cerrno>
@@ -98,8 +101,7 @@ using namespace std;
 ///
 /// \param msgs     the messages
 /// \param printer  the printer
-static void print_messages(Messages const &msgs, IPrinter *printer)
-{
+static void print_messages(Messages const &msgs, IPrinter *printer) {
     for (size_t i = 0, n = msgs.get_message_count(); i < n; ++i) {
         IMessage const *msg = msgs.get_message(i);
         printer->print(msg, /*include_notes=*/true);
@@ -108,122 +110,125 @@ static void print_messages(Messages const &msgs, IPrinter *printer)
 
 
 Mdlc::Mdlc(char const *program_name)
-: m_program(program_name)
-, m_dump_dag(false)
-, m_verbose(false)
-, m_syntax_coloring(false)
-, m_show_positions(false)
-, m_imdl()
-, m_check_root()
-, m_internal_space("coordinate_object")
-, m_backend_options()
-, m_target_lang(TL_NONE)
-, m_input_modules()
-, m_inline(false)
-{
+        : m_program(program_name), m_dump_dag(false), m_verbose(false), m_syntax_coloring(false),
+          m_show_positions(false), m_imdl(), m_check_root(), m_internal_space("coordinate_object"), m_backend_options(),
+          m_target_lang(TL_NONE), m_input_modules(), m_inline(false) {
 }
 
-Mdlc::~Mdlc()
-{
+Mdlc::~Mdlc() {
 }
 
-void Mdlc::usage()
-{
+void Mdlc::usage() {
     fprintf(
-        stderr,
-        "Usage: %s [options] modules\n"
-        "Options are:\n"
-        "  --optimize <level>\n"
-        "  -O <level>\n"
-        "\tSet the optimization level:\n"
-        "\t\t0\tDisable all optimizations\n"
-        "\t\t1\tEnable intraprocedural optimizations\n"
-        "\t\t2\tEnable intra- and interprocedural optimizations\n"
-        "  --warn <options>\n"
-        "  -W <option>\n"
-        "\tSet a warning option, one of\n"
-        "\t\terr\tThreat all warnings as errors\n"
-        "\t\tnum=off\tDisable warning Wnum\n"
-        "\t\tnum=on\tEnable warning Wnum\n"
-        "\t\tnum=err\tTreat warning Wnum as an error\n"
-        "  --strict\n"
-        "  --no-strict\n"
-        "\tEnables (default) or disables strict compilation mode.\n"
-        "  --version\n"
-        "  -V\n"
-        "\tPrint version of the MDLC compiler.\n"
-        "  --verbose\n"
-        "  -v\n"
-        "\tEnable verbose mode.\n"
-        "  --path <path>\n"
-        "  -p <path>\n"
-        "\tSpecify the MDL module search path.\n"
-        "\tThis option can be specified multiple times.\n"
-        "  --syntax-coloring\n"
-        "  -C\n"
-        "\tColor the output.\n"
-        "  --check-lib <root>\n"
-        "\tCheck a library stored at root.\n"
-        "  --target <target>\n"
-        "  -t <target>\n"
-        "\tSet target language.\n"
-        "\tTarget language can be one of\n"
-        "\t\tNONE\t(the default)\n"
-        "\t\tMDL\n"
-        "\t\tDAG\n"
-        "\t\tBIN\n"
-        "  --dump <option>\n"
-        "  -d <option>\n"
-        "\tSet dump option.\n"
-        "\tDump option can be one of\n"
-        "\t\tDG\tauto-typing dependence graph\n"
-        "\t\tCG\tcall-graph\n"
-        "\t\tDAG\tmaterial expression DAG\n"
-        "  --backend <option=value>\n"
-        "  -B <option>=<value>\n"
-        "\tSet the backend option <option> to value <value>.\n"
-        "  --internal-space <space>\n"
-        "\tSet internal space, can be one of\n"
-        "\t\tinternal\n"
-        "\t\tobject\t(the default)\n"
-        "\t\tworld\n"
-        "  --show-positions\n"
-        "\tShow source code position in target output.\n"
-        "  --inline\n"
-        "  -i\n"
-        "\tInlines the given module(if target is set to MDL).\n"
-        "  --help\n"
-        "  -?"
-        "\tThis help.\n",
-        m_program);
+            stderr,
+            "Usage: %s [options] modules\n"
+            "Options are:\n"
+            "  --optimize <level>\n"
+            "  -O <level>\n"
+            "\tSet the optimization level:\n"
+            "\t\t0\tDisable all optimizations\n"
+            "\t\t1\tEnable intraprocedural optimizations\n"
+            "\t\t2\tEnable intra- and interprocedural optimizations\n"
+            "  --warn <options>\n"
+            "  -W <option>\n"
+            "\tSet a warning option, one of\n"
+            "\t\terr\tThreat all warnings as errors\n"
+            "\t\tnum=off\tDisable warning Wnum\n"
+            "\t\tnum=on\tEnable warning Wnum\n"
+            "\t\tnum=err\tTreat warning Wnum as an error\n"
+            "  --strict\n"
+            "  --no-strict\n"
+            "\tEnables (default) or disables strict compilation mode.\n"
+            "  --version\n"
+            "  -V\n"
+            "\tPrint version of the MDLC compiler.\n"
+            "  --verbose\n"
+            "  -v\n"
+            "\tEnable verbose mode.\n"
+            "  --path <path>\n"
+            "  -p <path>\n"
+            "\tSpecify the MDL module search path.\n"
+            "\tThis option can be specified multiple times.\n"
+            "  --syntax-coloring\n"
+            "  -C\n"
+            "\tColor the output.\n"
+            "  --check-lib <root>\n"
+            "\tCheck a library stored at root.\n"
+            "  --target <target>\n"
+            "  -t <target>\n"
+            "\tSet target language.\n"
+            "\tTarget language can be one of\n"
+            "\t\tNONE\t(the default)\n"
+            "\t\tMDL\n"
+            "\t\tDAG\n"
+            "\t\tBIN\n"
+            "  --dump <option>\n"
+            "  -d <option>\n"
+            "\tSet dump option.\n"
+            "\tDump option can be one of\n"
+            "\t\tDG\tauto-typing dependence graph\n"
+            "\t\tCG\tcall-graph\n"
+            "\t\tDAG\tmaterial expression DAG\n"
+            "  --backend <option=value>\n"
+            "  -B <option>=<value>\n"
+            "\tSet the backend option <option> to value <value>.\n"
+            "  --internal-space <space>\n"
+            "\tSet internal space, can be one of\n"
+            "\t\tinternal\n"
+            "\t\tobject\t(the default)\n"
+            "\t\tworld\n"
+            "  --show-positions\n"
+            "\tShow source code position in target output.\n"
+            "  --inline\n"
+            "  -i\n"
+            "\tInlines the given module(if target is set to MDL).\n"
+            "  --help\n"
+            "  -?"
+            "\tThis help.\n",
+            m_program);
 }
 
-int Mdlc::run(int argc, char *argv[])
-{
+int Mdlc::run(int argc, char *argv[]) {
     static mi::getopt::option const long_options[] = {
-        /* 0*/ { "optimize",               mi::getopt::REQUIRED_ARGUMENT, NULL, 'O' },
-        /* 1*/ { "warn",                   mi::getopt::REQUIRED_ARGUMENT, NULL, 'W' },
-        /* 2*/ { "strict",                 mi::getopt::NO_ARGUMENT,       NULL, 0 },
-        /* 3*/ { "no-strict",              mi::getopt::NO_ARGUMENT,       NULL, 0 },
-        /* 4*/ { "version",                mi::getopt::NO_ARGUMENT,       NULL, 'V' },
-        /* 5*/ { "verbose",                mi::getopt::NO_ARGUMENT,       NULL, 'v' },
-        /* 6*/ { "path",                   mi::getopt::REQUIRED_ARGUMENT, NULL, 'p' },
-        /* 7*/ { "syntax-coloring",        mi::getopt::NO_ARGUMENT,       NULL, 'C' },
-        /* 8*/ { "check-lib",              mi::getopt::REQUIRED_ARGUMENT, NULL, 0 },
-        /* 9*/ { "target",                 mi::getopt::REQUIRED_ARGUMENT, NULL, 't' },
-        /*10*/ { "dump",                   mi::getopt::REQUIRED_ARGUMENT, NULL, 'd' },
-        /*11*/ { "backend",                mi::getopt::REQUIRED_ARGUMENT, NULL, 'B' },
-        /*12*/ { "internal-space",         mi::getopt::REQUIRED_ARGUMENT, NULL, 0 },
-        /*13*/ { "show-positions",         mi::getopt::NO_ARGUMENT,       NULL, 0 },
-        /*15*/{ "inline",                  mi::getopt::NO_ARGUMENT,       NULL, 'i' },
-        /*16*/ { "help",                   mi::getopt::NO_ARGUMENT,       NULL, '?' },
-       
-        /*17*/ { NULL,                     0,                             NULL, 0 }
+            /* 0*/ {"optimize",        mi::getopt::REQUIRED_ARGUMENT, NULL, 'O'},
+            /* 1*/
+                   {"warn",            mi::getopt::REQUIRED_ARGUMENT, NULL, 'W'},
+            /* 2*/
+                   {"strict",          mi::getopt::NO_ARGUMENT,       NULL, 0},
+            /* 3*/
+                   {"no-strict",       mi::getopt::NO_ARGUMENT,       NULL, 0},
+            /* 4*/
+                   {"version",         mi::getopt::NO_ARGUMENT,       NULL, 'V'},
+            /* 5*/
+                   {"verbose",         mi::getopt::NO_ARGUMENT,       NULL, 'v'},
+            /* 6*/
+                   {"path",            mi::getopt::REQUIRED_ARGUMENT, NULL, 'p'},
+            /* 7*/
+                   {"syntax-coloring", mi::getopt::NO_ARGUMENT,       NULL, 'C'},
+            /* 8*/
+                   {"check-lib",       mi::getopt::REQUIRED_ARGUMENT, NULL, 0},
+            /* 9*/
+                   {"target",          mi::getopt::REQUIRED_ARGUMENT, NULL, 't'},
+            /*10*/
+                   {"dump",            mi::getopt::REQUIRED_ARGUMENT, NULL, 'd'},
+            /*11*/
+                   {"backend",         mi::getopt::REQUIRED_ARGUMENT, NULL, 'B'},
+            /*12*/
+                   {"internal-space",  mi::getopt::REQUIRED_ARGUMENT, NULL, 0},
+            /*13*/
+                   {"show-positions",  mi::getopt::NO_ARGUMENT,       NULL, 0},
+            /*15*/
+                   {"inline",          mi::getopt::NO_ARGUMENT,       NULL, 'i'},
+            /*16*/
+                   {"help",            mi::getopt::NO_ARGUMENT,       NULL, '?'},
+
+            /*17*/
+                   {NULL,              0,                             NULL, 0}
     };
 
     bool opt_error = false;
     bool show_version = false;
-    int  c, longidx;
+    int c, longidx;
     std::string warn_options;
 
     MDL_search_path *search_path(new MDL_search_path);
@@ -234,11 +239,10 @@ int Mdlc::run(int argc, char *argv[])
 
 
     while (
-        (c = mi::getopt::getopt_long(argc, argv, "O:W:Vvip:Ct:d:B:?", long_options, &longidx)) != -1
-    ) {
+            (c = mi::getopt::getopt_long(argc, argv, "O:W:Vvip:Ct:d:B:?", long_options, &longidx)) != -1
+            ) {
         switch (c) {
-        case 'O':
-            {
+            case 'O': {
                 char const *s = mi::getopt::optarg;
                 char level = s[0];
 
@@ -251,16 +255,15 @@ int Mdlc::run(int argc, char *argv[])
                 }
                 if (!valid) {
                     fprintf(
-                        stderr,
-                        "%s error: unknown optimization option (%s)\n",
-                        argv[0],
-                        s);
+                            stderr,
+                            "%s error: unknown optimization option (%s)\n",
+                            argv[0],
+                            s);
                     opt_error = true;
                 }
             }
-            break;
-        case 'W':
-            {
+                break;
+            case 'W': {
                 const char *s = mi::getopt::optarg;
                 unsigned value;
                 if (strcasecmp(s, "err") == 0) {
@@ -273,113 +276,117 @@ int Mdlc::run(int argc, char *argv[])
                     // ok
                 } else {
                     fprintf(
-                        stderr,
-                        "%s error: unknown value of warning option (%s)\n",
-                        argv[0],
-                        s);
+                            stderr,
+                            "%s error: unknown value of warning option (%s)\n",
+                            argv[0],
+                            s);
                     opt_error = true;
                 }
                 if (!warn_options.empty())
                     warn_options += ",";
                 warn_options += s;
             }
-            break;
-        case 'V':
-            show_version = true;
-            break;
-        case 'v':
-            m_verbose = true;
-            break;
-        case 'p':
-            search_path->add_path(mi::getopt::optarg);
-            break;
-        case 'C':
-            m_syntax_coloring = true;
-            break;
-        case 't':
-            if (strcasecmp(mi::getopt::optarg, "none") == 0) {
-                m_target_lang = TL_NONE;
-            } else if (strcasecmp(mi::getopt::optarg, "mdl") == 0) {
-                m_target_lang = TL_MDL;
-            } else if (strcasecmp(mi::getopt::optarg, "dag") == 0) {
-                m_target_lang = TL_DAG;
-            } else if (strcasecmp(mi::getopt::optarg, "bin") == 0) {
-                m_target_lang = TL_BIN;
-            } else {
-                fprintf(
-                    stderr,
-                    "%s error: unknown target language '%s'\n",
-                    argv[0],
-                    mi::getopt::optarg);
-                opt_error = true;
-            }
-            break;
-        case 'd':
-            if (strcasecmp(mi::getopt::optarg, "dg") == 0) {
-                comp_options.set_option(MDL_OPTION_DUMP_DEPENDENCE_GRAPH, "true");
-            } else if (strcasecmp(mi::getopt::optarg, "cg") == 0) {
-                comp_options.set_option(MDL_OPTION_DUMP_CALL_GRAPH, "true");
-            } else if (strcasecmp(mi::getopt::optarg, "dag") == 0) {
-                m_dump_dag = true;
-            } else {
-                fprintf(
-                    stderr,
-                    "%s error: unknown dump option '%s'\n",
-                    argv[0],
-                    mi::getopt::optarg);
-                opt_error = true;
-            }
-            break;
-        case 'B':
-            m_backend_options.push_back(mi::getopt::optarg);
-            break;
-        case '?':
-            usage();
-            return EXIT_SUCCESS;
-        case 'i':
-            m_inline = true;
-            break;
-        case '\0':
-            switch (longidx) {
-            case 2:
-                comp_options.set_option(MDL_OPTION_STRICT, "true");
                 break;
-            case 3:
-                comp_options.set_option(MDL_OPTION_STRICT, "false");
+            case 'V':
+                show_version = true;
                 break;
-            case 8:
-                m_check_root = mi::getopt::optarg;
+            case 'v':
+                m_verbose = true;
                 break;
-            case 12:
-                if (strcasecmp(mi::getopt::optarg, "internal") == 0) {
-                    // ok
-                } else if (strcasecmp(mi::getopt::optarg, "object") == 0) {
-                    // ok
-                } else if (strcasecmp(mi::getopt::optarg, "world") == 0) {
-                    // ok
+            case 'p':
+                search_path->add_path(mi::getopt::optarg);
+                break;
+            case 'C':
+                m_syntax_coloring = true;
+                break;
+            case 't':
+                if (strcasecmp(mi::getopt::optarg, "none") == 0) {
+                    m_target_lang = TL_NONE;
+                } else if (strcasecmp(mi::getopt::optarg, "mdl") == 0) {
+                    m_target_lang = TL_MDL;
+                } else if (strcasecmp(mi::getopt::optarg, "dag") == 0) {
+                    m_target_lang = TL_DAG;
+                } else if (strcasecmp(mi::getopt::optarg, "bin") == 0) {
+                    m_target_lang = TL_BIN;
+                } else if (strcasecmp(mi::getopt::optarg, "anydsl") == 0) {
+                    m_target_lang = TL_ANYDSL;
                 } else {
                     fprintf(
-                        stderr,
-                        "%s error: unsupported internal space '%s'\n",
-                        argv[0],
-                        mi::getopt::optarg);
+                            stderr,
+                            "%s error: unknown target language '%s'\n",
+                            argv[0],
+                            mi::getopt::optarg);
                     opt_error = true;
                 }
-                m_internal_space = mi::getopt::optarg;
                 break;
-            case 13:
-                m_show_positions = true;
+            case 'd':
+                if (strcasecmp(mi::getopt::optarg, "dg") == 0) {
+                    comp_options.set_option(MDL_OPTION_DUMP_DEPENDENCE_GRAPH, "true");
+                } else if (strcasecmp(mi::getopt::optarg, "cg") == 0) {
+                    comp_options.set_option(MDL_OPTION_DUMP_CALL_GRAPH, "true");
+                } else if (strcasecmp(mi::getopt::optarg, "dag") == 0) {
+                    m_dump_dag = true;
+                } else if (strcasecmp(mi::getopt::optarg, "ast") == 0) {
+                    m_dump_ast = true;
+                } else {
+                    fprintf(
+                            stderr,
+                            "%s error: unknown dump option '%s'\n",
+                            argv[0],
+                            mi::getopt::optarg);
+                    opt_error = true;
+                }
                 break;
-            default:
-                fprintf(
-                    stderr,
-                    "%s error: unknown option '%s'\n",
-                    argv[0],
-                    argv[mi::getopt::optind]);
-                opt_error = true;
+            case 'B':
+                m_backend_options.push_back(mi::getopt::optarg);
                 break;
-            }
-            break;
+            case '?':
+                usage();
+                return EXIT_SUCCESS;
+            case 'i':
+                m_inline = true;
+                break;
+            case '\0':
+                switch (longidx) {
+                    case 2:
+                        comp_options.set_option(MDL_OPTION_STRICT, "true");
+                        break;
+                    case 3:
+                        comp_options.set_option(MDL_OPTION_STRICT, "false");
+                        break;
+                    case 8:
+                        m_check_root = mi::getopt::optarg;
+                        break;
+                    case 12:
+                        if (strcasecmp(mi::getopt::optarg, "internal") == 0) {
+                            // ok
+                        } else if (strcasecmp(mi::getopt::optarg, "object") == 0) {
+                            // ok
+                        } else if (strcasecmp(mi::getopt::optarg, "world") == 0) {
+                            // ok
+                        } else {
+                            fprintf(
+                                    stderr,
+                                    "%s error: unsupported internal space '%s'\n",
+                                    argv[0],
+                                    mi::getopt::optarg);
+                            opt_error = true;
+                        }
+                        m_internal_space = mi::getopt::optarg;
+                        break;
+                    case 13:
+                        m_show_positions = true;
+                        break;
+                    default:
+                        fprintf(
+                                stderr,
+                                "%s error: unknown option '%s'\n",
+                                argv[0],
+                                argv[mi::getopt::optind]);
+                        opt_error = true;
+                        break;
+                }
+                break;
         }
     }
 
@@ -395,9 +402,9 @@ int Mdlc::run(int argc, char *argv[])
 
     if (show_version) {
         fprintf(
-            stderr,
-            "mdlc version 1.0, build %s.\n",
-            MI::VERSION::get_platform_version());
+                stderr,
+                "mdlc version 1.0, build %s.\n",
+                MI::VERSION::get_platform_version());
         return EXIT_SUCCESS;
     }
 
@@ -411,7 +418,7 @@ int Mdlc::run(int argc, char *argv[])
     m_imdl->install_search_path(search_path);
 
     if (mi::getopt::optind >= argc) {
-        fprintf(stderr,"%s: no source modules specified\n", argv[0]);
+        fprintf(stderr, "%s: no source modules specified\n", argv[0]);
         return EXIT_FAILURE;
     }
 
@@ -427,8 +434,7 @@ int Mdlc::run(int argc, char *argv[])
 
     for (String_list::const_iterator it(m_input_modules.begin()), end(m_input_modules.end());
          it != end;
-         ++it)
-    {
+         ++it) {
         std::string const &input_module = *it;
 
         unsigned errors = 0;
@@ -453,25 +459,24 @@ int Mdlc::run(int argc, char *argv[])
     if (!m_check_root.empty()) {
         if (err_count > 0) {
             fprintf(
-                stderr,
-                "%s: Library '%s' contains %u errors\n",
-                m_program,
-                m_check_root.c_str(),
-                err_count);
+                    stderr,
+                    "%s: Library '%s' contains %u errors\n",
+                    m_program,
+                    m_check_root.c_str(),
+                    err_count);
         } else {
             fprintf(
-                stderr,
-                "%s: Successfully checked library '%s'\n",
-                m_program,
-                m_check_root.c_str());
+                    stderr,
+                    "%s: Successfully checked library '%s'\n",
+                    m_program,
+                    m_check_root.c_str());
         }
     }
     return err_count == 0 ? EXIT_SUCCESS : EXIT_FAILURE;
 }
 
 // Compile one module.
-IModule const *Mdlc::compile(char const *module_name, unsigned &errors)
-{
+IModule const *Mdlc::compile(char const *module_name, unsigned &errors) {
     mi::base::Handle<IThread_context> ctx(m_imdl->create_thread_context());
     IModule const *module = m_imdl->load_module(ctx.get(), module_name, /*cache=*/NULL);
 
@@ -487,7 +492,7 @@ IModule const *Mdlc::compile(char const *module_name, unsigned &errors)
     if (0 < err_count) {
         fprintf(stderr, "%s: %u errors detected in module %s\n", m_program, err_count, module_name);
     } else if (m_verbose && m_check_root.empty()) {
-        fprintf(stderr,"%s: successfully compiled module %s\n", m_program, module_name);
+        fprintf(stderr, "%s: successfully compiled module %s\n", m_program, module_name);
     }
 
     errors = err_count;
@@ -495,8 +500,7 @@ IModule const *Mdlc::compile(char const *module_name, unsigned &errors)
 }
 
 // Apply backend options.
-void Mdlc::apply_backend_options(mi::mdl::Options &opts)
-{
+void Mdlc::apply_backend_options(mi::mdl::Options &opts) {
     String_list const &bo = m_backend_options;
     for (String_list::const_iterator it(bo.begin()), end(bo.end()); it != end; ++it) {
         std::string const &t = *it;
@@ -520,110 +524,120 @@ void Mdlc::apply_backend_options(mi::mdl::Options &opts)
 
 
 // Compile a module to a target language.
-bool Mdlc::backend(IModule const *module)
-{
+bool Mdlc::backend(IModule const *module) {
     mi::base::Handle<IOutput_stream> os_stderr(m_imdl->create_std_stream(IMDL::OS_STDERR));
     mi::base::Handle<IPrinter> printer(m_imdl->create_printer(os_stderr.get()));
 
     printer->enable_color(m_syntax_coloring);
 
     switch (m_target_lang) {
-    case TL_NONE:
-        break;
-    case TL_MDL:
-        if (m_inline) {
-            mi::base::Handle<IMDL_module_transformer> transformer(
-                m_imdl->create_module_transformer());
-            mi::base::Handle<IModule const> inlined_module(
-                transformer->inline_imports(module));
-            if (inlined_module.is_valid_interface()) {
-                print_generated_code(inlined_module.get());
-            } else {
-                fprintf(
-                    stderr,
-                    "%s error: failed to inline module %s\n",
-                    m_program, module->get_name());
+        case TL_NONE:
+            break;
+        case TL_MDL:
+            if (m_inline) {
+                mi::base::Handle<IMDL_module_transformer> transformer(
+                        m_imdl->create_module_transformer());
+                mi::base::Handle<IModule const> inlined_module(
+                        transformer->inline_imports(module));
+                if (inlined_module.is_valid_interface()) {
+                    print_generated_code(inlined_module.get());
+                } else {
+                    fprintf(
+                            stderr,
+                            "%s error: failed to inline module %s\n",
+                            m_program, module->get_name());
 
-                Messages const &msgs = transformer->access_messages();
+                    Messages const &msgs = transformer->access_messages();
+                    print_messages(msgs, printer.get());
+
+                    return false;
+                }
+            } else {
+                print_generated_code(module);
+            }
+            break;
+        case TL_DAG:
+            if (module->is_valid()) {
+                mi::base::Handle<ICode_generator_dag> generator =
+                        mi::base::make_handle(m_imdl->load_code_generator("dag"))
+                                .get_interface<ICode_generator_dag>();
+                if (!generator.is_valid_interface()) {
+                    fprintf(
+                            stderr,
+                            "%s error: failed to load code generator for target language dag\n",
+                            m_program);
+                    return false;
+                }
+
+                mi::mdl::Options &dag_opts = generator->access_options();
+                dag_opts.set_option(
+                        MDL_CG_OPTION_INTERNAL_SPACE, m_internal_space.c_str());
+                if (m_dump_dag)
+                    dag_opts.set_option(
+                            MDL_CG_DAG_OPTION_DUMP_MATERIAL_DAG, "true");
+
+                // We support local entity usage inside MDL materials in neuray, but ...
+                dag_opts.set_option(MDL_CG_DAG_OPTION_NO_LOCAL_FUNC_CALLS, "false");
+                /// ... we need entries for those in the DB, hence generate them
+                dag_opts.set_option(MDL_CG_DAG_OPTION_INCLUDE_LOCAL_ENTITIES, "true");
+
+                apply_backend_options(dag_opts);
+
+                mi::base::Handle<IGenerated_code_dag> dag(generator->compile(module));
+                if (!dag.is_valid_interface()) {
+                    fprintf(stderr, "%s error: failed to generate dag code for module %s\n",
+                            m_program, module->get_name());
+                    return false;
+                }
+
+                Messages const &msgs = dag->access_messages();
                 print_messages(msgs, printer.get());
 
-                return false;
+                int err_count = msgs.get_error_message_count();
+                if (0 < err_count) {
+                    fprintf(stderr, "%s: %d errors detected in dag code generated for module %s\n",
+                            m_program, err_count, module->get_name());
+                    return false;
+                } else {
+                    print_generated_code(dag.get());
+                }
             }
-        } else {
-            print_generated_code(module);
-        }
-        break;
-    case TL_DAG:
-        if (module->is_valid()) {
-            mi::base::Handle<ICode_generator_dag> generator =
-                mi::base::make_handle(m_imdl->load_code_generator("dag"))
-                    .get_interface<ICode_generator_dag>();
-            if (!generator.is_valid_interface()) {
-                fprintf(
-                    stderr,
-                    "%s error: failed to load code generator for target language dag\n",
-                    m_program);
-                return false;
+            break;
+        case TL_GLSL:
+            break;
+        case TL_JIT:
+            break;
+        case TL_PTX:
+            break;
+        case TL_ANYDSL:
+            if (module->is_valid()) {
+
+
+                if (m_dump_ast) {
+                    auto astdumper = mi::mdl::AST_Dumper();
+                    astdumper.dump_module_ast(module);
+                }
+
+
             }
+            break;
+        case TL_BIN:
+            if (module->is_valid()) {
+                mi::base::Handle<IOutput_stream> os(m_imdl->create_file_output_stream("output.bin"));
+                mi::mdl::Stream_serializer stream_serializer(os.get());
 
-            mi::mdl::Options &dag_opts = generator->access_options();
-            dag_opts.set_option(
-                MDL_CG_OPTION_INTERNAL_SPACE, m_internal_space.c_str());
-            if (m_dump_dag)
-                dag_opts.set_option(
-                    MDL_CG_DAG_OPTION_DUMP_MATERIAL_DAG, "true");
-
-            // We support local entity usage inside MDL materials in neuray, but ...
-            dag_opts.set_option( MDL_CG_DAG_OPTION_NO_LOCAL_FUNC_CALLS, "false");
-            /// ... we need entries for those in the DB, hence generate them
-            dag_opts.set_option( MDL_CG_DAG_OPTION_INCLUDE_LOCAL_ENTITIES, "true");
-
-            apply_backend_options(dag_opts);
-
-            mi::base::Handle<IGenerated_code_dag> dag(generator->compile(module));
-            if (!dag.is_valid_interface()) {
-                fprintf(stderr, "%s error: failed to generate dag code for module %s\n",
-                                m_program, module->get_name());
-                return false;
+                if (os.is_valid_interface()) {
+                    m_imdl->serialize_module(module, &stream_serializer, true);
+                }
             }
-
-            Messages const &msgs = dag->access_messages();
-            print_messages(msgs, printer.get());
-
-            int err_count = msgs.get_error_message_count();
-            if (0 < err_count) {
-                fprintf(stderr, "%s: %d errors detected in dag code generated for module %s\n",
-                                m_program, err_count, module->get_name());
-                return false;
-            } else {
-                print_generated_code(dag.get());
-            }
-        }
-        break;
-    case TL_GLSL:
-        break;
-    case TL_JIT:
-        break;
-    case TL_PTX:
-        break;
-    case TL_BIN:
-        if (module->is_valid()) {
-            mi::base::Handle<IOutput_stream> os(m_imdl->create_file_output_stream("output.bin"));
-            mi::mdl::Stream_serializer stream_serializer(os.get());
-
-            if (os.is_valid_interface()) {
-                m_imdl->serialize_module(module, &stream_serializer, true);
-            }
-        }
-        break;
+            break;
     }
 
     return true;
 }
 
 // Check if the given filename exists and if it represents a binary,
-bool Mdlc::is_binary(char const *filename) const
-{
+bool Mdlc::is_binary(char const *filename) const {
     if (FILE *f = fopen(filename, "rb")) {
         bool res = false;
         char sig[4];
@@ -638,8 +652,7 @@ bool Mdlc::is_binary(char const *filename) const
 }
 
 // Load a module binary.
-IModule const *Mdlc::load_binary(char const *filename, unsigned &errors)
-{
+IModule const *Mdlc::load_binary(char const *filename, unsigned &errors) {
     mi::base::Handle<IInput_stream> is(m_imdl->create_file_input_stream(filename));
     mi::base::Handle<mi::base::IAllocator> allocator(m_imdl->get_mdl_allocator());
     mi::mdl::Stream_deserializer stream_deserializer(allocator.get(), is.get());
@@ -647,7 +660,7 @@ IModule const *Mdlc::load_binary(char const *filename, unsigned &errors)
     IModule const *module = m_imdl->deserialize_module(&stream_deserializer);
     if (module == NULL) {
         fprintf(
-            stderr, "%s: failed to open binary '%s' for reading\n", m_program, filename);
+                stderr, "%s: failed to open binary '%s' for reading\n", m_program, filename);
         return NULL;
     }
 
@@ -659,8 +672,7 @@ IModule const *Mdlc::load_binary(char const *filename, unsigned &errors)
 
 
 // Prints colorized code to stdout.
-void Mdlc::print_generated_code(IModule const *mod)
-{
+void Mdlc::print_generated_code(IModule const *mod) {
     mi::base::Handle<IOutput_stream> os_stdout(m_imdl->create_std_stream(IMDL::OS_STDOUT));
     if (mod->is_valid()) {
         // use the exporter
@@ -677,8 +689,7 @@ void Mdlc::print_generated_code(IModule const *mod)
 }
 
 // Prints colorized code to stdout.
-void Mdlc::print_generated_code(IGenerated_code const *code)
-{
+void Mdlc::print_generated_code(IGenerated_code const *code) {
     mi::base::Handle<IOutput_stream> os_stdout(m_imdl->create_std_stream(IMDL::OS_STDOUT));
     mi::base::Handle<IPrinter> printer(m_imdl->create_printer(os_stdout.get()));
     printer->enable_color(m_syntax_coloring);
@@ -689,324 +700,313 @@ void Mdlc::print_generated_code(IGenerated_code const *code)
 namespace {
 
 /// Represents a single directory in a OS independent way.
-class Directory
-{
-public:
-    /// Constructor.
-    Directory();
+    class Directory {
+    public:
+        /// Constructor.
+        Directory();
 
-    /// Destructor.
-    ~Directory();
+        /// Destructor.
+        ~Directory();
 
-    /// Open a directory for reading names in it
-    /// \param path to open
-    /// \return success
-    bool open(char const *path);
+        /// Open a directory for reading names in it
+        /// \param path to open
+        /// \return success
+        bool open(char const *path);
 
-    /// Close directory
-    /// \return success
-    bool close();
+        /// Close directory
+        /// \return success
+        bool close();
 
-    /// Read the next filename from the directory. Names are unsorted.
-    /// \return the next filename, or 0 if at eof
-    char const *read();
+        /// Read the next filename from the directory. Names are unsorted.
+        /// \return the next filename, or 0 if at eof
+        char const *read();
 
-    /// Retrieve whether reading has hit the end of the directory.
-    /// \return true if reading has hit the end of the directory
-    bool eof() const { return m_eof; }
+        /// Retrieve whether reading has hit the end of the directory.
+        /// \return true if reading has hit the end of the directory
+        bool eof() const { return m_eof; }
 
-    /// Retrieve last system error code.
-    /// \return last system error code
-    int error() const { return m_error; }
+        /// Retrieve last system error code.
+        /// \return last system error code
+        int error() const { return m_error; }
 
-    /// Check if the given name is a directory.
-    bool isdir(char const *name) const;
+        /// Check if the given name is a directory.
+        bool isdir(char const *name) const;
 
-private:
-    struct Hal_dir;
+    private:
+        struct Hal_dir;
 
-    std::string   m_path;         ///< last path passed to open()
-    int             m_error;        ///< last error, 0 if none
-    bool            m_eof;          ///< hit EOF while reading?
+        std::string m_path;         ///< last path passed to open()
+        int m_error;        ///< last error, 0 if none
+        bool m_eof;          ///< hit EOF while reading?
 #ifdef WIN_NT
-    Hal_dir         *m_dir;         ///< information for windows-based dir searching
+        Hal_dir         *m_dir;         ///< information for windows-based dir searching
 
-                                    /// An internal, windows-specific helper method to encapsulate
-                                    /// the directory reading code.
-                                    /// \return success
-    bool read_next_file();
+                                        /// An internal, windows-specific helper method to encapsulate
+                                        /// the directory reading code.
+                                        /// \return success
+        bool read_next_file();
 
-    /// Retrieve whether a given path exists.
-    /// For now this is simply a (static) helper method, but might be a useful
-    /// method to expose publicly and for all platforms
-    /// \param path path in question
-    /// \return true, if path exists
-    static bool exists(char const *path);
+        /// Retrieve whether a given path exists.
+        /// For now this is simply a (static) helper method, but might be a useful
+        /// method to expose publicly and for all platforms
+        /// \param path path in question
+        /// \return true, if path exists
+        static bool exists(char const *path);
 #else
-    Hal_dir         *m_dp_wrapper;  ///< open directory, 0 if not open
+        Hal_dir *m_dp_wrapper;  ///< open directory, 0 if not open
 #endif
-};
+    };
 
 #ifdef WIN_NT
 
-struct Directory::Hal_dir
-{
-    WIN32_FIND_DATA m_find_data;
-    HANDLE m_first_handle;
-    bool m_opened;
-    bool m_first_file;
-};
+    struct Directory::Hal_dir
+    {
+        WIN32_FIND_DATA m_find_data;
+        HANDLE m_first_handle;
+        bool m_opened;
+        bool m_first_file;
+    };
 
-Directory::Directory()
-    : m_path()
-    , m_error(0)
-    , m_eof(true)
-    , m_dir(NULL)
-{
-    m_dir = new Hal_dir;
-    memset(&(m_dir->m_find_data), 0, sizeof(WIN32_FIND_DATA));
-    m_dir->m_first_handle = INVALID_HANDLE_VALUE;
-    m_dir->m_opened = false;
-    m_dir->m_first_file = true;
-}
-
-Directory::~Directory()
-{
-    close();
-    delete m_dir;
-}
-
-bool Directory::open(
-    char const *path)
-{
-    m_eof = false;
-    if (m_dir->m_opened && !close())
-        return false;
-
-    std::string new_path(path ? path : "");
-
-    // if we find a '*', just leave things as they are
-    // note that this will likely not work for a 'c:/users/*/log' call
-    if (strchr(new_path.c_str(), '*') == NULL) {
-        size_t len = strlen(path);
-
-        // need this as m_path is const char *
-        std::string temp_path(new_path);
-
-        if (len == 0) { // empty string -- assume they just want the curr dir
-            temp_path = "*";
-        } else if (new_path[len - 1] == '/' || new_path[len - 1] == '\\') {
-            // there is a trailing delimiter, so we just add the wildcard
-            temp_path += "*";
-        } else {
-            // no trailing delimiter -- add one (and also the '*')
-            temp_path += "/*";
-        }
-
-        m_path = temp_path;
-    } else
-        m_path = new_path;
-
-    // check for existence -- user is not going to be able to find anything
-    // in a directory that isn't there
-    if (!Directory::exists(new_path.c_str())) {
-        return false;
+    Directory::Directory()
+        : m_path()
+        , m_error(0)
+        , m_eof(true)
+        , m_dir(NULL)
+    {
+        m_dir = new Hal_dir;
+        memset(&(m_dir->m_find_data), 0, sizeof(WIN32_FIND_DATA));
+        m_dir->m_first_handle = INVALID_HANDLE_VALUE;
+        m_dir->m_opened = false;
+        m_dir->m_first_file = true;
     }
 
-    // This flag tells the readdir method whether it should invoke
-    // FindFirstFile or FindNextFile
-    m_dir->m_first_file = true;
-    m_dir->m_first_handle = INVALID_HANDLE_VALUE;
-
-    // and now we indicate we've been opened -- we don't really
-    // do much with this open call, it's the first search that matters
-    m_dir->m_opened = true;
-    return true;
-}
-
-bool Directory::close()
-{
-    bool ret_val = true;
-
-    if (m_dir->m_opened && m_dir->m_first_handle != INVALID_HANDLE_VALUE) {
-        // FindClose returns BOOL not bool, so we check this way
-        ret_val = (::FindClose(m_dir->m_first_handle) != 0);
+    Directory::~Directory()
+    {
+        close();
+        delete m_dir;
     }
 
-    m_dir->m_opened = false;
-    m_dir->m_first_file = true;
-    m_dir->m_first_handle = INVALID_HANDLE_VALUE;
-    return ret_val;
-}
+    bool Directory::open(
+        char const *path)
+    {
+        m_eof = false;
+        if (m_dir->m_opened && !close())
+            return false;
 
-bool Directory::read_next_file()
-{
-    // return if we haven't been opened already
-    if (!m_dir->m_opened)
-        return false;
+        std::string new_path(path ? path : "");
 
-    bool success = false;
-    if (m_dir->m_first_file) {
-        m_dir->m_first_handle = ::FindFirstFile(
-            m_path.c_str(),			// our path
-            &m_dir->m_find_data);	// where windows puts the results
+        // if we find a '*', just leave things as they are
+        // note that this will likely not work for a 'c:/users/*/log' call
+        if (strchr(new_path.c_str(), '*') == NULL) {
+            size_t len = strlen(path);
 
-        if (m_dir->m_first_handle != INVALID_HANDLE_VALUE) {
-            success = true;
-            // so we don't call this block again
-            m_dir->m_first_file = false;
-        } else {
-            m_error = GetLastError();
-            if (m_error == ERROR_NO_MORE_FILES) { // not really an error
-                m_error = 0;
-                m_eof = true;
+            // need this as m_path is const char *
+            std::string temp_path(new_path);
+
+            if (len == 0) { // empty string -- assume they just want the curr dir
+                temp_path = "*";
+            } else if (new_path[len - 1] == '/' || new_path[len - 1] == '\\') {
+                // there is a trailing delimiter, so we just add the wildcard
+                temp_path += "*";
+            } else {
+                // no trailing delimiter -- add one (and also the '*')
+                temp_path += "/*";
             }
+
+            m_path = temp_path;
+        } else
+            m_path = new_path;
+
+        // check for existence -- user is not going to be able to find anything
+        // in a directory that isn't there
+        if (!Directory::exists(new_path.c_str())) {
+            return false;
         }
-    } else {
-        // FindNextFile returns BOOL not bool, so we check this way
-        if (::FindNextFile(
-            m_dir->m_first_handle,  // what we got before
-            &m_dir->m_find_data)    // where windows puts the results
-            != 0)
-            success = true;
-        else {
-            m_error = GetLastError();
-            if (m_error == ERROR_NO_MORE_FILES) { // not really an error
-                m_error = 0;
-                m_eof = true;
-            }
-        }
-    }
-    return success;
-}
 
-char const *Directory::read()
-{
-    m_error = 0;
-    if (m_dir->m_opened && read_next_file()) {
-        // We don't dup the returned data
-        return m_dir->m_find_data.cFileName;
-    }
+        // This flag tells the readdir method whether it should invoke
+        // FindFirstFile or FindNextFile
+        m_dir->m_first_file = true;
+        m_dir->m_first_handle = INVALID_HANDLE_VALUE;
 
-    return NULL;
-}
-
-bool Directory::exists(
-    char const *path)
-{
-    std::string newpath = path ? path : "";
-
-    // let's strip off any trailing *'s, forward- or back-slashes
-    size_t len = newpath.size();
-    while (len > 0) {
-        char c = newpath[len - 1];
-        if (c != '*' && c != '/' && c != '\\')
-            break;
-        --len;
-    }
-    newpath = newpath.substr(0, len);
-
-    // CreateFile will fail on a directory under Win95/98/Me, what is our
-    // minimum spec?
-    HANDLE hDir = ::CreateFile(
-        newpath.c_str(),    // what are we opening
-        0,			        // access, we can use 0 for existence test
-        FILE_SHARE_READ,    // share mode
-        NULL,               // security attributes
-        OPEN_EXISTING,      // creation disposition
-        FILE_FLAG_BACKUP_SEMANTICS,// flags & attrs, need this one for a dir
-        0);                 // template file
-
-    if (hDir == INVALID_HANDLE_VALUE)
-        return false;
-    else {
-        ::CloseHandle(hDir);
+        // and now we indicate we've been opened -- we don't really
+        // do much with this open call, it's the first search that matters
+        m_dir->m_opened = true;
         return true;
     }
-}
+
+    bool Directory::close()
+    {
+        bool ret_val = true;
+
+        if (m_dir->m_opened && m_dir->m_first_handle != INVALID_HANDLE_VALUE) {
+            // FindClose returns BOOL not bool, so we check this way
+            ret_val = (::FindClose(m_dir->m_first_handle) != 0);
+        }
+
+        m_dir->m_opened = false;
+        m_dir->m_first_file = true;
+        m_dir->m_first_handle = INVALID_HANDLE_VALUE;
+        return ret_val;
+    }
+
+    bool Directory::read_next_file()
+    {
+        // return if we haven't been opened already
+        if (!m_dir->m_opened)
+            return false;
+
+        bool success = false;
+        if (m_dir->m_first_file) {
+            m_dir->m_first_handle = ::FindFirstFile(
+                m_path.c_str(),			// our path
+                &m_dir->m_find_data);	// where windows puts the results
+
+            if (m_dir->m_first_handle != INVALID_HANDLE_VALUE) {
+                success = true;
+                // so we don't call this block again
+                m_dir->m_first_file = false;
+            } else {
+                m_error = GetLastError();
+                if (m_error == ERROR_NO_MORE_FILES) { // not really an error
+                    m_error = 0;
+                    m_eof = true;
+                }
+            }
+        } else {
+            // FindNextFile returns BOOL not bool, so we check this way
+            if (::FindNextFile(
+                m_dir->m_first_handle,  // what we got before
+                &m_dir->m_find_data)    // where windows puts the results
+                != 0)
+                success = true;
+            else {
+                m_error = GetLastError();
+                if (m_error == ERROR_NO_MORE_FILES) { // not really an error
+                    m_error = 0;
+                    m_eof = true;
+                }
+            }
+        }
+        return success;
+    }
+
+    char const *Directory::read()
+    {
+        m_error = 0;
+        if (m_dir->m_opened && read_next_file()) {
+            // We don't dup the returned data
+            return m_dir->m_find_data.cFileName;
+        }
+
+        return NULL;
+    }
+
+    bool Directory::exists(
+        char const *path)
+    {
+        std::string newpath = path ? path : "";
+
+        // let's strip off any trailing *'s, forward- or back-slashes
+        size_t len = newpath.size();
+        while (len > 0) {
+            char c = newpath[len - 1];
+            if (c != '*' && c != '/' && c != '\\')
+                break;
+            --len;
+        }
+        newpath = newpath.substr(0, len);
+
+        // CreateFile will fail on a directory under Win95/98/Me, what is our
+        // minimum spec?
+        HANDLE hDir = ::CreateFile(
+            newpath.c_str(),    // what are we opening
+            0,			        // access, we can use 0 for existence test
+            FILE_SHARE_READ,    // share mode
+            NULL,               // security attributes
+            OPEN_EXISTING,      // creation disposition
+            FILE_FLAG_BACKUP_SEMANTICS,// flags & attrs, need this one for a dir
+            0);                 // template file
+
+        if (hDir == INVALID_HANDLE_VALUE)
+            return false;
+        else {
+            ::CloseHandle(hDir);
+            return true;
+        }
+    }
 
 
-// Check if the given name is a directory.
-bool Directory::isdir(char const *name) const
-{
-    struct stat sb;
-    if (stat(name, &sb) != 0)
-        return false;
-    return (sb.st_mode & _S_IFDIR) != 0;
-}
+    // Check if the given name is a directory.
+    bool Directory::isdir(char const *name) const
+    {
+        struct stat sb;
+        if (stat(name, &sb) != 0)
+            return false;
+        return (sb.st_mode & _S_IFDIR) != 0;
+    }
 
 #else
 
 // Wrapper for the Unix DIR structure.
-struct Directory::Hal_dir
-{
-    DIR *m_dp;			// open directory, 0 if not open
-};
+    struct Directory::Hal_dir {
+        DIR *m_dp;            // open directory, 0 if not open
+    };
 
-Directory::Directory()
-    : m_path()
-    , m_error(0)
-    , m_eof(true)
-    , m_dp_wrapper(NULL)
-{
-    m_dp_wrapper = new Hal_dir;
-    m_dp_wrapper->m_dp = 0;
-}
-
-Directory::~Directory()
-{
-    close();
-    delete m_dp_wrapper;
-}
-
-bool Directory::open(
-    char const *path)
-{
-    m_eof = false;
-    if (m_dp_wrapper->m_dp && !close())
-        return false;
-
-    m_path = path ? path : "";
-
-    if ((m_dp_wrapper->m_dp = opendir(m_path.c_str())) != 0) {
-        m_error = 0;
-        return true;
-    } else {
-        m_error = errno;
-        return false;
-    }
-}
-
-bool Directory::close()
-{
-    if (m_dp_wrapper->m_dp) {
-        closedir(m_dp_wrapper->m_dp);
+    Directory::Directory()
+            : m_path(), m_error(0), m_eof(true), m_dp_wrapper(NULL) {
+        m_dp_wrapper = new Hal_dir;
         m_dp_wrapper->m_dp = 0;
     }
-    return true;
-}
 
-const char *Directory::read()
-{
-    m_error = 0;
-    for (;;) {
-        struct dirent *entry = readdir(m_dp_wrapper->m_dp);
-        if (entry == NULL) {
-            m_eof = true;
-            return NULL;
-        }
-        return entry->d_name;
+    Directory::~Directory() {
+        close();
+        delete m_dp_wrapper;
     }
-}
+
+    bool Directory::open(
+            char const *path) {
+        m_eof = false;
+        if (m_dp_wrapper->m_dp && !close())
+            return false;
+
+        m_path = path ? path : "";
+
+        if ((m_dp_wrapper->m_dp = opendir(m_path.c_str())) != 0) {
+            m_error = 0;
+            return true;
+        } else {
+            m_error = errno;
+            return false;
+        }
+    }
+
+    bool Directory::close() {
+        if (m_dp_wrapper->m_dp) {
+            closedir(m_dp_wrapper->m_dp);
+            m_dp_wrapper->m_dp = 0;
+        }
+        return true;
+    }
+
+    const char *Directory::read() {
+        m_error = 0;
+        for (;;) {
+            struct dirent *entry = readdir(m_dp_wrapper->m_dp);
+            if (entry == NULL) {
+                m_eof = true;
+                return NULL;
+            }
+            return entry->d_name;
+        }
+    }
 
 // Check if the given name is a directory.
-bool Directory::isdir(char const *name) const
-{
-    struct stat sb;
-    if (stat(name, &sb) != 0)
-        return false;
-    return sb.st_mode & S_IFDIR;
-}
+    bool Directory::isdir(char const *name) const {
+        struct stat sb;
+        if (stat(name, &sb) != 0)
+            return false;
+        return sb.st_mode & S_IFDIR;
+    }
 
 #endif
 
@@ -1014,9 +1014,8 @@ bool Directory::isdir(char const *name) const
 
 // Find all modules in a library.
 void Mdlc::find_all_modules(
-    char const *root,
-    char const *package)
-{
+        char const *root,
+        char const *package) {
     Directory dir;
 
     dir.open(root);
@@ -1030,8 +1029,7 @@ void Mdlc::find_all_modules(
             fname[len - 4] == '.' &&
             fname[len - 3] == 'm' &&
             fname[len - 2] == 'd' &&
-            fname[len - 1] == 'l')
-        {
+            fname[len - 1] == 'l') {
             std::string mod_name;
 
             if (package != NULL) {
@@ -1062,4 +1060,8 @@ void Mdlc::find_all_modules(
         }
     }
 }
+
+
+
+
 
