@@ -35,6 +35,7 @@ set(PROJECT_HEADERS
         "mdlc.h"
         "search_path.h"
         "ast_dumper.h"
+        "custom_assert.h"
         )
 
 set(PROJECT_SOURCES

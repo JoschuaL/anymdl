@@ -17,6 +17,8 @@ namespace mi {
 
         private:
 
+            const char *value_to_string(const IValue *l);
+
             void dispatch_dump_declaration(const IDeclaration *decl, int *node_counter);
 
             void dispatch_dump_definition(const IDefinition *def, int *node_counter);
@@ -43,11 +45,11 @@ namespace mi {
 
             void dump_variable(const IDefinition *definition, int *node_counter);
 
-            const char* type_to_string(const IType *type);
+            const char *type_to_string(const IType *type);
 
             void dump_module_declaration(const IDeclaration *decl, int *node_counter);
 
-            void dump_funcion_declaration(const IDeclaration *pDeclaration, int *pInt);
+            void dump_function_declaration(const IDeclaration *pDeclaration, int *pInt);
 
             void dump_import(const IDeclaration *pDeclaration, int *pInt);
 

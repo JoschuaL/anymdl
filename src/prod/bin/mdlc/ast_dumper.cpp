@@ -5,6 +5,7 @@
 #include "ast_dumper.h"
 
 #include "pch.h"
+#include "custom_assert.h"
 
 #include <mi/base/handle.h>
 #include <mi/mdl/mdl_code_generators.h>
@@ -21,6 +22,7 @@
 
 namespace mi {
     namespace mdl {
+
 
         void AST_Dumper::dump_module_ast(const IModule *module) {
             printf("Dumping AST\n");
@@ -100,19 +102,25 @@ namespace mi {
         }
 
         void AST_Dumper::dump_constant(const IDefinition *definition, int *node_counter) {
+            //const IValue* v = definition->get_constant_value();
+            printf("%i [label=\"%s\"];", *node_counter, definition->get_symbol()->get_name());
+            *node_counter += 1;
 
         }
 
         void AST_Dumper::dump_enum_value(const IDefinition *definition, int *node_counter) {
-
+            printf("%i [label=\"%s\"];", *node_counter, definition->get_symbol()->get_name());
+            *node_counter += 1;
         }
 
         void AST_Dumper::dump_annotation(const IDefinition *definition, int *node_counter) {
-
+            printf("%i [label=\"%s\"];", *node_counter, definition->get_symbol()->get_name());
+            *node_counter += 1;
         }
 
         void AST_Dumper::dump_type(const IDefinition *definition, int *node_counter) {
-
+            printf("%i [label=\"%s\"];", *node_counter, definition->get_symbol()->get_name());
+            *node_counter += 1;
         }
 
         void AST_Dumper::dump_funcion(const IDefinition *definition, int *node_counter) {
@@ -164,27 +172,27 @@ namespace mi {
         }
 
         void AST_Dumper::dump_constructor(const IDefinition *definition, int *node_counter) {
-
+            NOT_IMPLEMENTED;
         }
 
         void AST_Dumper::dump_operator(const IDefinition *definition, int *node_counter) {
-
+            NOT_IMPLEMENTED;
         }
 
         void AST_Dumper::dump_member(const IDefinition *definition, int *node_counter) {
-
+            NOT_IMPLEMENTED;
         }
 
         void AST_Dumper::dump_parameter(const IDefinition *definition, int *node_counter) {
-
+            NOT_IMPLEMENTED;
         }
 
         void AST_Dumper::dump_array_size(const IDefinition *definition, int *node_counter) {
-
+            NOT_IMPLEMENTED;
         }
 
         void AST_Dumper::dump_variable(const IDefinition *definition, int *node_counter) {
-
+            NOT_IMPLEMENTED;
         }
 
         const char *AST_Dumper::type_to_string(const IType *type) {
@@ -192,7 +200,7 @@ namespace mi {
 
                 case IType::TK_ALIAS: {
                     const IType_alias *t = as<IType_alias>(type);
-                    return t->get_symbol()->get_name();
+                    return type_to_string(t->get_aliased_type());
                 }
                 case IType::TK_BOOL:
                     return "bool";
@@ -280,7 +288,6 @@ namespace mi {
                 case IType::TK_STRUCT: {
                     const IType_struct *t = as<IType_struct>(type);
                     return t->get_symbol()->get_name();
-                    break;
                 }
                 case IType::TK_TEXTURE:
                     return "texture";
@@ -320,7 +327,7 @@ namespace mi {
                     dump_variable_declaration(decl, node_counter);
                     break;
                 case IDeclaration::DK_FUNCTION:
-                    dump_funcion_declaration(decl, node_counter);
+                    dump_function_declaration(decl, node_counter);
                     break;
                 case IDeclaration::DK_MODULE:
                     dump_module_declaration(decl, node_counter);
@@ -330,44 +337,48 @@ namespace mi {
         }
 
         void AST_Dumper::dump_module_declaration(const IDeclaration *decl, int *node_counter) {
+            NOT_IMPLEMENTED;
             const IDeclaration_module *d = as<IDeclaration_module>(decl);
 
 
         }
 
-        void AST_Dumper::dump_funcion_declaration(const IDeclaration *decl, int *node_counter) {
-            const IDeclaration_function *d = as<IDeclaration_function>(decl);
+        void AST_Dumper::dump_function_declaration(const IDeclaration *pDeclaration, int *pInt) {
+            const IDeclaration_function *d = as<IDeclaration_function>(pDeclaration);
+            printf("%i [label=\"%s\"]", *pInt, d->get_name()->get_symbol()->get_name());
+            printf("%i -> %i;", *pInt, *pInt + 1);
+            *pInt += 1;
             const IStatement *s = d->get_body();
-            dispatch_dump_statement(s, node_counter);
+            dispatch_dump_statement(s, pInt);
 
         }
 
         void AST_Dumper::dump_import(const IDeclaration *decl, int *node_counter) {
-
+            NOT_IMPLEMENTED;
         }
 
         void AST_Dumper::dump_type_alias(const IDeclaration *decl, int *node_counter) {
-
+            NOT_IMPLEMENTED;
         }
 
         void AST_Dumper::dump_struct(const IDeclaration *decl, int *node_counter) {
-
+            NOT_IMPLEMENTED;
         }
 
         void AST_Dumper::dump_enum_declaration(const IDeclaration *decl, int *node_counter) {
-
+            NOT_IMPLEMENTED;
         }
 
         void AST_Dumper::dump_variable_declaration(const IDeclaration *decl, int *node_counter) {
-
+            NOT_IMPLEMENTED;
         }
 
         void AST_Dumper::dump_constant_declaration(const IDeclaration *decl, int *node_counter) {
-
+            NOT_IMPLEMENTED;
         }
 
         void AST_Dumper::dump_annotation_declaration(const IDeclaration *decl, int *node_counter) {
-
+            NOT_IMPLEMENTED;
         }
 
         void AST_Dumper::dispatch_dump_statement(const IStatement *stat, int *node_counter) {
@@ -416,19 +427,19 @@ namespace mi {
         }
 
         void AST_Dumper::dump_compound_statement(const IStatement *stat, int *node_counter) {
-
+            NOT_IMPLEMENTED;
         }
 
         void AST_Dumper::dump_return_statement(const IStatement *stat, int *node_counter) {
-
+            NOT_IMPLEMENTED;
         }
 
         void AST_Dumper::dump_break_statement(const IStatement *stat, int *node_counter) {
-
+            NOT_IMPLEMENTED;
         }
 
         void AST_Dumper::dump_do_while_statement(const IStatement *stat, int *node_counter) {
-
+            NOT_IMPLEMENTED;
         }
 
         void AST_Dumper::dump_expression_statement(const IStatement *stat, int *node_counter) {
@@ -439,31 +450,31 @@ namespace mi {
         }
 
         void AST_Dumper::dump_switch_statement(const IStatement *stat, int *node_counter) {
-
+            NOT_IMPLEMENTED;
         }
 
         void AST_Dumper::dump_continue_statement(const IStatement *stat, int *node_counter) {
-
+            NOT_IMPLEMENTED;
         }
 
         void AST_Dumper::dump_for_statement(const IStatement *stat, int *node_counter) {
-
+            NOT_IMPLEMENTED;
         }
 
         void AST_Dumper::dump_while_statement(const IStatement *stat, int *node_counter) {
-
+            NOT_IMPLEMENTED;
         }
 
         void AST_Dumper::dump_case_statement(const IStatement *stat, int *node_counter) {
-
+            NOT_IMPLEMENTED;
         }
 
         void AST_Dumper::dump_if_statement(const IStatement *stat, int *node_counter) {
-
+            NOT_IMPLEMENTED;
         }
 
         void AST_Dumper::dump_declaration_statement(const IStatement *stat, int *node_counter) {
-
+            NOT_IMPLEMENTED;
         }
 
         void AST_Dumper::dispatch_dump_expression(const IExpression *exp, int *node_counter) {
@@ -475,7 +486,7 @@ namespace mi {
                     dump_expression_literal(exp, node_counter);
                     break;
                 case IExpression::EK_REFERENCE:
-                    dump_expression_reference(exp,  node_counter);
+                    dump_expression_reference(exp, node_counter);
                     break;
                 case IExpression::EK_UNARY:
                     dump_expression_unary(exp, node_counter);
@@ -496,32 +507,237 @@ namespace mi {
 
         }
 
-        void AST_Dumper::dump_expression_literal(const IExpression *pExpression, int *pInt) {
+        const char *AST_Dumper::value_to_string(const IValue *l) {
+            std::string *s = new std::string();
+            switch (l->get_kind()) {
 
+                case IValue::VK_BAD:
+                    break;
+                case IValue::VK_BOOL:
+                    *s = std::to_string(as<IValue_bool>(l)->get_value());
+                    break;
+                case IValue::VK_INT:
+                    *s = std::to_string(as<IValue_int>(l)->get_value());
+                    break;
+                case IValue::VK_ENUM:
+                    *s = std::to_string(as<IValue_enum>(l)->get_value());
+                    break;
+                case IValue::VK_FLOAT:
+                    *s = std::to_string(as<IValue_float>(l)->get_value());
+                    break;
+                case IValue::VK_DOUBLE:
+                    *s = std::to_string(as<IValue_double>(l)->get_value());
+                    break;
+                case IValue::VK_STRING:
+                    *s = (as<IValue_string>(l)->get_value());
+                    break;
+                case IValue::VK_VECTOR: {
+                    *s = "[";
+                    const IValue_vector *v = as<IValue_vector>(l);
+                    for (int i = 0; i < v->get_component_count(); i++) {
+                        auto saba = v->get_value(i);
+                        if (i != 0) {
+                            *s += ",";
+                        }
+                        *s += value_to_string(saba);
+                        *s += "\\n";
+
+                    }
+                    *s += "]";
+                    break;
+                }
+                case IValue::VK_MATRIX:
+                    NOT_IMPLEMENTED;
+                    //s = std::to_string(as<IValue_matrix>(l)->get_value());
+                    break;
+                case IValue::VK_ARRAY:
+                    NOT_IMPLEMENTED;
+                    //s = std::to_string(as<IValue_array>(l)->get_value());
+                    break;
+                case IValue::VK_RGB_COLOR:
+                    *s = "R: " + std::to_string(as<IValue_rgb_color>(l)->get_value(0)->get_value())
+                         + "\\n G: " + std::to_string(as<IValue_rgb_color>(l)->get_value(1)->get_value())
+                         + "\\n B: " + std::to_string(as<IValue_rgb_color>(l)->get_value(2)->get_value());
+                    break;
+                case IValue::VK_STRUCT: {
+                    const IValue_struct *v = as<IValue_struct>(l);
+                    const IType_struct *st = as<IType_struct>(v->get_type());
+                    *s = std::string(st->get_symbol()->get_name()) + "{";
+                    const ISymbol *sym;
+                    const IType *type;
+                    for (int i = 0; i < st->get_field_count(); ++i) {
+                        st->get_field(i, type, sym);
+                        if (i != 0) {
+                            *s += ",";
+                        }
+                        *s += "\\n";
+                        *s += sym->get_name();
+                        *s += " : ";
+                        *s += value_to_string(v->get_field(sym));
+
+                    }
+                    *s += "}";
+                    break;
+                }
+                case IValue::VK_INVALID_REF: {
+                    const IType *t = as<IValue_invalid_ref>(l)->get_type();
+                    *s = std::string(type_to_string(t)) + "()";
+                    break;
+                }
+                case IValue::VK_TEXTURE:
+                    //s = std::to_string(as<IValue_texture>(l)->get_value());
+                    NOT_IMPLEMENTED;
+                    break;
+                case IValue::VK_LIGHT_PROFILE:
+                    NOT_IMPLEMENTED;
+                    *s = std::to_string(as<IValue_bool>(l)->get_value());
+                    break;
+                case IValue::VK_BSDF_MEASUREMENT:
+                    NOT_IMPLEMENTED;
+                    *s = std::to_string(as<IValue_bool>(l)->get_value());
+                    break;
+            }
+            return s->c_str();
+        }
+
+        void AST_Dumper::dump_expression_literal(const IExpression *pExpression, int *pInt) {
+            auto l = as<IExpression_literal>(pExpression)->get_value();
+            std::string s = std::string();
+            switch (l->get_kind()) {
+
+                case IValue::VK_BAD:
+                    break;
+                case IValue::VK_BOOL:
+                    s = std::to_string(as<IValue_bool>(l)->get_value());
+                    break;
+                case IValue::VK_INT:
+                    s = std::to_string(as<IValue_int>(l)->get_value());
+                    break;
+                case IValue::VK_ENUM:
+                    s = std::to_string(as<IValue_enum>(l)->get_value());
+                    break;
+                case IValue::VK_FLOAT:
+                    s = std::to_string(as<IValue_float>(l)->get_value());
+                    break;
+                case IValue::VK_DOUBLE:
+                    s = std::to_string(as<IValue_double>(l)->get_value());
+                    break;
+                case IValue::VK_STRING:
+                    s = "\\\"" + std::string((as<IValue_string>(l)->get_value())) + "\\\"";
+                    break;
+                case IValue::VK_VECTOR: {
+                    s = "[";
+                    const IValue_vector *v = as<IValue_vector>(l);
+                    for (int i = 0; i < v->get_component_count(); i++) {
+                        auto saba = v->get_value(i);
+                        if (i != 0) {
+                            s += ",";
+                        }
+                        s += value_to_string(saba);
+
+                    }
+                    s += "]";
+                    break;
+                }
+                case IValue::VK_MATRIX:
+                    NOT_IMPLEMENTED;
+                    //s = std::to_string(as<IValue_matrix>(l)->get_value());
+                    break;
+                case IValue::VK_ARRAY:
+                    NOT_IMPLEMENTED;
+                    //s = std::to_string(as<IValue_array>(l)->get_value());
+                    break;
+                case IValue::VK_RGB_COLOR:
+                    s = "R : " + std::to_string(as<IValue_rgb_color>(l)->get_value(0)->get_value()) +
+                        "\\n G : " + std::to_string(as<IValue_rgb_color>(l)->get_value(1)->get_value())
+                        + "\\n B : " + std::to_string(as<IValue_rgb_color>(l)->get_value(2)->get_value());
+                    break;
+                case IValue::VK_STRUCT: {
+                    const IValue_struct *v = as<IValue_struct>(l);
+                    const IType_struct *st = as<IType_struct>(v->get_type());
+                    s = std::string(st->get_symbol()->get_name()) + "{";
+                    const ISymbol *sym;
+                    const IType *type;
+                    for (int i = 0; i < st->get_field_count(); ++i) {
+                        st->get_field(i, type, sym);
+                        if (i != 0) {
+                            s += ",";
+                        }
+                        s += "\\n";
+                        s += sym->get_name();
+                        s += " : ";
+                        s += value_to_string(v->get_field(sym));
+
+                    }
+                    s += "}";
+                    break;
+                }
+                case IValue::VK_INVALID_REF:
+                    break;
+                case IValue::VK_TEXTURE:
+                    //s = std::to_string(as<IValue_texture>(l)->get_value());
+                    NOT_IMPLEMENTED;
+                    break;
+                case IValue::VK_LIGHT_PROFILE:
+                    NOT_IMPLEMENTED;
+                    s = std::to_string(as<IValue_bool>(l)->get_value());
+                    break;
+                case IValue::VK_BSDF_MEASUREMENT:
+                    NOT_IMPLEMENTED;
+                    s = std::to_string(as<IValue_bool>(l)->get_value());
+                    break;
+            }
+            printf("%i [label=\"%s\"];", *pInt, s.c_str());
+            *pInt += 1;
         }
 
         void AST_Dumper::dump_expression_let(const IExpression *pExpression, int *pInt) {
-
+            NOT_IMPLEMENTED;
         }
 
         void AST_Dumper::dump_expression_conditional(const IExpression *pExpression, int *pInt) {
-
+            NOT_IMPLEMENTED;
         }
 
         void AST_Dumper::dump_expression_unary(const IExpression *pExpression, int *pInt) {
-
+            NOT_IMPLEMENTED;
         }
 
         void AST_Dumper::dump_expression_reference(const IExpression *pExpression, int *pInt) {
-
+            const IExpression_reference *exp = as<IExpression_reference>(pExpression);
+            printf("%i [label=\"%s\"];", *pInt, exp->get_definition()->get_symbol()->get_name());
+            *pInt += 1;
         }
 
         void AST_Dumper::dump_expression_binary(const IExpression *pExpression, int *pInt) {
-
+            NOT_IMPLEMENTED;
         }
 
         void AST_Dumper::dump_expression_call(const IExpression *pExpression, int *pInt) {
+            const IExpression_call *c = as<IExpression_call>(pExpression);
+            const char *calle_name = as<IExpression_reference>(
+                    c->get_reference())->get_definition()->get_symbol()->get_name();
+            printf("%i [label=\"%s(", *pInt, calle_name);
+            for (int i = 0; i < c->get_argument_count(); ++i) {
+                if (i != 0) {
+                    printf(",");
+                }
+                printf("\\n");
+                const IArgument *arg = c->get_argument(i);
+                const IExpression *exp = arg->get_argument_expr();
+                printf("%s", type_to_string(exp->get_type()));
 
+
+            }
+            printf(")\"];");
+            int root = *pInt;
+            *pInt += 1;
+            for (int i = 0; i < c->get_argument_count(); ++i) {
+                const IArgument *arg = c->get_argument(i);
+                const IExpression *exp = arg->get_argument_expr();
+                printf("%i -> %i;", root, *pInt);
+                dispatch_dump_expression(exp, pInt);
+            }
         }
     }
 }
