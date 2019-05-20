@@ -29,7 +29,7 @@
 # check if CUDA is available
 # Note, this enables CUDA for all projects (only of concern for Visual Studio)
 if(NOT MDL_ENABLE_CUDA_EXAMPLES)
-    message(WARNING "Examples that require CUDA are disabled. Enable the option 'MDL_ENABLE_CUDA_EXAMPLES' to re-enable them.")
+    message("Examples that require CUDA are disabled. Enable the option 'MDL_ENABLE_CUDA_EXAMPLES' to re-enable them.")
 else()
     # use the c++ compiler as host compiler
     set(CMAKE_CUDA_HOST_COMPILER ${CMAKE_CXX_COMPILER} CACHE STRING "")
