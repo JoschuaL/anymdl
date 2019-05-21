@@ -27,30 +27,8 @@ void AST_Dumper::dump_module_ast(const IModule *module) {
   printf("digraph AST {", module_name);
   int node_counter = 0;
 
-  /*for (int i = 0, n = module->get_exported_definition_count(); i < n; ++i) {
-        IDefinition const *def = module->get_exported_definition(i);
-       // collect_types(module, def, collector);
-    }
-
-    if (IDeclaration_module const *mod_decl =
-module->get_module_declararation()) {
-        //gen_module_annotations(dag_builder, mod_decl);
-    }*/
-
-  // ... collect types and constants ... these are not really needed for the
-  // compilation itself
   for (int i = 0, n = module->get_exported_definition_count(); i < n; ++i) {
     IDefinition const *def = module->get_exported_definition(i);
-    /*switch (def->get_kind()) {
-        case IDefinition::DK_CONSTANT:
-            //compile_constant(dag_builder, def);
-            break;
-        case IDefinition::DK_TYPE:
-            //compile_type(dag_builder, def);
-            break;
-        default:
-            break;
-    }*/
     dispatch_dump_definition(def, &node_counter);
   }
 
@@ -346,7 +324,8 @@ void AST_Dumper::dump_module_declaration(const IDeclaration *decl,
 void AST_Dumper::dump_function_declaration(const IDeclaration *pDeclaration,
                                            int *pInt) {
   const IDeclaration_function *d = as<IDeclaration_function>(pDeclaration);
-  printf("%i [label=\"%s\"];\n", *pInt, d->get_name()->get_symbol()->get_name());
+  printf("%i [label=\"%s\"];\n", *pInt,
+         d->get_name()->get_symbol()->get_name());
   printf("%i -> %i;\n", *pInt, *pInt + 1);
   *pInt += 1;
   const IStatement *s = d->get_body();
@@ -376,7 +355,7 @@ void AST_Dumper::dump_variable_declaration(const IDeclaration *decl,
   printf("%i [label=\"%s:\\n", *node_counter,
          type_to_string(v->get_type_name()->get_type()));
   for (int i = 0; i < v->get_variable_count(); i++) {
-    printf("%s\\n", v->get_variable_name(i));
+    printf("%s\\n", v->get_variable_name(i)->get_symbol()->get_name());
   }
   printf("\"];\n");
   int root = *node_counter;
