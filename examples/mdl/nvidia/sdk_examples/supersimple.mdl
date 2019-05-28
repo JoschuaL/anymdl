@@ -1,0 +1,19 @@
+mdl 1.4;
+
+import df::*;
+
+export double dd( double a = 1.7, double d = 3.9){
+    return (a - d) * a;
+}
+
+export float aa(){
+    return float(dd(2, 40));
+}
+
+export double bb(){
+    return dd(3498.0f);
+}
+
+export double cc(){
+    return dd();
+}

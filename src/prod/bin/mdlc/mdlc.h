@@ -129,7 +129,7 @@ private:
     bool m_dump_dag;
 
     // Id set, dump AST after compilation and before code gen
-    bool m_dump_ast;
+    bool m_dump_ast = false;
 
     /// True if verbose mode enabled.
     bool m_verbose;
