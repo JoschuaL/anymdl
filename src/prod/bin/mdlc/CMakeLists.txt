@@ -36,6 +36,7 @@ set(PROJECT_HEADERS
         "search_path.h"
         "ast_dumper.h"
         "custom_assert.h"
+        "anydsl_transpiler.h"
         )
 
 set(PROJECT_SOURCES
@@ -44,6 +45,7 @@ set(PROJECT_SOURCES
         "search_path.cpp"
         "main.cpp"
         "ast_dumper.cpp"
+        "anydsl_transpiler.cpp"
         ${PROJECT_HEADERS}
         )
 

@@ -28,6 +28,7 @@
 
 #include "mdlc.h"
 #include "ast_dumper.h"
+#include "anydsl_transpiler.h"
 
 #if defined(LINUX)
 #include <dirent.h>
@@ -611,13 +612,13 @@ bool Mdlc::backend(IModule const *module) {
             break;
         case TL_ANYDSL:
             if (module->is_valid()) {
-
-
                 if (m_dump_ast) {
                     auto astdumper = mi::mdl::AST_Dumper();
                     astdumper.dump_module_ast(module);
                 }
-
+                auto transpiler = mi::mdl::AnyDSL_Transpiler();
+                transpiler.transpile_module(module);
+                printf("%s", transpiler.get_code().c_str());
 
             }
             break;
