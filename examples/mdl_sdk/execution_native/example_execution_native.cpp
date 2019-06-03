@@ -244,8 +244,7 @@ mi::neuraylib::ICanvas *bake_expression_native(
             texture_coords[0].y  = rel_y;             // [0, 1)
 
             // Evaluate sub-expression
-            check_success(
-                code_native->execute(0, mdl_state, tex_handler, nullptr, &execute_result) == 0);
+            code_native->execute(0, mdl_state, tex_handler, nullptr, &execute_result);
 
             // Apply gamma correction
             execute_result.float3_val.x = powf(execute_result.float3_val.x, 1.f / 2.2f);

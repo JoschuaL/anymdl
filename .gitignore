@@ -1,7 +1,11 @@
-/build/
-/install/
-/.idea/
-/.vscode/
+cmake-build-*
+build
+.idea/**
+!.idea/vcs.xml
+.vscode/**
+!.vscode/launch.json
+!.vscode/settings.json
+
 
 
 # Compiled source #
@@ -12,7 +16,7 @@
 *.exe
 *.o
 *.so
-*.pcy
+*.pyc
 
 # Packages #
 ############
