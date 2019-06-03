@@ -1,0 +1,9 @@
+{
+    "cmake.configureSettings": {
+        "clang_PATH": "~/Projects/mdl-source/clang+llvm-3.4.1-x86_64-apple-darwin10.9/bin/clang",
+        "Qt5_DIR": "~/Qt/5.12.1/clang_64/",
+        "MDL_ENABLE_CUDA_EXAMPLES": "OFF",    },
+    "cmake.environment": {
+        "DYLD_LIBRARY_PATH": "~/Projects/mdl-source/MDL-SDK/build/src/prod/lib/mdl_sdk:~/Projects/mdl-source/MDL-SDK/build/src/prod/lib/mdl_core:~/Projects/mdl-source/MDL-SDK/build/src/shaders/plugin/freeimage:~/Qt/5.12.1/clang_64/lib:~/Qt/5.12.1/clang_64/plugins/imageformats:${DYLD_LIBRARY_PATH}:+:${DYLD_LIBRARY_PATH}}"
+    }
+}
