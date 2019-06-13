@@ -97,13 +97,13 @@ namespace mi {
         }
 
         void AnyDSL_Transpiler::transpile_constant(const IDefinition *definition) {
-            out += "static ";
-            out += definition->get_symbol()->get_name();
-            out += " : ";
-            out += type_to_string(definition->get_type());
-            out += " = ";
-            out += value_to_string(definition->get_constant_value());
-            out += ";\n";
+            add_to_code("static ", true);
+            add_to_code(definition->get_symbol()->get_name());
+            add_to_code(" : ");
+            add_to_code(type_to_string_for_mangling(definition->get_type()));
+            add_to_code(" = ");
+            add_to_code(value_to_string(definition->get_constant_value()));
+            add_to_code(";\n");
 
 
         }
@@ -121,72 +121,71 @@ namespace mi {
             switch (t) {
 
                 case IType::TK_ENUM:
-                    out += "enum ";
+                    add_to_code("enum ", true);
                     break;
                 case IType::TK_STRUCT:
-                    out += "struct ";
+                    add_to_code("struct ", true);
                     break;
                 case IType::TK_TEXTURE:
-                    out += "texture ";
+                    add_to_code("texture ", true);
                     break;
                 case IType::TK_BSDF_MEASUREMENT:
-                    out += "bsdf_measurement ";
+                    add_to_code("bsdf_measurement ", true);
                     break;
                 case IType::TK_BSDF:
-                    out += "bsdf ";
+                    add_to_code("bsdf ", true);
                     break;
                 case IType::TK_VDF:
-                    out += "vdf ";
+                    add_to_code("vdf ", true);
                     break;
                 case IType::TK_EDF:
-                    out += "edf ";
+                    add_to_code("edf ", true);
                     break;
                 case IType::TK_LIGHT_PROFILE:
-                    out += "light_profile ";
+                    add_to_code("light_profile ", true);
                     break;
                 case IType::TK_MATRIX:
-                    out += "matrix ";
+                    add_to_code("matrix ", true);
                     break;
                 case IType::TK_COLOR:
-                    out += "color ";
+                    add_to_code("color ", true);
                     break;
                 case IType::TK_STRING:
-                    out += "string ";
+                    add_to_code("string ", true);
                     break;
                 case IType::TK_VECTOR:
-                    out += "vector ";
+                    add_to_code("vector ", true);
                     break;
                 case IType::TK_DOUBLE:
-                    out += "double ";
+                    add_to_code("double ", true);
                     break;
                 case IType::TK_BOOL:
-                    out += "bool ";
+                    add_to_code("bool ", true);
                     break;
                 case IType::TK_FLOAT:
-                    out += "float ";
+                    add_to_code("float ", true);
                     break;
                 case IType::TK_INT:
-                    out += "int ";
+                    add_to_code("int ", true);
                     break;
                 default:
                     NOT_IMPLEMENTED;
             }
-            out += definition->get_symbol()->get_name();
+            add_to_code(definition->get_symbol()->get_name());
             if (definition->get_declaration() != nullptr) {
                 dispatch_transpile_declaration(definition->get_declaration());
             } else {
-                out += ";\n";
+                add_to_code(";\n");
             }
 
         }
 
         void AnyDSL_Transpiler::transpile_function(const IDefinition *definition) {
-            auto const *fun_type = as<IType_function>(definition->get_type());
+            const IType_function *fun_type = as<IType_function>(definition->get_type());
             int parameter_count = fun_type->get_parameter_count();
-            std::vector<int> possible_overloads = {parameter_count};
-            std::vector<std::string> argument_types = std::vector<std::string>();
-            std::vector<std::string> argument_names = std::vector<std::string>();
-            std::vector<bool> has_default = std::vector<bool>();
+            std::vector<std::string> argument_types = std::vector<std::string>(parameter_count);
+            std::vector<std::string> argument_names = std::vector<std::string>(parameter_count);
+            std::vector<std::string> argument_types_mangling = std::vector<std::string>(parameter_count);
 
             auto fname = std::string(definition->get_symbol()->get_name());
 
@@ -196,53 +195,45 @@ namespace mi {
 
                 fun_type->get_parameter(k, parameter_type, parameter_symbol);
 
-                argument_types.push_back(type_to_string(parameter_type));
-                argument_names.emplace_back(parameter_symbol->get_name());
-                has_default.push_back(definition->get_default_param_initializer(k) != nullptr);
+                argument_types_mangling[k] = type_to_string_for_mangling(parameter_type);
+                argument_types[k] = type_to_string(parameter_type);
+
+                argument_names[k] = parameter_symbol->get_name();
             }
 
-            int counter = has_default.size() - 1;
-            while (counter >= 0) {
-                if (!has_default[counter]) {
-                    break;
-                }
-                possible_overloads.push_back(counter);
-                counter--;
+
+            add_to_code("fn ", true);
+            add_to_code(fname);
+            add_to_code("_");
+            for (int i = 0; i < argument_types.size(); i++) {
+                add_to_code("_");
+                add_to_code(argument_types_mangling[i]);
             }
-
-            for (int overload : possible_overloads) {
-                out += "fn ";
-                out += fname;
-                out += "_";
-                for (int i = 0; i < overload; i++) {
-                    out += "_";
-                    out += argument_types[i];
-                }
-                out += "(";
-                for (int i = 0; i < overload; i++) {
-                    out += argument_names[i];
-                    out += " : ";
-                    out += argument_types[i];
-                    out += ",";
-                }
-                out += ") -> ";
-                out += type_to_string(fun_type->get_return_type());
-                if (definition->get_declaration() != nullptr) {
-                    out += "{\n";
-                    for (int j = overload; j < parameter_count; j++) {
-                        out += "let ";
-                        out += argument_names[j];
-                        out += " = ";
-                        dispatch_transpile_expression(definition->get_default_param_initializer(overload));
-                        out += ";\n";
-                    }
-                    dispatch_transpile_declaration(definition->get_declaration());
-                    out += "}\n";
-                } else {
-                    out += ";\n";
-                }
-
-
+            if (definition->get_property(IDefinition::Property::DP_USES_STATE)) {
+                add_to_code("_State");
+            }
+            add_to_code("_mdl_math");
+            add_to_code("(");
+            for (int i = 0; i < argument_names.size(); i++) {
+                add_to_code(argument_names[i]);
+                add_to_code(" : ");
+                add_to_code(argument_types[i]);
+                add_to_code(",");
+            }
+            if (definition->get_property(IDefinition::Property::DP_USES_STATE)) {
+                add_to_code(" state : State,");
+            }
+            add_to_code(" math : mdl_math");
+            add_to_code(") -> ");
+            add_to_code(type_to_string(fun_type->get_return_type()));
+            if (definition->get_declaration() != nullptr) {
+                add_to_code("{\n", true);
+                indent_level++;
+                dispatch_transpile_declaration(definition->get_declaration());
+                indent_level--;
+                add_to_code("}\n", true);
+            } else {
+                add_to_code(";\n");
             }
 
 
@@ -253,67 +244,7 @@ namespace mi {
         }
 
         void AnyDSL_Transpiler::transpile_operator(const IDefinition *definition) {
-            auto const *fun_type = as<IType_function>(definition->get_type());
-            int parameter_count = fun_type->get_parameter_count();
-            std::vector<int> possible_overloads = {parameter_count};
-            std::vector<std::string> argument_types = std::vector<std::string>();
-            std::vector<std::string> argument_names = std::vector<std::string>();
-            std::vector<bool> has_default = std::vector<bool>();
-
-            auto fname = "op_" + std::string(definition->get_symbol()->get_name());
-
-            for (int k = 0; k < parameter_count; ++k) {
-                IType const *parameter_type = nullptr;
-                ISymbol const *parameter_symbol = nullptr;
-
-                fun_type->get_parameter(k, parameter_type, parameter_symbol);
-
-                argument_types.push_back(type_to_string(parameter_type));
-                argument_names.emplace_back(parameter_symbol->get_name());
-                has_default.push_back(definition->get_default_param_initializer(k) != nullptr);
-            }
-
-            int counter = has_default.size() - 1;
-            while (counter >= 0) {
-                if (!has_default[counter]) {
-                    break;
-                }
-                possible_overloads.push_back(counter);
-                counter--;
-            }
-
-            for (int overload : possible_overloads) {
-                out += "fn ";
-                out += fname;
-                out += "_";
-                for (int i = 0; i < overload; i++) {
-                    out += "_";
-                    out += argument_types[i];
-                }
-                out += "(";
-                for (int i = 0; i < overload; i++) {
-                    out += argument_names[i];
-                    out += " : ";
-                    out += argument_types[i];
-                    out += ",";
-                }
-                out += ") -> ";
-                out += type_to_string(fun_type->get_return_type());
-                if (definition->get_declaration() != nullptr) {
-                    out += "{\n";
-                    for (int j = overload; j < parameter_count; j++) {
-                        out += "let ";
-                        out += argument_names[j];
-                        out += " = ";
-                        dispatch_transpile_expression(definition->get_default_param_initializer(overload));
-                        out += ";\n";
-                    }
-                    dispatch_transpile_declaration(definition->get_declaration());
-                    out += "}\n";
-                } else {
-                    out += ";\n";
-                }
-            }
+            transpile_function(definition);
         }
 
         void AnyDSL_Transpiler::transpile_member(const IDefinition *definition) {
@@ -329,53 +260,84 @@ namespace mi {
         }
 
         void AnyDSL_Transpiler::transpile_variable(const IDefinition *definition) {
-            out += "let mut ";
-            out += definition->get_symbol()->get_name();
-            out += " : ";
-            out += type_to_string(definition->get_type());
-            if (definition->get_declaration() != nullptr) {
-                out += " = ";
-                dispatch_transpile_declaration(definition->get_declaration());
+            add_to_code("let mut ", true);
+            add_to_code(definition->get_symbol()->get_name());
+            add_to_code(" : ");
+            if (definition->get_property(IDefinition::Property::DP_IS_VARYING)) {
+                add_to_code("fn(");
+                if (definition->get_property(IDefinition::Property::DP_USES_STATE) ||
+                    definition->get_property(IDefinition::Property::DP_USES_VARYING_STATE)) {
+                    add_to_code("State");
+                }
+                add_to_code(") -> ");
+                add_to_code(type_to_string(definition->get_type()));
+                if (definition->get_declaration() != nullptr) {
+                    add_to_code(" = {");
+                    dispatch_transpile_declaration(definition->get_declaration());
+                    add_to_code("}");
+                }
+            } else {
+                add_to_code(type_to_string(definition->get_type()));
+                if (definition->get_declaration() != nullptr) {
+                    add_to_code(" = ");
+                    dispatch_transpile_declaration(definition->get_declaration());
+                }
             }
-            out += ";\n";
+
+            add_to_code(";\n");
         }
 
         const std::string AnyDSL_Transpiler::type_to_string(const IType *type) {
+            std::string ts;
             switch (type->get_kind()) {
                 case IType::TK_ALIAS: {
                     const IType_alias *t = as<IType_alias>(type);
-                    return type_to_string(t->get_aliased_type());
+                    ts = type_to_string(t->get_aliased_type());
+                    break;
                 }
                 case IType::TK_BOOL:
-                    return "bool";
+                    ts = "bool";
+                    break;
                 case IType::TK_INT:
-                    return "int";
+                    ts = "int";
+                    break;
                 case IType::TK_ENUM: {
-                    const auto *t = as<IType_enum>(type);
-                    return t->get_symbol()->get_name();
+                    const IType_enum *t = as<IType_enum>(type);
+                    ts = t->get_symbol()->get_name();
+                    break;
                 }
                 case IType::TK_FLOAT:
-                    return "float";
+                    ts = "float";
+                    break;
                 case IType::TK_DOUBLE:
-                    return "double";
+                    ts = "double";
+                    break;
                 case IType::TK_STRING:
-                    return "string";
+                    ts = "string";
+                    break;
                 case IType::TK_LIGHT_PROFILE:
-                    return "light_profile";
+                    ts = "light_profile";
+                    break;
                 case IType::TK_BSDF:
-                    return "bsdf";
+                    ts = "bsdf";
+                    break;
                 case IType::TK_EDF:
-                    return "edf";
+                    ts = "edf";
+                    break;
                 case IType::TK_VDF:
-                    return "vdf";
+                    ts = "vdf";
+                    break;
                 case IType::TK_VECTOR: {
                     auto t = as<IType_vector>(type);
-                    return type_to_string(t->get_element_type()) + std::to_string(t->get_size());
+                    ts = type_to_string(t->get_element_type()) + std::to_string(t->get_size());
+                    break;
                 }
                 case IType::TK_MATRIX: {
                     const IType_matrix *t = as<IType_matrix>(type);
-                    return type_to_string(t->get_element_type()) + "x" + std::to_string(t->get_columns());
+                    ts = type_to_string(t->get_element_type()) + "x" + std::to_string(t->get_columns());
+                    break;
                 }
+
 
                 case IType::TK_ARRAY: {
                     auto t = as<IType_array>(type);
@@ -386,10 +348,13 @@ namespace mi {
                     std::string s5("*");
                     auto str = std::string();
                     str = s1 + s3 + s5 + s4 + s2;
-                    return str;
+                    ts = str;
+                    break;
                 }
+
                 case IType::TK_COLOR:
-                    return "color";
+                    ts = "color";
+                    break;
                 case IType::TK_FUNCTION: {
                     const auto *t = as<IType_function>(type);
                     std::string s1("(");
@@ -411,37 +376,184 @@ namespace mi {
                     str += type_to_string(t->get_return_type());
                     str += ")";
 
-                    return str;
+                    ts = str;
+                    break;
                 }
+
                 case IType::TK_STRUCT: {
                     const auto *t = as<IType_struct>(type);
-                    return t->get_symbol()->get_name();
+                    ts = t->get_symbol()->get_name();
+                    break;
                 }
+
                 case IType::TK_TEXTURE: {
                     const IType_texture *tex = as<IType_texture>(type);
                     switch (tex->get_shape()) {
-
                         case IType_texture::TS_2D:
-                            return "texture_2d";
-
+                            ts = "texture_2d";
+                            break;
                         case IType_texture::TS_3D:
-                            return "texture_3d";
-
+                            ts = "texture_3d";
+                            break;
                         case IType_texture::TS_CUBE:
-                            return "texture_cube";
-
+                            ts = "texture_cube";
+                            break;
                         case IType_texture::TS_PTEX:
-                            return "texture_ptex";
-
+                            ts = "texture_ptex";
+                            break;
                     }
+                    break;
                 }
+
                 case IType::TK_BSDF_MEASUREMENT:
-                    return "bsdf_measurement";
+                    ts = "bsdf_measurement";
+                    break;
                 case IType::TK_INCOMPLETE:
-                    return "";
+                    ts = "";
+                    break;
                 case IType::TK_ERROR:
-                    return "";
+                    ts = "";
+                    break;
             }
+
+            return "fn(State) -> " + ts;
+
+
+        }
+
+
+        const std::string AnyDSL_Transpiler::type_to_string_for_mangling(const IType *type) {
+            std::string ts;
+            switch (type->get_kind()) {
+                case IType::TK_ALIAS: {
+                    const IType_alias *t = as<IType_alias>(type);
+                    ts = type_to_string(t->get_aliased_type());
+                    break;
+                }
+                case IType::TK_BOOL:
+                    ts = "bool";
+                    break;
+                case IType::TK_INT:
+                    ts = "int";
+                    break;
+                case IType::TK_ENUM: {
+                    const IType_enum *t = as<IType_enum>(type);
+                    ts = t->get_symbol()->get_name();
+                    break;
+                }
+                case IType::TK_FLOAT:
+                    ts = "float";
+                    break;
+                case IType::TK_DOUBLE:
+                    ts = "double";
+                    break;
+                case IType::TK_STRING:
+                    ts = "string";
+                    break;
+                case IType::TK_LIGHT_PROFILE:
+                    ts = "light_profile";
+                    break;
+                case IType::TK_BSDF:
+                    ts = "bsdf";
+                    break;
+                case IType::TK_EDF:
+                    ts = "edf";
+                    break;
+                case IType::TK_VDF:
+                    ts = "vdf";
+                    break;
+                case IType::TK_VECTOR: {
+                    auto t = as<IType_vector>(type);
+                    ts = type_to_string(t->get_element_type()) + std::to_string(t->get_size());
+                    break;
+                }
+                case IType::TK_MATRIX: {
+                    const IType_matrix *t = as<IType_matrix>(type);
+                    ts = type_to_string(t->get_element_type()) + "x" + std::to_string(t->get_columns());
+                    break;
+                }
+
+
+                case IType::TK_ARRAY: {
+                    auto t = as<IType_array>(type);
+                    std::string s1("[");
+                    std::string s2("]");
+                    std::string s3(type_to_string(t->get_element_type()));
+                    std::string s4 = std::to_string(t->get_size());
+                    std::string s5("*");
+                    auto str = std::string();
+                    str = s1 + s3 + s5 + s4 + s2;
+                    ts = str;
+                    break;
+                }
+
+                case IType::TK_COLOR:
+                    ts = "color";
+                    break;
+                case IType::TK_FUNCTION: {
+                    const auto *t = as<IType_function>(type);
+                    std::string s1("(");
+                    std::string s2(") -> (");
+                    std::string s3(")");
+                    std::string s4(",");
+                    const IType *itype;
+                    const ISymbol *iSymbol;
+                    auto str = std::string();
+                    str += "(";
+                    for (int i = 0; i < t->get_parameter_count(); i++) {
+                        if (i != 0) {
+                            str += ",";
+                        }
+                        t->get_parameter(i, itype, iSymbol);
+                        str += iSymbol->get_name();
+                    }
+                    str += ") -> (";
+                    str += type_to_string(t->get_return_type());
+                    str += ")";
+
+                    ts = str;
+                    break;
+                }
+
+                case IType::TK_STRUCT: {
+                    const auto *t = as<IType_struct>(type);
+                    ts = t->get_symbol()->get_name();
+                    break;
+                }
+
+                case IType::TK_TEXTURE: {
+                    const IType_texture *tex = as<IType_texture>(type);
+                    switch (tex->get_shape()) {
+                        case IType_texture::TS_2D:
+                            ts = "texture_2d";
+                            break;
+                        case IType_texture::TS_3D:
+                            ts = "texture_3d";
+                            break;
+                        case IType_texture::TS_CUBE:
+                            ts = "texture_cube";
+                            break;
+                        case IType_texture::TS_PTEX:
+                            ts = "texture_ptex";
+                            break;
+                    }
+                    break;
+                }
+
+                case IType::TK_BSDF_MEASUREMENT:
+                    ts = "bsdf_measurement";
+                    break;
+                case IType::TK_INCOMPLETE:
+                    ts = "";
+                    break;
+                case IType::TK_ERROR:
+                    ts = "";
+                    break;
+            }
+
+            return ts;
+
+
         }
 
         void AnyDSL_Transpiler::dispatch_transpile_declaration(
@@ -492,12 +604,12 @@ namespace mi {
             if (s != nullptr) {
                 dispatch_transpile_statement(s);
             } else {
-                out += "{}\n";
+                add_to_code("{}\n");
             }
         }
 
         void AnyDSL_Transpiler::transpile_import(const IDeclaration *decl) {
-            //NOT_IMPLEMENTED;
+            NOT_IMPLEMENTED;
         }
 
         void AnyDSL_Transpiler::transpile_type_alias(const IDeclaration *decl) {
@@ -506,96 +618,130 @@ namespace mi {
 
         void AnyDSL_Transpiler::transpile_struct(const IDeclaration *decl) {
             const IDeclaration_type_struct *s = as<IDeclaration_type_struct>(decl);
-            out += " {\n";
+            add_to_code(" {\n", true);
+            indent_level++;
             for (int i = 0; i < s->get_field_count(); i++) {
-                out += s->get_field_name(i)->get_symbol()->get_name();
-                out += ": ";
-                out += type_to_string(s->get_field_type_name(i)->get_type());
-                out += ",\n";
+                add_to_code(s->get_field_name(i)->get_symbol()->get_name(), true);
+                add_to_code(": ");
+                add_to_code(type_to_string(s->get_field_type_name(i)->get_type()));
+                add_to_code(",\n");
             }
-            out += "}\n\n";
-            out += "fn ";
-            out += s->get_name()->get_symbol()->get_name();
-            out += "_() -> ";
-            out += s->get_name()->get_symbol()->get_name();
-            out += " {\n";
-            out += s->get_name()->get_symbol()->get_name();
-            out += "{";
+            indent_level--;
+            add_to_code("}\n\n", true);
+            add_to_code("fn ", true);
+            add_to_code(s->get_name()->get_symbol()->get_name());
+            add_to_code("_() -> ");
+            add_to_code(s->get_name()->get_symbol()->get_name());
+            add_to_code(" {\n");
+            indent_level++;
+            add_to_code(s->get_name()->get_symbol()->get_name(), true);
+            add_to_code("{\n");
+            indent_level++;
             for (int i = 0; i < s->get_field_count(); i++) {
-                out += s->get_field_name(i)->get_symbol()->get_name();
-                out += ": ";
+                add_to_code(s->get_field_name(i)->get_symbol()->get_name(), true);
+                add_to_code(": ");
                 auto e = s->get_field_init(i);
                 if (e != nullptr) {
                     dispatch_transpile_expression(s->get_field_init(i));
                 } else {
-                    out += type_to_string(s->get_field_type_name(i)->get_type());
-                    out += "_()";
+                    add_to_code(type_to_string(s->get_field_type_name(i)->get_type()));
+                    add_to_code("_()");
                 }
-                out += ",\n";
+                add_to_code(",\n");
             }
-            out += "}\n}\n";
+            indent_level--;
+            add_to_code("}\n", true);
+            indent_level--;
+            add_to_code("}\n", true);
 
-            out += "fn ";
-            out += s->get_name()->get_symbol()->get_name();
-            out += "_";
-            out += s->get_name()->get_symbol()->get_name();
-            out += "(copy: ";
-            out += s->get_name()->get_symbol()->get_name();
-            out += ") -> ";
-            out += s->get_name()->get_symbol()->get_name();
-            out += " {\n";
-            out += s->get_name()->get_symbol()->get_name();
-            out += "{";
+            add_to_code("fn ", true);
+            add_to_code(s->get_name()->get_symbol()->get_name());
+            add_to_code("_");
+            add_to_code(s->get_name()->get_symbol()->get_name());
+            add_to_code("(copy: ");
+            add_to_code(s->get_name()->get_symbol()->get_name());
+            add_to_code(") -> ");
+            add_to_code(s->get_name()->get_symbol()->get_name());
+            add_to_code(" {\n");
+            indent_level++;
+            add_to_code(s->get_name()->get_symbol()->get_name(), true);
+            add_to_code("{\n");
+            indent_level++;
             for (int i = 0; i < s->get_field_count(); i++) {
-                out += s->get_field_name(i)->get_symbol()->get_name();
-                out += ": copy.";
-                out += s->get_field_name(i)->get_symbol()->get_name();
-                out += ",\n";
+                add_to_code(s->get_field_name(i)->get_symbol()->get_name(), true);
+                add_to_code(": copy.");
+                add_to_code(s->get_field_name(i)->get_symbol()->get_name());
+                add_to_code(",\n");
             }
-            out += "}\n}\n";
+            indent_level--;
+            add_to_code("}\n", true);
+            indent_level--;
+            add_to_code("}\n", true);
 
 
         }
 
         void AnyDSL_Transpiler::transpile_enum_declaration(const IDeclaration *decl) {
             const IDeclaration_type_enum *e = as<IDeclaration_type_enum>(decl);
-            out += "{\n";
+            add_to_code("{\n");
+            indent_level++;
             for (int i = 0; i < e->get_value_count(); i++) {
-                out += e->get_value_name(i)->get_symbol()->get_name();
-                out += ",\n";
+                add_to_code(e->get_value_name(i)->get_symbol()->get_name(), true);
+                add_to_code(",\n");
             }
-            out += "}\n";
+            indent_level--;
+            add_to_code("}\n", true);
         }
 
-        void AnyDSL_Transpiler::transpile_variable_declaration(
-                const IDeclaration *decl) {
+        void AnyDSL_Transpiler::transpile_variable_declaration(const IDeclaration *decl) {
 
             const IDeclaration_variable *v = as<IDeclaration_variable>(decl);
             for (int i = 0; i < v->get_variable_count(); i++) {
-                out += "let mut ";
-                out += v->get_variable_name(i)->get_symbol()->get_name();
-                out += ": ";
-                out += type_to_string(v->get_type_name()->get_type());
-                if (v->get_variable_init(i) != nullptr) {
-                    out += " = ";
-                    dispatch_transpile_expression(v->get_variable_init(i));
+                const IDefinition *definition = v->get_variable_name(i)->get_definition();
+                if (i > 0) {
+                    add_to_code(";\n");
+                    add_to_code("", true);
                 }
-                out += ";\n";
+                add_to_code("let mut ");
+                add_to_code(v->get_variable_name(i)->get_symbol()->get_name());
+                add_to_code(": ");
+                if (!definition->get_property(IDefinition::Property::DP_IS_VARYING)) {
+                    add_to_code("fn(");
+                    if (definition->get_property(IDefinition::Property::DP_USES_STATE) ||
+                        definition->get_property(IDefinition::Property::DP_USES_VARYING_STATE)) {
+                        add_to_code("State");
+                    }
+                    add_to_code(") -> ");
+                    add_to_code(type_to_string(v->get_type_name()->get_type()));
+
+                    add_to_code(" = {");
+                    dispatch_transpile_expression(v->get_variable_init(i));
+                    add_to_code("}");
+
+                } else {
+                    add_to_code(type_to_string(v->get_type_name()->get_type()));
+                    if (v->get_variable_init(i) != nullptr) {
+                        add_to_code(" = ");
+                        dispatch_transpile_expression(v->get_variable_init(i));
+                    }
+                }
+
+
             }
         }
 
         void AnyDSL_Transpiler::transpile_constant_declaration(const IDeclaration *decl) {
             const IDeclaration_constant *c = as<IDeclaration_constant>(decl);
             for (int i = 0; i < c->get_constant_count(); i++) {
-                out += "static ";
-                out += c->get_constant_name(i)->get_symbol()->get_name();
-                out += ": ";
-                out += type_to_string(c->get_type_name()->get_type());
+                add_to_code("static ", true);
+                add_to_code(c->get_constant_name(i)->get_symbol()->get_name());
+                add_to_code(": ");
+                add_to_code(type_to_string(c->get_type_name()->get_type()));
                 if (c->get_constant_exp(i) != nullptr) {
-                    out += " = ";
+                    add_to_code(" = ");
                     dispatch_transpile_expression(c->get_constant_exp(i));
                 }
-                out += ";\n";
+                add_to_code(";\n");
             }
         }
 
@@ -649,24 +795,25 @@ namespace mi {
 
         void AnyDSL_Transpiler::transpile_compound_statement(const IStatement *stat) {
             const IStatement_compound *sc = as<IStatement_compound>(stat);
-            out += "{\n";
-
+            add_to_code("{\n", true);
+            indent_level++;
             for (int i = 0; i < sc->get_statement_count(); i++) {
 
                 dispatch_transpile_statement(sc->get_statement(i));
             }
-
-            out += "}\n";
+            indent_level--;
+            add_to_code("}\n", true);
         }
 
         void AnyDSL_Transpiler::transpile_return_statement(const IStatement *stat) {
             auto r = as<IStatement_return>(stat);
+            add_to_code("", true);
             dispatch_transpile_expression(r->get_expression());
-            out += "\n";
+            add_to_code("\n");
         }
 
         void AnyDSL_Transpiler::transpile_break_statement(const IStatement *stat) {
-            out += "break;\n";
+            add_to_code("break;\n", true);
         }
 
         void AnyDSL_Transpiler::transpile_do_while_statement(const IStatement *stat) {
@@ -675,7 +822,9 @@ namespace mi {
 
         void AnyDSL_Transpiler::transpile_expression_statement(const IStatement *stat) {
             const auto *e = as<IStatement_expression>(stat);
+            add_to_code("", true);
             dispatch_transpile_expression(e->get_expression());
+            add_to_code(";\n");
         }
 
         void AnyDSL_Transpiler::transpile_switch_statement(const IStatement *stat) {
@@ -683,22 +832,41 @@ namespace mi {
         }
 
         void AnyDSL_Transpiler::transpile_continue_statement(const IStatement *stat) {
-            out += "continue;\n";
+            add_to_code("continue;\n", true);
         }
 
         void AnyDSL_Transpiler::transpile_for_statement(const IStatement *stat) {
             const IStatement_for *f = as<IStatement_for>(stat);
-            out += "{\n";
+            add_to_code("{\n", true);
+            indent_level++;
             dispatch_transpile_statement(f->get_init());
-            out += "{\n";
+            add_to_code("{\n", true);
+            indent_level++;
+            add_to_code("while(", true);
+            dispatch_transpile_expression(f->get_condition());
+            add_to_code(") {\n");
+            indent_level++;
             dispatch_transpile_statement(f->get_body());
-            out += "}\n";
+            add_to_code("", true);
             dispatch_transpile_expression(f->get_update());
-            out += "}\n";
+            add_to_code(";\n");
+            indent_level--;
+            add_to_code("}\n", true);
+            indent_level--;
+            add_to_code("}\n", true);
+
+
+            indent_level--;
+            add_to_code("}\n", true);
         }
 
         void AnyDSL_Transpiler::transpile_while_statement(const IStatement *stat) {
-            NOT_IMPLEMENTED;
+            const IStatement_while *w = as<IStatement_while>(stat);
+            add_to_code("while(", true);
+            dispatch_transpile_expression(w->get_condition());
+            add_to_code(") {\n");
+            dispatch_transpile_statement(w->get_body());
+            add_to_code("}\n", true);
         }
 
         void AnyDSL_Transpiler::transpile_case_statement(const IStatement *stat) {
@@ -707,24 +875,30 @@ namespace mi {
 
         void AnyDSL_Transpiler::transpile_if_statement(const IStatement *stat) {
             auto f = as<IStatement_if>(stat);
-            out += "if (";
+            add_to_code("if (", true);
             dispatch_transpile_expression(f->get_condition());
-            out += ") {\n";
+            add_to_code(") {\n");
+            indent_level++;
             dispatch_transpile_statement(f->get_then_statement());
-            out += "}";
+            indent_level--;
+            add_to_code("}", true);
             auto el = f->get_else_statement();
             if (el != nullptr) {
-                out += " else {\n";
+                add_to_code(" else {\n");
+                indent_level++;
                 dispatch_transpile_statement(f->get_else_statement());
-                out += "}";
+                indent_level--;
+                add_to_code("}", true);
             }
-            out += "\n";
+            add_to_code("\n");
         }
 
         void AnyDSL_Transpiler::transpile_declaration_statement(
                 const IStatement *stat) {
+            add_to_code("", true);
             dispatch_transpile_declaration(
                     as<IStatement_declaration>(stat)->get_declaration());
+            add_to_code(";\n");
         }
 
         void AnyDSL_Transpiler::dispatch_transpile_expression(const IExpression *exp) {
@@ -911,17 +1085,19 @@ namespace mi {
                 case IValue::VK_STRUCT: {
                     const auto *v = as<IValue_struct>(l);
                     const auto *st = as<IType_struct>(v->get_type());
-                    s = std::string(st->get_symbol()->get_name()) + "{";
+                    s = std::string(st->get_symbol()->get_name()) + "{\n";
+                    indent_level++;
                     const ISymbol *sym = nullptr;
                     const IType *type = nullptr;
                     for (int i = 0; i < st->get_field_count(); ++i) {
                         st->get_field(i, type, sym);
-                        s += sym->get_name();
+                        s += indent_code(sym->get_name());
                         s += " : ";
                         s += value_to_string(v->get_field(sym));
-                        s += ", ";
+                        s += ",\n";
                     }
-                    s += "}";
+                    indent_level--;
+                    s += indent_code("}");
                     break;
                 }
                 case IValue::VK_INVALID_REF:
@@ -938,7 +1114,7 @@ namespace mi {
                     s = "bsdf_measurement";
                     break;
             }
-            out += s;
+            add_to_code(s);
         }
 
         void AnyDSL_Transpiler::transpile_expression_let(
@@ -947,67 +1123,71 @@ namespace mi {
 
             for (int i = 0; i < l->get_declaration_count(); i++) {
                 dispatch_transpile_declaration(l->get_declaration(i));
+                add_to_code(";");
             }
-            out += "{\n";
+            add_to_code("\n");
+            add_to_code("{\n", true);
+            indent_level++;
+            add_to_code("", true);
             dispatch_transpile_expression(l->get_expression());
-            out += "}\n";
+            add_to_code("\n");
+            indent_level--;
+            add_to_code("}", true);
         }
 
         void AnyDSL_Transpiler::transpile_expression_conditional(
                 const IExpression *pExpression) {
             auto conditional = as<IExpression_conditional>(pExpression);
-            out += "if (";
+            add_to_code("if (");
             dispatch_transpile_expression(conditional->get_condition());
-            out += ") {";
+            add_to_code(") {");
             dispatch_transpile_expression(conditional->get_true());
-            out += "} else {";
+            add_to_code("} else {");
             dispatch_transpile_expression(conditional->get_false());
-            out += "}";
+            add_to_code("}");
         }
 
         void AnyDSL_Transpiler::transpile_expression_unary(
                 const IExpression *pExpression) {
             auto un = as<IExpression_unary>(pExpression);
 
-            out += unary_operator_to_string(un->get_operator());
-            out += "__";
-            out += type_to_string(un->get_argument()->get_type());
-            out += "(";
+            add_to_code(unary_operator_to_string(un->get_operator()));
+            add_to_code("__");
+            add_to_code(type_to_string(un->get_argument()->get_type()));
+            add_to_code("(");
             dispatch_transpile_expression(un->get_argument());
-            out += ")";
+            add_to_code(")");
 
         }
 
         void AnyDSL_Transpiler::transpile_expression_reference(
                 const IExpression *pExpression) {
             const IExpression_reference *ref = as<IExpression_reference>(pExpression);
-            out += ref->get_definition()->get_symbol()->get_name();
+            add_to_code(ref->get_definition()->get_symbol()->get_name());
         }
 
         void AnyDSL_Transpiler::transpile_expression_binary(
                 const IExpression *pExpression) {
             auto bin = as<IExpression_binary>(pExpression);
-            switch(bin->get_operator()){
+            switch (bin->get_operator()) {
 
                 case IExpression_binary::OK_SELECT:
                     dispatch_transpile_expression(bin->get_left_argument());
-                    out += ".";
+                    add_to_code(".");
                     dispatch_transpile_expression(bin->get_right_argument());
                     break;
 
                 default:
-                    out += binary_operator_to_string(bin->get_operator());
-                    out += "__";
-                    out += type_to_string(bin->get_left_argument()->get_type());
-                    out += "_";
-                    out += type_to_string(bin->get_right_argument()->get_type());
-                    out += "(";
+                    add_to_code(binary_operator_to_string(bin->get_operator()));
+                    add_to_code("__");
+                    add_to_code(type_to_string(bin->get_left_argument()->get_type()));
+                    add_to_code("_");
+                    add_to_code(type_to_string(bin->get_right_argument()->get_type()));
+                    add_to_code("(");
                     dispatch_transpile_expression(bin->get_left_argument());
-                    out += ", ";
+                    add_to_code(", ");
                     dispatch_transpile_expression(bin->get_right_argument());
-                    out += ")";
-
-
+                    add_to_code(")");
 
 
             }
@@ -1022,23 +1202,23 @@ namespace mi {
                     ->get_definition()
                     ->get_symbol()
                     ->get_name();
-            out += calle_name;
-            out += "_";
+            add_to_code(calle_name);
+            add_to_code("_");
             for (int i = 0; i < c->get_argument_count(); ++i) {
                 const IArgument *arg = c->get_argument(i);
                 const IExpression *exp = arg->get_argument_expr();
-                out += "_";
-                out += type_to_string(exp->get_type());
+                add_to_code("_");
+                add_to_code(type_to_string_for_mangling(exp->get_type()));
             }
-            out += "(";
+            add_to_code("(");
 
             for (int i = 0; i < c->get_argument_count(); ++i) {
                 const IArgument *arg = c->get_argument(i);
                 const IExpression *exp = arg->get_argument_expr();
                 dispatch_transpile_expression(exp);
-                out += ", ";
+                add_to_code(", ");
             }
-            out += ")";
+            add_to_code(")");
         }
 
         const std::string AnyDSL_Transpiler::binary_operator_to_string(
@@ -1150,6 +1330,27 @@ namespace mi {
                 case IExpression_unary::OK_POST_DECREMENT:
                     return false;
             }
+        }
+
+        void AnyDSL_Transpiler::add_to_code(const std::string &str, bool do_indent) {
+            assert(indent_level >= 0);
+            if (do_indent) {
+                for (int i = 0; i < indent_level; i++) {
+                    out += indent;
+                }
+            }
+
+            out += str;
+        }
+
+        std::string AnyDSL_Transpiler::indent_code(const std::string &str) {
+            assert(indent_level >= 0);
+            std::string s = "";
+            for (int i = 0; i < indent_level; i++) {
+                s += indent;
+            }
+            s += str;
+            return s;
         }
     } // namespace mdl
 

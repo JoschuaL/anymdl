@@ -10,114 +10,125 @@
 #include <mi/mdl/mdl_modules.h>
 
 namespace mi {
-namespace mdl {
-class AnyDSL_Transpiler {
-public:
-  void transpile_module(const IModule *module);
-  std::string get_code() { return this->out; }
+    namespace mdl {
+        class AnyDSL_Transpiler {
+        public:
+            void transpile_module(const IModule *module);
 
-private:
-  std::string out = "";
+            std::string get_code() { return this->out; }
 
-  std::unordered_set<std::string> imports = std::unordered_set<std::string>();
+        private:
+            std::string out = "";
 
-  const std::string unary_operator_to_string(const IExpression_unary::Operator op);
+            int indent_level = 0;
 
-  const std::string binary_operator_to_string(const IExpression_binary::Operator op);
+            std::string indent = "    ";
 
-  const std::string value_to_string(const IValue *l);
+            void add_to_code(const std::string &str, bool indent = false);
 
-  bool is_prefix_operator(const IExpression_unary::Operator op);
+            std::string indent_code(const std::string &str);
 
-  void dispatch_transpile_declaration(const IDeclaration *decl);
+            std::unordered_set<std::string> imports = std::unordered_set<std::string>();
 
-  void dispatch_transpile_definition(const IDefinition *def);
+            const std::string unary_operator_to_string(const IExpression_unary::Operator op);
 
-  void transpile_constant(const IDefinition *definition);
+            const std::string binary_operator_to_string(const IExpression_binary::Operator op);
 
-  void transpile_enum_value(const IDefinition *definition);
+            const std::string value_to_string(const IValue *l);
 
-  void transpile_annotation(const IDefinition *definition);
+            bool is_prefix_operator(const IExpression_unary::Operator op);
 
-  void transpile_type(const IDefinition *definition);
+            void dispatch_transpile_declaration(const IDeclaration *decl);
 
-  void transpile_function(const IDefinition *definition);
+            void dispatch_transpile_definition(const IDefinition *def);
 
-  void transpile_constructor(const IDefinition *definition);
+            void transpile_constant(const IDefinition *definition);
 
-  void transpile_operator(const IDefinition *definition);
+            void transpile_enum_value(const IDefinition *definition);
 
-  void transpile_member(const IDefinition *definition);
+            void transpile_annotation(const IDefinition *definition);
 
-  void transpile_parameter(const IDefinition *definition);
+            void transpile_type(const IDefinition *definition);
 
-  void transpile_array_size(const IDefinition *definition);
+            void transpile_function(const IDefinition *definition);
 
-  void transpile_variable(const IDefinition *definition);
+            void transpile_constructor(const IDefinition *definition);
 
-  const std::string type_to_string(const IType *type);
+            void transpile_operator(const IDefinition *definition);
 
-  void transpile_module_declaration(const IDeclaration *decl);
+            void transpile_member(const IDefinition *definition);
 
-  void transpile_function_declaration(const IDeclaration *pDeclaration);
+            void transpile_parameter(const IDefinition *definition);
 
-  void transpile_import(const IDeclaration *pDeclaration);
+            void transpile_array_size(const IDefinition *definition);
 
-  void transpile_type_alias(const IDeclaration *pDeclaration);
+            void transpile_variable(const IDefinition *definition);
 
-  void transpile_struct(const IDeclaration *pDeclaration);
+            const std::string type_to_string(const IType *type);
 
-  void transpile_enum_declaration(const IDeclaration *pDeclaration);
+            const std::string type_to_string_for_mangling(const IType *type);
 
-  void transpile_variable_declaration(const IDeclaration *pDeclaration);
+            void transpile_module_declaration(const IDeclaration *decl);
 
-  void transpile_constant_declaration(const IDeclaration *pDeclaration);
+            void transpile_function_declaration(const IDeclaration *pDeclaration);
 
-  void transpile_annotation_declaration(const IDeclaration *pDeclaration);
+            void transpile_import(const IDeclaration *pDeclaration);
 
-  void dispatch_transpile_statement(const IStatement *stat);
+            void transpile_type_alias(const IDeclaration *pDeclaration);
 
-  void transpile_compound_statement(const IStatement *pStatement);
+            void transpile_struct(const IDeclaration *pDeclaration);
 
-  void transpile_return_statement(const IStatement *pStatement);
+            void transpile_enum_declaration(const IDeclaration *pDeclaration);
 
-  void transpile_break_statement(const IStatement *pStatement);
+            void transpile_variable_declaration(const IDeclaration *pDeclaration);
 
-  void transpile_do_while_statement(const IStatement *pStatement);
+            void transpile_constant_declaration(const IDeclaration *pDeclaration);
 
-  void transpile_expression_statement(const IStatement *pStatement);
+            void transpile_annotation_declaration(const IDeclaration *pDeclaration);
 
-  void transpile_switch_statement(const IStatement *pStatement);
+            void dispatch_transpile_statement(const IStatement *stat);
 
-  void transpile_continue_statement(const IStatement *pStatement);
+            void transpile_compound_statement(const IStatement *pStatement);
 
-  void transpile_for_statement(const IStatement *pStatement);
+            void transpile_return_statement(const IStatement *pStatement);
 
-  void transpile_while_statement(const IStatement *pStatement);
+            void transpile_break_statement(const IStatement *pStatement);
 
-  void transpile_case_statement(const IStatement *pStatement);
+            void transpile_do_while_statement(const IStatement *pStatement);
 
-  void transpile_if_statement(const IStatement *pStatement);
+            void transpile_expression_statement(const IStatement *pStatement);
 
-  void transpile_declaration_statement(const IStatement *pStatement);
+            void transpile_switch_statement(const IStatement *pStatement);
 
-  void dispatch_transpile_expression(const IExpression *exp);
+            void transpile_continue_statement(const IStatement *pStatement);
 
-  void transpile_expression_literal(const IExpression *pExpression);
+            void transpile_for_statement(const IStatement *pStatement);
 
-  void transpile_expression_let(const IExpression *pExpression);
+            void transpile_while_statement(const IStatement *pStatement);
 
-  void transpile_expression_conditional(const IExpression *pExpression);
+            void transpile_case_statement(const IStatement *pStatement);
 
-  void transpile_expression_unary(const IExpression *pExpression);
+            void transpile_if_statement(const IStatement *pStatement);
 
-  void transpile_expression_reference(const IExpression *pExpression);
+            void transpile_declaration_statement(const IStatement *pStatement);
 
-  void transpile_expression_binary(const IExpression *pExpression);
+            void dispatch_transpile_expression(const IExpression *exp);
 
-  void transpile_expression_call(const IExpression *pExpression);
-};
-} // namespace mdl
+            void transpile_expression_literal(const IExpression *pExpression);
+
+            void transpile_expression_let(const IExpression *pExpression);
+
+            void transpile_expression_conditional(const IExpression *pExpression);
+
+            void transpile_expression_unary(const IExpression *pExpression);
+
+            void transpile_expression_reference(const IExpression *pExpression);
+
+            void transpile_expression_binary(const IExpression *pExpression);
+
+            void transpile_expression_call(const IExpression *pExpression);
+        };
+    } // namespace mdl
 } // namespace mi
 
 #endif // MDL_ANYDSL_TRANSPILER_H
