@@ -369,7 +369,7 @@ export material example_edf(
 )
 = let {
     color scaled_intensity = emission_intensity * emission_intensity_scale;
- } 
+ }
  in material(
     surface: material_surface(
         scattering: df::diffuse_reflection_bsdf(
@@ -453,7 +453,7 @@ export material example_measured_edf(
     uniform bool global_distribution = false,
     uniform float multiplier = 1.0
     [[anno::hard_range(0.0f, 10.0f)]]
-) 
+)
 = material(
     surface: material_surface(
         scattering: df::diffuse_reflection_bsdf(
