@@ -1,0 +1,15 @@
+BasedOnStyle: Google
+IndentWidth: 4
+AccessModifierOffset: -4
+AlignAfterOpenBracket: Align
+AlignConsecutiveAssignments: false
+AlignEscapedNewlines: Left
+AlignOperands: true
+AlignTrailingComments: false
+AllowShortCaseLabelsOnASingleLine: false
+NamespaceIndentation: Inner
+BinPackArguments: true
+UseTab: Never
+AllowShortIfStatementsOnASingleLine: false
+ColumnLimit: 110
+

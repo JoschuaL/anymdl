@@ -59,8 +59,7 @@ export bsdf simple_glossy_bsdf(
     float                roughness_v = roughness_u [[ hard_range(0.0, +1.0/0.0) ]],
     color                tint        = color(1.0),
     float3               tangent_u   = state::texture_tangent_u(0),
-    uniform scatter_mode mode        = scatter_reflect,
-    uniform string       handle      = ""
+    uniform scatter_mode mode        = scatter_reflect
 ) [[ intrinsic() ]];
 
 export bsdf backscattering_glossy_reflection_bsdf(

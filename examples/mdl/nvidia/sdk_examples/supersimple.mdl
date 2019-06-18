@@ -1,5 +1,53 @@
 mdl 1.4;
 
-export float3 adder(float3 x, float3 y){
-    return x + y;
-}
+import df::*;
+import state::*;
+import math::*;
+import limits::*;
+import tex::*;
+
+
+/*export material glossy_material(float2 roughness = float2(0.0), color tint = color(1.0))
+= let bsdf tmp = df::simple_glossy_bsdf(roughness[0], roughness[1], color(state::normal()) * tint);
+in material(
+    surface: material_surface(scattering: tmp),
+    backface: material_surface(scattering: tmp)
+);
+
+export material simple_glossy_material()
+= glossy_material();*/
+
+
+
+
+
+
+
+
+/*// A material used for instance compilation vs class compilation.
+export material example_compilation(color tint = color(1.0f))
+= material(
+    surface: material_surface(
+        scattering: df::diffuse_reflection_bsdf(tint: tint * color(state::normal()))
+    ),
+    backface: material_surface(
+        scattering: df::diffuse_reflection_bsdf(tint: tint * color(state::normal()) * math::sin(3))
+    )
+);*/
+
+
+
+
+export material uv_as_color_material(color tt = color(1.0)) =
+let {
+    color diffuse_color = color(state::texture_coordinate(0));
+    bsdf diffuse_bsdf = df::diffuse_reflection_bsdf(tint: diffuse_color * tt);
+} in material(
+   surface: material_surface(scattering: diffuse_bsdf));
+
+
+
+
+
+
+

@@ -5,9 +5,9 @@
 #ifndef MDL_ANYDSL_TRANSPILER_H
 #define MDL_ANYDSL_TRANSPILER_H
 
-#include <iostream>
 #include <mdl/compiler/compilercore/compilercore_allocator.h>
 #include <mi/mdl/mdl_modules.h>
+#include <iostream>
 
 namespace mi {
     namespace mdl {
@@ -28,15 +28,23 @@ namespace mi {
 
             std::string indent_code(const std::string &str);
 
-            std::unordered_set<std::string> imports = std::unordered_set<std::string>();
+            std::unordered_set<std::string> imports = {"::<builtins>", "::math", "::state", "::df", "::limits", "::tex"};
 
-            const std::string unary_operator_to_string(const IExpression_unary::Operator op);
+            const std::unordered_set<std::string> stateless_return_types = {"material", "material_surface", "material_volume", "material_geometry", "bsdf", "material_emission", "edf", "vdf"};
 
-            const std::string binary_operator_to_string(const IExpression_binary::Operator op);
+            bool is_assign_operator(IExpression_binary::Operator op);
+
+            bool is_assign_operator(IExpression_unary::Operator op);
+
+            bool is_stateless_return_type(const IType *type);
+
+            const std::string unary_operator_to_string(IExpression_unary::Operator op);
+
+            const std::string binary_operator_to_string(IExpression_binary::Operator op);
 
             const std::string value_to_string(const IValue *l);
 
-            bool is_prefix_operator(const IExpression_unary::Operator op);
+            bool is_prefix_operator(IExpression_unary::Operator op);
 
             void dispatch_transpile_declaration(const IDeclaration *decl);
 
@@ -64,9 +72,9 @@ namespace mi {
 
             void transpile_variable(const IDefinition *definition);
 
-            const std::string type_to_string(const IType *type);
+            const std::string type_to_string_closure(const IType *type);
 
-            const std::string type_to_string_for_mangling(const IType *type);
+            const std::string type_to_string_for_mangling(const IType *type, bool no_special_characters);
 
             void transpile_module_declaration(const IDeclaration *decl);
 
@@ -114,6 +122,8 @@ namespace mi {
 
             void dispatch_transpile_expression(const IExpression *exp);
 
+            void dispatch_transpile_expression_closure(const IExpression *exp);
+
             void transpile_expression_literal(const IExpression *pExpression);
 
             void transpile_expression_let(const IExpression *pExpression);
@@ -124,11 +134,13 @@ namespace mi {
 
             void transpile_expression_reference(const IExpression *pExpression);
 
+            void transpile_expression_reference_closure(const IExpression *pExpression);
+
             void transpile_expression_binary(const IExpression *pExpression);
 
             void transpile_expression_call(const IExpression *pExpression);
         };
-    } // namespace mdl
-} // namespace mi
+    }  // namespace mdl
+}  // namespace mi
 
-#endif // MDL_ANYDSL_TRANSPILER_H
+#endif  // MDL_ANYDSL_TRANSPILER_H
