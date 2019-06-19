@@ -590,7 +590,7 @@ namespace mi {
                 add_to_code(type_to_string_for_mangling(v->get_type_name()->get_type(), false));
 
                 add_to_code(" = ");
-                dispatch_transpile_expression(v->get_variable_init(i));
+                dispatch_transpile_expression(v->get_variable_init(i), false);
 
             }
         }
@@ -604,7 +604,7 @@ namespace mi {
                 add_to_code(type_to_string_for_mangling(c->get_type_name()->get_type(), false));
                 if (c->get_constant_exp(i) != nullptr) {
                     add_to_code(" = ");
-                    dispatch_transpile_expression(c->get_constant_exp(i));
+                    dispatch_transpile_expression(c->get_constant_exp(i), false);
                 }
                 add_to_code(";\n");
             }
@@ -669,7 +669,7 @@ namespace mi {
         void AnyDSL_Transpiler::transpile_return_statement(const IStatement *stat) {
             auto r = as<IStatement_return>(stat);
             add_to_code("return(", true);
-            dispatch_transpile_expression(r->get_expression());
+            dispatch_transpile_expression(r->get_expression(), false);
             add_to_code(")\n");
         }
 
@@ -683,7 +683,7 @@ namespace mi {
             indent_level++;
             dispatch_transpile_statement(dw->get_body());
             add_to_code("", true);
-            dispatch_transpile_expression(dw->get_condition());
+            dispatch_transpile_expression(dw->get_condition(), false);
             indent_level--;
             add_to_code("\n");
             add_to_code("} {}\n", true);
@@ -693,7 +693,7 @@ namespace mi {
         void AnyDSL_Transpiler::transpile_expression_statement(const IStatement *stat) {
             const auto *e = as<IStatement_expression>(stat);
             add_to_code("", true);
-            dispatch_transpile_expression(e->get_expression());
+            dispatch_transpile_expression(e->get_expression(), false);
             if(e->get_expression()->get_kind() != IExpression::Kind::EK_LET){
                 add_to_code(";\n");
             }
@@ -705,7 +705,7 @@ namespace mi {
             add_to_code("while(true) {\n", true);
             indent_level++;
             add_to_code("let swich_condition = ", true);
-            dispatch_transpile_expression(sw->get_condition());
+            dispatch_transpile_expression(sw->get_condition(), false);
             add_to_code(";\n");
             for (int i = 0; i < sw->get_case_count(); ++i) {
                 dispatch_transpile_statement(sw->get_case(i));
@@ -726,12 +726,12 @@ namespace mi {
             add_to_code("{\n", true);
             indent_level++;
             add_to_code("while(", true);
-            dispatch_transpile_expression(f->get_condition());
+            dispatch_transpile_expression(f->get_condition(), false);
             add_to_code(") {\n");
             indent_level++;
             dispatch_transpile_statement(f->get_body());
             add_to_code("", true);
-            dispatch_transpile_expression(f->get_update());
+            dispatch_transpile_expression(f->get_update(), false);
             add_to_code(";\n");
             indent_level--;
             add_to_code("}\n", true);
@@ -745,7 +745,7 @@ namespace mi {
         void AnyDSL_Transpiler::transpile_while_statement(const IStatement *stat) {
             const IStatement_while *w = as<IStatement_while>(stat);
             add_to_code("while(", true);
-            dispatch_transpile_expression(w->get_condition());
+            dispatch_transpile_expression(w->get_condition(), false);
             add_to_code(") {\n");
             indent_level++;
             dispatch_transpile_statement(w->get_body());
@@ -758,7 +758,7 @@ namespace mi {
 
             if (c->get_label() != nullptr) {
                 add_to_code("if(switch_condition == ", true);
-                dispatch_transpile_expression(c->get_label());
+                dispatch_transpile_expression(c->get_label(), false);
                 add_to_code("){\n");
                 indent_level++;
                 for (int i = 0; i < c->get_statement_count(); ++i) {
@@ -779,7 +779,7 @@ namespace mi {
         void AnyDSL_Transpiler::transpile_if_statement(const IStatement *stat) {
             auto f = as<IStatement_if>(stat);
             add_to_code("if (", true);
-            dispatch_transpile_expression(f->get_condition());
+            dispatch_transpile_expression(f->get_condition(),false);
             add_to_code(") {\n");
             indent_level++;
             dispatch_transpile_statement(f->get_then_statement());
@@ -802,30 +802,30 @@ namespace mi {
             add_to_code(";\n");
         }
 
-        void AnyDSL_Transpiler::dispatch_transpile_expression(const IExpression *exp) {
+        void AnyDSL_Transpiler::dispatch_transpile_expression(const IExpression *exp, bool closure) {
             switch (exp->get_kind()) {
                 case IExpression::EK_INVALID:
                     break;
                 case IExpression::EK_LITERAL:
-                    transpile_expression_literal(exp);
+                    transpile_expression_literal(exp, closure);
                     break;
                 case IExpression::EK_REFERENCE:
-                    transpile_expression_reference(exp);
+                    transpile_expression_reference(exp, closure);
                     break;
                 case IExpression::EK_UNARY:
-                    transpile_expression_unary(exp);
+                    transpile_expression_unary(exp, closure);
                     break;
                 case IExpression::EK_BINARY:
-                    transpile_expression_binary(exp);
+                    transpile_expression_binary(exp, closure);
                     break;
                 case IExpression::EK_CONDITIONAL:
-                    transpile_expression_conditional(exp);
+                    transpile_expression_conditional(exp, closure);
                     break;
                 case IExpression::EK_CALL:
-                    transpile_expression_call(exp);
+                    transpile_expression_call(exp, closure);
                     break;
                 case IExpression::EK_LET:
-                    transpile_expression_let(exp);
+                    transpile_expression_let(exp, closure);
                     break;
             }
         }
@@ -915,7 +915,7 @@ namespace mi {
             return s;
         }
 
-        void AnyDSL_Transpiler::transpile_expression_literal(const IExpression *pExpression) {
+        void AnyDSL_Transpiler::transpile_expression_literal(const IExpression *pExpression, bool closure) {
             auto l = as<IExpression_literal>(pExpression)->get_value();
             std::string s = std::string();
             switch (l->get_kind()) {
@@ -1024,7 +1024,7 @@ namespace mi {
             add_to_code(s);
         }
 
-        void AnyDSL_Transpiler::transpile_expression_let(const IExpression *pExpression) {
+        void AnyDSL_Transpiler::transpile_expression_let(const IExpression *pExpression, bool closure) {
             const auto *l = as<IExpression_let>(pExpression);
 
             for (int i = 0; i < l->get_declaration_count(); i++) {
@@ -1051,7 +1051,7 @@ namespace mi {
                         if (!is_stateless) {
                             add_to_code("|state:State|{");
                         }
-                        dispatch_transpile_expression_closure(var_decl->get_variable_init(j));
+                        dispatch_transpile_expression(var_decl->get_variable_init(j), true);
                         if (!is_stateless) {
                             add_to_code("}");
                         }
@@ -1067,24 +1067,24 @@ namespace mi {
             add_to_code("{\n", true);
             indent_level++;
             add_to_code("", true);
-            dispatch_transpile_expression(l->get_expression());
+            dispatch_transpile_expression(l->get_expression(), false);
             add_to_code("\n");
             indent_level--;
             add_to_code("}\n", true);
         }
 
-        void AnyDSL_Transpiler::transpile_expression_conditional(const IExpression *pExpression) {
+        void AnyDSL_Transpiler::transpile_expression_conditional(const IExpression *pExpression, bool closure) {
             auto conditional = as<IExpression_conditional>(pExpression);
             add_to_code("if (");
-            dispatch_transpile_expression(conditional->get_condition());
+            dispatch_transpile_expression(conditional->get_condition(), closure);
             add_to_code(") {");
-            dispatch_transpile_expression(conditional->get_true());
+            dispatch_transpile_expression(conditional->get_true(), closure);
             add_to_code("} else {");
-            dispatch_transpile_expression(conditional->get_false());
+            dispatch_transpile_expression(conditional->get_false(), closure);
             add_to_code("}");
         }
 
-        void AnyDSL_Transpiler::transpile_expression_unary(const IExpression *pExpression) {
+        void AnyDSL_Transpiler::transpile_expression_unary(const IExpression *pExpression, bool closure) {
             auto un = as<IExpression_unary>(pExpression);
 
             add_to_code(unary_operator_to_string(un->get_operator()));
@@ -1095,27 +1095,30 @@ namespace mi {
             if (is_assign_operator(un->get_operator())) {
                 add_to_code("&mut ");
             }
-            dispatch_transpile_expression(un->get_argument());
+            dispatch_transpile_expression(un->get_argument(), closure);
             add_to_code(")");
         }
 
-        void AnyDSL_Transpiler::transpile_expression_reference(const IExpression *pExpression) {
+        void AnyDSL_Transpiler::transpile_expression_reference(const IExpression *pExpression, bool closure) {
             const IExpression_reference *ref = as<IExpression_reference>(pExpression);
             add_to_code(ref->get_definition()->get_symbol()->get_name());
+            if(closure && !is_stateless_return_type(ref->get_type())){
+                add_to_code("(state)");
+            }
         }
 
-        void AnyDSL_Transpiler::transpile_expression_binary(const IExpression *pExpression) {
+        void AnyDSL_Transpiler::transpile_expression_binary(const IExpression *pExpression, bool closure) {
             auto bin = as<IExpression_binary>(pExpression);
             switch (bin->get_operator()) {
                 case IExpression_binary::OK_SELECT:
-                    dispatch_transpile_expression(bin->get_left_argument());
+                    dispatch_transpile_expression(bin->get_left_argument(), closure);
                     add_to_code(".");
-                    dispatch_transpile_expression(bin->get_right_argument());
+                    dispatch_transpile_expression(bin->get_right_argument(), false);
                     break;
                 case IExpression_binary::OK_ARRAY_INDEX:
-                    dispatch_transpile_expression(bin->get_left_argument());
+                    dispatch_transpile_expression(bin->get_left_argument(), closure);
                     add_to_code("(");
-                    dispatch_transpile_expression(bin->get_right_argument());
+                    dispatch_transpile_expression(bin->get_right_argument(), closure);
                     add_to_code(")");
                     break;
 
@@ -1133,25 +1136,27 @@ namespace mi {
                         add_to_code("&mut ");
                     }
 
-                    dispatch_transpile_expression(bin->get_left_argument());
+                    dispatch_transpile_expression(bin->get_left_argument(), closure);
 
 
                     add_to_code(",\n");
                     add_to_code("", true);
-                    dispatch_transpile_expression(bin->get_right_argument());
+                    dispatch_transpile_expression(bin->get_right_argument(), closure);
                     add_to_code("\n");
                     indent_level--;
                     add_to_code(")", true);
             }
         }
 
-        void AnyDSL_Transpiler::transpile_expression_call(const IExpression *pExpression) {
+        void AnyDSL_Transpiler::transpile_expression_call(const IExpression *pExpression, bool closure) {
             const auto *c = as<IExpression_call>(pExpression);
             auto callee = as<IExpression_reference>(c->get_reference());
             const IDefinition *callee_def =
                     callee->get_definition() == nullptr ? callee->get_name()->get_qualified_name()->get_definition()
                                                         : callee->get_definition();
             const IType_function *ct = as<IType_function>(callee->get_type());
+            const IType* rt = ct->get_return_type();
+            bool is_stateles = is_stateless_return_type(rt);
             auto callee_name = callee_def->get_symbol()->get_name();
             if (is_state_semantics(callee_def->get_semantics())) {
                 add_to_code("state.");
@@ -1177,7 +1182,7 @@ namespace mi {
                     const IArgument *arg = c->get_argument(i);
                     const IExpression *exp = arg->get_argument_expr();
 
-                    dispatch_transpile_expression(exp);
+                    dispatch_transpile_expression(exp, closure);
 
                     add_to_code(",\n");
                 }
@@ -1192,7 +1197,7 @@ namespace mi {
                     if (i > 0) {
                         add_to_code(",");
                     }
-                    dispatch_transpile_expression(c->get_argument(i)->get_argument_expr());
+                    dispatch_transpile_expression(c->get_argument(i)->get_argument_expr(), closure);
                 }
                 add_to_code("]");
                 return;
@@ -1206,7 +1211,7 @@ namespace mi {
                 add_to_code(type_to_string_for_mangling(exp->get_type(), true));
             }
 
-            if (!is_constructor(callee_def->get_semantics())) {
+            if (!is_constructor(callee_def->get_semantics()) && !is_stateles) {
                 add_to_code("_State");
             }
 
@@ -1220,10 +1225,17 @@ namespace mi {
                 const IExpression *exp = arg->get_argument_expr();
 
                 add_to_code("", true);
-                dispatch_transpile_expression(exp);
+                if(is_stateles){
+                    add_to_code("|state:State|{");
+                    dispatch_transpile_expression(exp, true);
+                    add_to_code("}");
+                } else {
+                    dispatch_transpile_expression(exp, closure);
+                }
+
                 add_to_code(",\n");
             }
-            if (!is_constructor(callee_def->get_semantics())) {
+            if (!is_constructor(callee_def->get_semantics()) && !is_stateles) {
                 add_to_code("state,\n", true);
             }
 
@@ -1402,22 +1414,9 @@ namespace mi {
             return stateless_return_types.find(t) != stateless_return_types.end();
         }
 
-        void AnyDSL_Transpiler::dispatch_transpile_expression_closure(const IExpression *exp) {
-            switch (exp->get_kind()) {
 
-                case IExpression::EK_REFERENCE:
-                    transpile_expression_reference(exp);
-                    break;
-                default:
-                    dispatch_transpile_expression(exp);
-            }
-        }
 
-        void AnyDSL_Transpiler::transpile_expression_reference_closure(const IExpression *pExpression) {
-            const IExpression_reference *ref = as<IExpression_reference>(pExpression);
-            add_to_code(ref->get_definition()->get_symbol()->get_name());
-            add_to_code("(state)");
-        }
+
     }  // namespace mdl
 
 }  // namespace mi

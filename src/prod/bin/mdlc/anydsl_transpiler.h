@@ -120,25 +120,25 @@ namespace mi {
 
             void transpile_declaration_statement(const IStatement *pStatement);
 
-            void dispatch_transpile_expression(const IExpression *exp);
+            void dispatch_transpile_expression(const IExpression *exp, bool closure);
 
-            void dispatch_transpile_expression_closure(const IExpression *exp);
 
-            void transpile_expression_literal(const IExpression *pExpression);
 
-            void transpile_expression_let(const IExpression *pExpression);
+            void transpile_expression_literal(const IExpression *pExpression, bool closure);
 
-            void transpile_expression_conditional(const IExpression *pExpression);
+            void transpile_expression_let(const IExpression *pExpression, bool closure);
 
-            void transpile_expression_unary(const IExpression *pExpression);
+            void transpile_expression_conditional(const IExpression *pExpression, bool closure);
 
-            void transpile_expression_reference(const IExpression *pExpression);
+            void transpile_expression_unary(const IExpression *pExpression, bool closure);
 
-            void transpile_expression_reference_closure(const IExpression *pExpression);
+            void transpile_expression_reference(const IExpression *pExpression, bool closure);
 
-            void transpile_expression_binary(const IExpression *pExpression);
 
-            void transpile_expression_call(const IExpression *pExpression);
+
+            void transpile_expression_binary(const IExpression *pExpression, bool closure);
+
+            void transpile_expression_call(const IExpression *pExpression, bool closure);
         };
     }  // namespace mdl
 }  // namespace mi
