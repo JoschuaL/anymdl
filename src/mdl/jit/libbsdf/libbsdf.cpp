@@ -632,7 +632,14 @@ public:
 
     BSDF_INLINE float3 sample(const float3 &xi, const float3 &k) const {
         return flip(hvd_phong_sample(make_float2(xi.x, xi.y), m_exponent), k, xi.z);
-    }
+    }struct EDF_pdf_data
+{
+    // Input fields
+    float3 k1;              // outgoing direction
+
+    // Output fields
+    float pdf;              // pdf (non-projected hemisphere)
+};
 
     BSDF_INLINE float eval(const float3 &h) const {
         return hvd_phong_eval(m_exponent, h.y, h.x, h.z);

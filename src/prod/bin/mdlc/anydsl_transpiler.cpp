@@ -48,6 +48,18 @@ namespace mi {
                 const IDefinition *def = module->get_builtin_definition(i);
                 dispatch_transpile_definition(def);
             }*/
+            size_t index = 0;
+            while (true) {
+                /* Locate the substring to replace. */
+                index = this->out.find("ENUM+DELIMITER+STRING", index);
+                if (index == std::string::npos) break;
+
+                /* Make the replacement. */
+                this->out.replace(index, std::string("ENUM+DELIMITER+STRING").size(), "::");
+
+                /* Advance index forward so the next iteration doesn't pick it up as well. */
+                index += 2;
+            }
         }
 
         void AnyDSL_Transpiler::dispatch_transpile_definition(const IDefinition *def) {
@@ -470,6 +482,8 @@ namespace mi {
                 if (!is_compound) {
                     indent_level--;
                     add_to_code("}\n\n", true);
+                    size_t index = this->out.rfind(";");
+                    this->out.erase(index, 1);
                 } else {
                     add_to_code("\n");
                 }
@@ -510,14 +524,14 @@ namespace mi {
                 add_to_code(type_to_string_for_mangling(s->get_field_type_name(i)->get_type(), true));
             }
 
-            add_to_code("_State_mdl_math(");
+            add_to_code("_mdl_math(");
             for (int i = 0; i < s->get_field_count(); i++) {
                 add_to_code(s->get_field_name(i)->get_symbol()->get_name(), true);
                 add_to_code(": ");
                 add_to_code(type_to_string_for_mangling(s->get_field_type_name(i)->get_type(), false));
                 add_to_code(", ");
             }
-            add_to_code("state: State, math: mdl_math) -> ");
+            add_to_code("math: mdl_math) -> ");
             add_to_code(s->get_name()->get_symbol()->get_name());
             add_to_code(" {\n");
             indent_level++;
@@ -540,10 +554,10 @@ namespace mi {
             add_to_code(s->get_name()->get_symbol()->get_name());
             add_to_code("__");
             add_to_code(s->get_name()->get_symbol()->get_name());
-            add_to_code("_State_mdl_math");
+            add_to_code("_mdl_math");
             add_to_code("(copy:  ");
             add_to_code(s->get_name()->get_symbol()->get_name());
-            add_to_code(", state: State, math: mdl_math) -> ");
+            add_to_code(", math: mdl_math) -> ");
             add_to_code(s->get_name()->get_symbol()->get_name());
             add_to_code(" {\n");
             indent_level++;
@@ -694,9 +708,9 @@ namespace mi {
             const auto *e = as<IStatement_expression>(stat);
             add_to_code("", true);
             dispatch_transpile_expression(e->get_expression(), false);
-            if(e->get_expression()->get_kind() != IExpression::Kind::EK_LET){
+
                 add_to_code(";\n");
-            }
+
 
         }
 
@@ -779,7 +793,7 @@ namespace mi {
         void AnyDSL_Transpiler::transpile_if_statement(const IStatement *stat) {
             auto f = as<IStatement_if>(stat);
             add_to_code("if (", true);
-            dispatch_transpile_expression(f->get_condition(),false);
+            dispatch_transpile_expression(f->get_condition(), false);
             add_to_code(") {\n");
             indent_level++;
             dispatch_transpile_statement(f->get_then_statement());
@@ -836,106 +850,21 @@ namespace mi {
                 case IValue::VK_BAD:
                     break;
                 case IValue::VK_BOOL:
-                    s = std::to_string(as<IValue_bool>(l)->get_value());
-                    break;
-                case IValue::VK_INT:
-                    s = std::to_string(as<IValue_int>(l)->get_value());
-                    break;
-                case IValue::VK_ENUM:
-                    s = std::to_string(as<IValue_enum>(l)->get_value());
-                    break;
-                case IValue::VK_FLOAT:
-                    s = std::to_string(as<IValue_float>(l)->get_value()) + "f";
-                    break;
-                case IValue::VK_DOUBLE:
-                    s = std::to_string(as<IValue_double>(l)->get_value());
-                    break;
-                case IValue::VK_STRING:
-                    s = (as<IValue_string>(l)->get_value());
-                    break;
-                case IValue::VK_VECTOR: {
-                    s = "[";
-                    const auto *v = as<IValue_vector>(l);
-                    for (int i = 0; i < v->get_component_count(); i++) {
-                        auto saba = v->get_value(i);
-                        s += value_to_string(saba);
-                        s += ", ";
-                    }
-                    s += "]";
-                    break;
-                }
-                case IValue::VK_MATRIX:
-                    UNREACHABLE;
-                    // s = std::to_string(as<IValue_matrix>(l)->get_value());
-                    break;
-                case IValue::VK_ARRAY:
-                    UNREACHABLE;
-                    // s = std::to_string(as<IValue_array>(l)->get_value());
-                    break;
-                case IValue::VK_RGB_COLOR:
-                    s = "[" + std::to_string(as<IValue_rgb_color>(l)->get_value(0)->get_value()) +
-                        "f, " + std::to_string(as<IValue_rgb_color>(l)->get_value(1)->get_value()) +
-                        "f, " + std::to_string(as<IValue_rgb_color>(l)->get_value(2)->get_value()) + "f]";
-                    break;
-                case IValue::VK_STRUCT: {
-                    const auto *v = as<IValue_struct>(l);
-                    const auto *st = as<IType_struct>(v->get_type());
-                    s = std::string(st->get_symbol()->get_name()) + "{\n";
-                    indent_level++;
-                    const ISymbol *sym = nullptr;
-                    const IType *type = nullptr;
-                    for (int i = 0; i < st->get_field_count(); ++i) {
-                        st->get_field(i, type, sym);
-                        s += indent_code(sym->get_name());
-                        s += " : ";
-                        s += value_to_string(v->get_field(sym));
-                        s += ",\n";
-                    }
-                    indent_level--;
-                    s += indent_code("}");
-                    break;
-                }
-                case IValue::VK_INVALID_REF: {
-                    const IType *t = as<IValue_invalid_ref>(l)->get_type();
-                    s = std::string(type_to_string_for_mangling(t, true)) + "_()";
-                    break;
-                }
-                case IValue::VK_TEXTURE:
-                    UNREACHABLE;
-                    break;
-                case IValue::VK_LIGHT_PROFILE:
-                    UNREACHABLE;
-                    s = std::to_string(as<IValue_bool>(l)->get_value());
-                    break;
-                case IValue::VK_BSDF_MEASUREMENT:
-                    UNREACHABLE;
-                    s = std::to_string(as<IValue_bool>(l)->get_value());
-                    break;
-            }
-            return s;
-        }
 
-        void AnyDSL_Transpiler::transpile_expression_literal(const IExpression *pExpression, bool closure) {
-            auto l = as<IExpression_literal>(pExpression)->get_value();
-            std::string s = std::string();
-            switch (l->get_kind()) {
-                case IValue::VK_BAD:
-                    break;
-                case IValue::VK_BOOL:
                     s = as<IValue_bool>(l)->get_value() ? "true" : "false";
                     break;
                 case IValue::VK_INT:
                     s = std::to_string(as<IValue_int>(l)->get_value());
                     break;
                 case IValue::VK_ENUM: {
-                    const IValue_enum *ev = as<IValue_enum>(l);
-                    const IType_enum *et = ev->get_type();
-                    int code;
-                    const ISymbol *name;
-                    et->get_value(ev->get_index(), name, code);
-                    s = std::string(name->get_name());
-                    break;
+                    const IValue_enum *ve = as<IValue_enum>(l);
+                    const IType_enum *en = ve->get_type();
+                    const ISymbol *sym = nullptr;
+                    int code = 0;
+                    en->get_value(ve->get_index(), sym, code);
+                    s = std::string(en->get_symbol()->get_name()) + "ENUM+DELIMITER+STRING" + std::string(sym->get_name());
                 }
+                    break;
                 case IValue::VK_FLOAT:
                     s = std::to_string(as<IValue_float>(l)->get_value()) + "f";
                     break;
@@ -950,10 +879,8 @@ namespace mi {
                     const auto *v = as<IValue_vector>(l);
                     for (int i = 0; i < v->get_component_count(); i++) {
                         auto saba = v->get_value(i);
-                        if (i != 0) {
-                            s += ",";
-                        }
                         s += value_to_string(saba);
+                        s += ", ";
                     }
                     s += "]";
                     break;
@@ -985,43 +912,77 @@ namespace mi {
                     break;
                 }
                 case IValue::VK_RGB_COLOR:
-                    s = "[" + std::to_string(as<IValue_rgb_color>(l)->get_value(0)->get_value()) + "f, " +
-                        std::to_string(as<IValue_rgb_color>(l)->get_value(1)->get_value()) + "f, " +
-                        std::to_string(as<IValue_rgb_color>(l)->get_value(2)->get_value()) + "f]";
+                    s = "[" + std::to_string(as<IValue_rgb_color>(l)->get_value(0)->get_value()) +
+                        "f, " + std::to_string(as<IValue_rgb_color>(l)->get_value(1)->get_value()) +
+                        "f, " + std::to_string(as<IValue_rgb_color>(l)->get_value(2)->get_value()) + "f]";
                     break;
                 case IValue::VK_STRUCT: {
-                    const auto *v = as<IValue_struct>(l);
-                    const auto *st = as<IType_struct>(v->get_type());
-                    s = std::string(st->get_symbol()->get_name()) + "{\n";
-                    indent_level++;
+                    const IValue_struct *v = as<IValue_struct>(l);
+                    const IType_struct *st = as<IType_struct>(v->get_type());
+                    bool is_stateless = is_stateless_return_type(v->get_type());
+                    s = std::string(st->get_symbol()->get_name()) + "_";
                     const ISymbol *sym = nullptr;
                     const IType *type = nullptr;
                     for (int i = 0; i < st->get_field_count(); ++i) {
                         st->get_field(i, type, sym);
-                        s += indent_code(sym->get_name());
-                        s += " : ";
-                        s += value_to_string(v->get_field(sym));
+                        s += "_";
+                        s += type_to_string_for_mangling(type, true);
+                    }
+                    s += "_mdl_math(\n";
+                    indent_level++;
+                    for (int i = 0; i < st->get_field_count(); ++i) {
+                        st->get_field(i, type, sym);
+                        s += indent_code("");
+                        if (is_stateless) {
+                            s += "|state:State|{";
+                        }
+                        while (type->get_kind() == IType::Kind::TK_ALIAS) {
+                            type = as<IType_alias>(type)->get_aliased_type();
+                        }
+
+                        s += (value_to_string(v->get_field(sym)));
+
+
+                        if (is_stateless) {
+                            s += "}";
+                        }
                         s += ",\n";
                     }
+                    s += indent_code("math\n");
                     indent_level--;
-                    s += indent_code("}");
+                    s += indent_code(")");
                     break;
                 }
-                case IValue::VK_INVALID_REF:
-                    break;
-                case IValue::VK_TEXTURE: {
-                    s = "texture";
+                case IValue::VK_INVALID_REF: {
+                    const IType *t = as<IValue_invalid_ref>(l)->get_type();
+                    s = std::string(type_to_string_for_mangling(t, true)) + "__mdl_math(math)";
                     break;
                 }
+                case IValue::VK_TEXTURE:
+                    NOT_IMPLEMENTED;
+                    break;
                 case IValue::VK_LIGHT_PROFILE:
                     NOT_IMPLEMENTED;
                     s = std::to_string(as<IValue_bool>(l)->get_value());
                     break;
                 case IValue::VK_BSDF_MEASUREMENT:
-                    s = "bsdf_measurement";
+                    NOT_IMPLEMENTED;
+                    s = std::to_string(as<IValue_bool>(l)->get_value());
                     break;
             }
-            add_to_code(s);
+            unsigned long abs_path = s.find("::");
+            while (abs_path != std::string::npos) {
+                s = s.substr(abs_path + 2);
+                abs_path = s.find("::");
+            }
+
+            return s;
+        }
+
+        void AnyDSL_Transpiler::transpile_expression_literal(const IExpression *pExpression, bool closure) {
+            auto l = as<IExpression_literal>(pExpression)->get_value();
+
+            add_to_code(value_to_string(l));
         }
 
         void AnyDSL_Transpiler::transpile_expression_let(const IExpression *pExpression, bool closure) {
@@ -1102,7 +1063,7 @@ namespace mi {
         void AnyDSL_Transpiler::transpile_expression_reference(const IExpression *pExpression, bool closure) {
             const IExpression_reference *ref = as<IExpression_reference>(pExpression);
             add_to_code(ref->get_definition()->get_symbol()->get_name());
-            if(closure && !is_stateless_return_type(ref->get_type())){
+            if (closure && !is_stateless_return_type(ref->get_type())) {
                 add_to_code("(state)");
             }
         }
@@ -1155,12 +1116,34 @@ namespace mi {
                     callee->get_definition() == nullptr ? callee->get_name()->get_qualified_name()->get_definition()
                                                         : callee->get_definition();
             const IType_function *ct = as<IType_function>(callee->get_type());
-            const IType* rt = ct->get_return_type();
+            const IType *rt = ct->get_return_type();
             bool is_stateles = is_stateless_return_type(rt);
             auto callee_name = callee_def->get_symbol()->get_name();
             if (is_state_semantics(callee_def->get_semantics())) {
                 add_to_code("state.");
                 add_to_code(callee_name);
+                for (int i = 0; i < c->get_argument_count(); ++i) {
+                    const IArgument *arg = c->get_argument(i);
+                    const IExpression *exp = arg->get_argument_expr();
+                    add_to_code("_");
+                    add_to_code(type_to_string_for_mangling(exp->get_type(), true));
+                }
+                add_to_code("(");
+
+
+
+
+                for (int i = 0; i < c->get_argument_count(); ++i) {
+                    const IArgument *arg = c->get_argument(i);
+                    const IExpression *exp = arg->get_argument_expr();
+
+                    dispatch_transpile_expression(exp, closure);
+
+                    add_to_code(", ");
+                }
+
+                add_to_code(")");
+
                 return;
             }
             if (is_math_semantics(callee_def->get_semantics())) {
@@ -1207,14 +1190,17 @@ namespace mi {
             for (int i = 0; i < c->get_argument_count(); ++i) {
                 const IArgument *arg = c->get_argument(i);
                 const IExpression *exp = arg->get_argument_expr();
+                auto t = type_to_string_for_mangling(exp->get_type(), true);
+                if (t == "string") {
+                    continue;
+                }
                 add_to_code("_");
-                add_to_code(type_to_string_for_mangling(exp->get_type(), true));
+                add_to_code(t);
             }
 
             if (!is_constructor(callee_def->get_semantics()) && !is_stateles) {
                 add_to_code("_State");
             }
-
 
             add_to_code("_mdl_math");
             add_to_code("(\n");
@@ -1223,9 +1209,13 @@ namespace mi {
             for (int i = 0; i < c->get_argument_count(); ++i) {
                 const IArgument *arg = c->get_argument(i);
                 const IExpression *exp = arg->get_argument_expr();
+                auto t = type_to_string_for_mangling(exp->get_type(), true);
+                if (t == "string") {
+                    continue;
+                }
 
                 add_to_code("", true);
-                if(is_stateles){
+                if (is_stateles) {
                     add_to_code("|state:State|{");
                     dispatch_transpile_expression(exp, true);
                     add_to_code("}");
@@ -1413,8 +1403,6 @@ namespace mi {
             std::string t = type_to_string_for_mangling(type, false);
             return stateless_return_types.find(t) != stateless_return_types.end();
         }
-
-
 
 
     }  // namespace mdl

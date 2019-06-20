@@ -7,7 +7,7 @@ import limits::*;
 import tex::*;
 
 
-/*export material glossy_material(float2 roughness = float2(0.0), color tint = color(1.0))
+export material glossy_material(float2 roughness = float2(0.0), color tint = color(1.0))
 = let bsdf tmp = df::simple_glossy_bsdf(roughness[0], roughness[1], color(state::normal()) * tint);
 in material(
     surface: material_surface(scattering: tmp),
@@ -15,7 +15,7 @@ in material(
 );
 
 export material simple_glossy_material()
-= glossy_material();*/
+= glossy_material();
 
 
 
@@ -24,7 +24,7 @@ export material simple_glossy_material()
 
 
 
-/*// A material used for instance compilation vs class compilation.
+// A material used for instance compilation vs class compilation.
 export material example_compilation(color tint = color(1.0f))
 = material(
     surface: material_surface(
@@ -33,7 +33,7 @@ export material example_compilation(color tint = color(1.0f))
     backface: material_surface(
         scattering: df::diffuse_reflection_bsdf(tint: tint * color(state::normal()) * math::sin(3))
     )
-);*/
+);
 
 
 
