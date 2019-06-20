@@ -1,0 +1,8 @@
+static INT_MIN : int = -2147483648;
+static INT_MAX : int = 2147483647;
+static WAVELENGTH_MIN : float = 380.000000f;
+static WAVELENGTH_MAX : float = 780.000000f;
+static FLOAT_MIN : float = 0.000000f;
+static FLOAT_MAX : float = 340282346638528859811704183484516925440.000000f;
+static DOUBLE_MIN : double = 0.000000;
+static DOUBLE_MAX : double = inf;

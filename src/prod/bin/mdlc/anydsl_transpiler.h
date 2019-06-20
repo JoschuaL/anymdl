@@ -28,7 +28,7 @@ namespace mi {
 
             std::string indent_code(const std::string &str);
 
-            std::unordered_set<std::string> imports = {"::<builtins>", "::math", "::state", "::df", "::limits", "::tex"};
+            std::unordered_set<std::string> imports = {"::<builtins>", "::math", "::state", "::df", "::limits", "::tex", "::debug"};
 
             const std::unordered_set<std::string> stateless_return_types = {"material", "material_surface", "material_volume", "material_geometry", "bsdf", "material_emission", "edf", "vdf"};
 

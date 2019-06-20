@@ -1,0 +1,2357 @@
+static pi = 3.14159265358979323846f;
+static half_pi = 1.57079632679489661923f;
+static two_pi = 6.28318530717958647692f;
+
+fn @make_mdl_math(math: Intrinsics) -> mdl_math{
+    mdl_math{
+    PI: pi,
+    TWO_PI : two_pi,
+    HALF_PI: half_pi,
+    
+abs__int: |a:int|{if(a < 0) {-a} else {a}},
+
+
+
+abs__int2: |a:int2|{[abs__int(a(0)), abs__int(a(1))]},
+
+
+
+abs__int3: |a:int3|{[abs__int(a(0)), abs__int(a(1)), abs__int(a(2))]},
+
+
+
+abs__int4: |a:int4|{[abs__int(a(0)), abs__int(a(1)), abs__int(a(2)), abs__int(a(3))]},
+
+
+
+abs__float: |a:float|{math.fabsf(a)},
+
+
+
+abs__float2: |a:float2|{[abs__float(a(0)), abs__float(a(1))]},
+
+
+
+abs__float3: |a:float3|{[abs__float(a(0)), abs__float(a(1)), abs__float(a(2))]},
+
+
+
+abs__float4: |a:float4|{[abs__float(a(0)), abs__float(a(1)), abs__float(a(2)), abs__float(a(3))]},
+
+
+
+abs__double: |a:double|{math.fabs(a)},
+
+
+
+abs__double2: |a:double2|{[abs__double(a(0)), abs__double(a(1))]},
+
+
+
+abs__double3: |a:double3|{[abs__double(a(0)), abs__double(a(1)), abs__double(a(2))]},
+
+
+
+abs__double4: |a:double4|{[abs__double(a(0)), abs__double(a(1)), abs__double(a(2)), abs__double(a(3))]},
+
+
+
+abs__color: |c:color|{[abs__float(c(0)), abs__float(c(1)), abs__float(2))]},
+
+
+
+acos__float: |a:float|{math.acosf(a)},
+
+
+
+acos__float2: |a:float2|{[acos__float(a(0)), acos__float(a(1))]},
+
+
+
+acos__float3: |a:float3|{[acos__float(a(0)), acos__float(a(1)), acos__float(a(2))]},
+
+
+
+acos__float4: |a:float4|{[acos__float(a(0)), acos__float(a(1)), acos__float(a(2)), acos__float(a(3))]},
+
+
+
+acos__double: |a:double|{math.acos(a)},
+
+
+
+acos__double2: |a:double2|{[acos__double(a(0)), acos__double(a(1))]},
+
+
+
+acos__double3: |a:double3|{[acos__double(a(0)), acos__double(a(1)), acos__double(a(2))]},
+
+
+
+acos__double4: |a:double4|{[acos__double(a(0)), acos__double(a(1)), acos__double(a(2)), acos__double(a(3))]},
+
+
+
+all__bool: |b:bool|{b},
+
+
+
+all__bool2: |b:bool2|{b(0) && b(1)},
+
+
+
+all__bool3: |b:bool3|{b(0) && b(1) && b(2)},
+
+
+
+all__bool4: |b:bool4|{b(0) && b(1) && b(2) && b(3)},
+
+
+
+any__bool: |b:bool|{b},
+
+
+
+any__bool2: |b:bool2|{b(0) || b(1)},
+
+
+
+any__bool3: |b:bool3|{b(0) || b(1) || b(2)},
+
+
+
+any__bool4: |b:bool4|{b(0) || b(1) || b(2) || b(3)},
+
+
+
+asin__float: |a:float|{math.asinf(a)},
+
+
+
+asin__float2: |a:float2|{[asin__float(a(0)), asin__float(a(1))]},
+
+
+
+asin__float3: |a:float3|{[asin__float(a(0)), asin__float(a(1)), asin__float(a(2))]},
+
+
+
+asin__float4: |a:float4|{[asin__float(a(0)), asin__float(a(1)), asin__float(a(2)), asin__float(a(3))]},
+
+
+
+asin__double: |a:double|{math.asin(a)},
+
+
+
+asin__double2: |a:double2|{[asin__double(a(0)), asin__double(a(1))]},
+
+
+
+asin__double3: |a:double3|{[asin__double(a(0)), asin__double(a(1)), asin__double(a(2))]},
+
+
+
+asin__double4: |a:double4|{[asin__double(a(0)), asin__double(a(1)), asin__double(a(2)), asin__double(a(3))]},
+
+
+
+
+atan__float: |a:float|{math.atanf(a)},
+
+
+
+atan__float2: |a:float2|{[atan__float(a(0)), atan__float(a(1))]},
+
+
+
+atan__float3: |a:float3|{[atan__float(a(0)), atan__float(a(1)), atan__float(a(2))]},
+
+
+
+atan__float4: |a:float4|{[atan__float(a(0)), atan__float(a(1)), atan__float(a(2)), atan__float(a(3))]},
+
+
+
+atan__double: |a:double|{math.atan(a)},
+
+
+
+atan__double2: |a:double2|{[atan__double(a(0)), atan__double(a(1))]},
+
+
+
+atan__double3: |a:double3|{[atan__double(a(0)), atan__double(a(1)), atan__double(a(2))]},
+
+
+
+atan__double4: |a:double4|{[atan__double(a(0)), atan__double(a(1)), atan__double(a(2)), atan__double(a(3))]},
+
+
+
+atan2__float_float: |a:float, b:float|{math.atan2f(a,b)},
+
+
+
+atan2__float2_float2: |a:float2, b:float2|{[math.atan2f(a(0),b(0)), math.atan2f(a(1),b(1))]},
+
+
+
+atan2__float3_float3: |a:float3, b:float3|{[math.atan2f(a(0),b(0)), math.atan2f(a(1),b(1)), math.atan2f(a(2), b(2))]},
+
+
+
+atan2__float4_float4: |a:float4, b:float4|{[math.atan2f(a(0),b(0)), math.atan2f(a(1),b(1)), math.atan2f(a(2), b(2)), math.atan2f(a(3), b(3))]},
+
+
+
+atan2__double_double: |a:double, b:double|{math.atan2(a,b)},
+
+
+
+atan2__double2_double2: |a:double2, b:double2|{[math.atan2(a(0),b(0)), math.atan2(a(1),b(1))]},
+
+
+
+atan2__double3_double3: |a:double3, b:double3|{[math.atan2(a(0),b(0)), math.atan2(a(1),b(1)), math.atan2(a(2), b(2))]},
+
+
+
+atan2__double4_double4: |a:double4, b:double4|{[math.atan2(a(0),b(0)), math.atan2(a(1),b(1)), math.atan2(a(2), b(2)), math.atan2(a(3), b(3))]},
+
+
+
+
+average__float: |a:float|{a},
+
+
+
+average__float2: |a:float2|{(a(0) + a(1)) / 2.0f},
+
+
+
+average__float3: |a:float3|{(a(0) + a(1) + a(2)) / 3.0f},
+
+
+
+average__float4: |a:float4|{(a(0) + a(1) + a(2) + a(3)) / 4.0f},
+
+
+
+average__double: |a:double|{a},
+
+
+
+average__double2: |a:double2|{(a(0) + a(1)) / 2.0},
+
+
+
+average__double3: |a:double3|{(a(0) + a(1) + a(2)) / 3.0},
+
+
+
+average__double4: |a:double4|{(a(0) + a(1) + a(2) + a(3)) / 4.0},
+
+
+
+average__color: |a:color|{(a(0) + a(1) + a(2)) / 3.0f},
+
+
+
+ceil__float: |a:float|{math.floorf(a + 1.0f)},
+
+
+
+ceil__float2: |a:float2|{[ceil__float(a(0)), ceil__float(a(1))]},
+
+
+
+ceil__float3: |a:float3|{[ceil__float(a(0)), ceil__float(a(1)), ceil__float(a(2))]},
+
+
+
+ceil__float4: |a:float4|{[ceil__float(a(0)), ceil__float(a(1)), ceil__float(a(2)), ceil__float(a(3))]},
+
+
+
+ceil__double: |a:double|{math.floor(a + 1.0)},
+
+
+
+ceil__double2: |a:double2|{[ceil__double(a(0)), ceil__double(a(1))]},
+
+
+
+ceil__double3: |a:double3|{[ceil__double(a(0)), ceil__double(a(1)), ceil__double(a(2))]},
+
+
+
+ceil__double4: |a:double4|{[ceil__double(a(0)), ceil__double(a(1)), ceil__double(a(2)), ceil__double(a(3))]},
+
+
+
+
+clamp__int_int_int: |a:int, b:int, c:int|{if(a < b){b} else if(a > c){c} else {a}},
+
+
+
+clamp__int2_int2_int2: |a:int2, b:int2, c:int2|{[
+    clamp__int_int_int(a(0), b(0), c(0)),
+    clamp__int_int_int(a(1), b(1), c(1))
+]},
+
+
+
+clamp__int3_int3_int3: |a:int3, b:int3, c:int3|{[
+    clamp__int_int_int(a(0), b(0), c(0)),
+    clamp__int_int_int(a(1), b(1), c(1)),
+    clamp__int_int_int(a(2), b(2), c(2))
+]},
+
+
+
+clamp__int4_int4_int4: |a:int4, b:int4, c:int4|{[
+    clamp__int_int_int(a(0), b(0), c(0)),
+    clamp__int_int_int(a(1), b(1), c(1)),
+    clamp__int_int_int(a(2), b(2), c(2)),
+    clamp__int_int_int(a(3), b(3), c(3))
+]},
+
+
+
+clamp__float_float_float: |a:float, b:float, c:float|{if(a < b){b} else if(a > c){c} else {a}},
+
+
+
+clamp__float2_float2_float2: |a:float2, b:float2, c:float2|{[
+    clamp__float_float_float(a(0), b(0), c(0)),
+    clamp__float_float_float(a(1), b(1), c(1))
+]},
+
+
+
+clamp__float3_float3_float3: |a:float3, b:float3, c:float3|{[
+    clamp__float_float_float(a(0), b(0), c(0)),
+    clamp__float_float_float(a(1), b(1), c(1)),
+    clamp__float_float_float(a(2), b(2), c(2))
+]},
+
+
+
+clamp__float4_float4_float4: |a:float4, b:float4, c:float4|{[
+    clamp__float_float_float(a(0), b(0), c(0)),
+    clamp__float_float_float(a(1), b(1), c(1)),
+    clamp__float_float_float(a(2), b(2), c(2)),
+    clamp__float_float_float(a(3), b(3), c(3))
+]},
+
+
+
+clamp__double_double_double: |a:double, b:double, c:double|{if(a < b){b} else if(a > c){c} else {a}},
+
+
+
+clamp__double2_double2_double2: |a:double2, b:double2, c:double2|{[
+    clamp__double_double_double(a(0), b(0), c(0)),
+    clamp__double_double_double(a(1), b(1), c(1))
+]},
+
+
+
+clamp__double3_double3_double3: |a:double3, b:double3, c:double3|{[
+    clamp__double_double_double(a(0), b(0), c(0)),
+    clamp__double_double_double(a(1), b(1), c(1)),
+    clamp__double_double_double(a(2), b(2), c(2))
+]},
+
+
+
+clamp__double4_double4_double4: |a:double4, b:double4, c:double4|{[
+    clamp__double_double_double(a(0), b(0), c(0)),
+    clamp__double_double_double(a(1), b(1), c(1)),
+    clamp__double_double_double(a(2), b(2), c(2)),
+    clamp__double_double_double(a(3), b(3), c(3))
+]},
+
+
+
+clamp__color_color_color: |a:color, b:color, c:color|{[
+    clamp__float_float_float(a(0), b(0), c(0)),
+    clamp__float_float_float(a(1), b(1), c(1)),
+    clamp__float_float_float(a(2), b(2), c(2))
+]},
+
+
+
+clamp__int2_int2_int: |a:int2, b:int2, c:int|{[
+    clamp__int_int_int(a(0), b(0), c),
+    clamp__int_int_int(a(1), b(1), c)
+]},
+
+
+
+clamp__int2_int_int2: |a:int2, b:int, c:int2|{[
+    clamp__int_int_int(a(0), b, c(0)),
+    clamp__int_int_int(a(1), b, c(1))
+]},
+
+
+
+clamp__int2_int_int: |a:int2, b:int, c:int|{[
+    clamp__int_int_int(a(0), b, c),
+    clamp__int_int_int(a(1), b, c)
+]},
+
+
+
+clamp__int3_int3_int: |a:int3, b:int3, c:int|{[
+    clamp__int_int_int(a(0), b(0), c),
+    clamp__int_int_int(a(1), b(1), c),
+    clamp__int_int_int(a(2), b(2), c)
+]},
+
+clamp__int3_int_int3: |a:int3, b:int, c:int3|{[
+    clamp__int_int_int(a(0), b, c(0)),
+    clamp__int_int_int(a(1), b, c(1)),
+    clamp__int_int_int(a(2), b, c(2))
+]},
+
+clamp__int3_int_int: |a:int3, b:int, c:int|{[
+    clamp__int_int_int(a(0), b, c),
+    clamp__int_int_int(a(1), b, c),
+    clamp__int_int_int(a(2), b, c)
+]},
+
+
+
+
+clamp__int4_int4_int: |a:int4, b:int4, c:int|{[
+    clamp__int_int_int(a(0), b(0), c),
+    clamp__int_int_int(a(1), b(1), c),
+    clamp__int_int_int(a(2), b(2), c),
+    clamp__int_int_int(a(3), b(3), c)
+]},
+
+clamp__int4_int_int4: |a:int4, b:int, c:int4|{[
+    clamp__int_int_int(a(0), b, c(0)),
+    clamp__int_int_int(a(1), b, c(1)),
+    clamp__int_int_int(a(2), b, c(2)),
+    clamp__int_int_int(a(3), b, c(3))
+]},
+
+clamp__int4_int_int: |a:int4, b:int, c:int|{[
+    clamp__int_int_int(a(0), b, c),
+    clamp__int_int_int(a(1), b, c),
+    clamp__int_int_int(a(2), b, c),
+    clamp__int_int_int(a(3), b, c)
+]},
+
+
+
+clamp__float2_float2_float: |a:float2, b:float2, c:float|{[
+    clamp__float_float_float(a(0), b(0), c),
+    clamp__float_float_float(a(1), b(1), c)
+]},
+
+
+
+clamp__float2_float_float2: |a:float2, b:float, c:float2|{[
+    clamp__float_float_float(a(0), b, c(0)),
+    clamp__float_float_float(a(1), b, c(1))
+]},
+
+
+
+clamp__float2_float_float: |a:float2, b:float, c:float|{[
+    clamp__float_float_float(a(0), b, c),
+    clamp__float_float_float(a(1), b, c)
+]},
+
+
+
+clamp__float3_float3_float: |a:float3, b:float3, c:float|{[
+    clamp__float_float_float(a(0), b(0), c),
+    clamp__float_float_float(a(1), b(1), c),
+    clamp__float_float_float(a(2), b(2), c)
+]},
+
+clamp__float3_float_float3: |a:float3, b:float, c:float3|{[
+    clamp__float_float_float(a(0), b, c(0)),
+    clamp__float_float_float(a(1), b, c(1)),
+    clamp__float_float_float(a(2), b, c(2))
+]},
+
+clamp__float3_float_float: |a:float3, b:float, c:float|{[
+    clamp__float_float_float(a(0), b, c),
+    clamp__float_float_float(a(1), b, c),
+    clamp__float_float_float(a(2), b, c)
+]},
+
+
+
+
+clamp__float4_float4_float: |a:float4, b:float4, c:float|{[
+    clamp__float_float_float(a(0), b(0), c),
+    clamp__float_float_float(a(1), b(1), c),
+    clamp__float_float_float(a(2), b(2), c),
+    clamp__float_float_float(a(3), b(3), c)
+]},
+
+clamp__float4_float_float4: |a:float4, b:float, c:float4|{[
+    clamp__float_float_float(a(0), b, c(0)),
+    clamp__float_float_float(a(1), b, c(1)),
+    clamp__float_float_float(a(2), b, c(2)),
+    clamp__float_float_float(a(3), b, c(3))
+]},
+
+clamp__float4_float_float: |a:float4, b:float, c:float|{[
+    clamp__float_float_float(a(0), b, c),
+    clamp__float_float_float(a(1), b, c),
+    clamp__float_float_float(a(2), b, c),
+    clamp__float_float_float(a(3), b, c)
+]},
+
+
+
+clamp__color_color_float: |a:color, b:color, c:float|{[
+    clamp__float_float_float(a(0), b(0), c),
+    clamp__float_float_float(a(1), b(1), c),
+    clamp__float_float_float(a(2), b(2), c)
+]},
+
+clamp__color_float_color: |a:color, b:float, c:color|{[
+    clamp__float_float_float(a(0), b, c(0)),
+    clamp__float_float_float(a(1), b, c(1)),
+    clamp__float_float_float(a(2), b, c(2))
+]},
+
+clamp__color_float_float: |a:color, b:float, c:float|{[
+    clamp__float_float_float(a(0), b, c),
+    clamp__float_float_float(a(1), b, c),
+    clamp__float_float_float(a(2), b, c)
+]},
+
+
+
+clamp__double2_double2_double: |a:double2, b:double2, c:double|{[
+    clamp__double_double_double(a(0), b(0), c),
+    clamp__double_double_double(a(1), b(1), c)
+]},
+
+
+
+clamp__double2_double_double2: |a:double2, b:double, c:double2|{[
+    clamp__double_double_double(a(0), b, c(0)),
+    clamp__double_double_double(a(1), b, c(1))
+]},
+
+
+
+clamp__double2_double_double: |a:double2, b:double, c:double|{[
+    clamp__double_double_double(a(0), b, c),
+    clamp__double_double_double(a(1), b, c)
+]},
+
+
+
+clamp__double3_double3_double: |a:double3, b:double3, c:double|{[
+    clamp__double_double_double(a(0), b(0), c),
+    clamp__double_double_double(a(1), b(1), c),
+    clamp__double_double_double(a(2), b(2), c)
+]},
+
+clamp__double3_double_double3: |a:double3, b:double, c:double3|{[
+    clamp__double_double_double(a(0), b, c(0)),
+    clamp__double_double_double(a(1), b, c(1)),
+    clamp__double_double_double(a(2), b, c(2))
+]},
+
+clamp__double3_double_double: |a:double3, b:double, c:double|{[
+    clamp__double_double_double(a(0), b, c),
+    clamp__double_double_double(a(1), b, c),
+    clamp__double_double_double(a(2), b, c)
+]},
+
+
+
+
+clamp__double4_double4_double: |a:double4, b:double4, c:double|{[
+    clamp__double_double_double(a(0), b(0), c),
+    clamp__double_double_double(a(1), b(1), c),
+    clamp__double_double_double(a(2), b(2), c),
+    clamp__double_double_double(a(3), b(3), c)
+]},
+
+clamp__double4_double_double4: |a:double4, b:double, c:double4|{[
+    clamp__double_double_double(a(0), b, c(0)),
+    clamp__double_double_double(a(1), b, c(1)),
+    clamp__double_double_double(a(2), b, c(2)),
+    clamp__double_double_double(a(3), b, c(3))
+]},
+
+clamp__double4_double_double: |a:double4, b:double, c:double|{[
+    clamp__double_double_double(a(0), b, c),
+    clamp__double_double_double(a(1), b, c),
+    clamp__double_double_double(a(2), b, c),
+    clamp__double_double_double(a(3), b, c)
+]},
+
+
+
+cos__float: |a:float|{math.cosf(a)},
+
+
+
+cos__float2: |a:float2|{[cos__float(a(0)), cos__float(a(1))]},
+
+
+
+cos__float3: |a:float3|{[cos__float(a(0)), cos__float(a(1)), cos__float(a(2))]},
+
+
+
+cos__float4: |a:float4|{[cos__float(a(0)), cos__float(a(1)), cos__float(a(2)), cos__float(a(3))]},
+
+
+
+cos__double: |a:double|{math.cos(a)},
+
+
+
+cos__double2: |a:double2|{[cos__double(a(0)), cos__double(a(1))]},
+
+
+
+cos__double3: |a:double3|{[cos__double(a(0)), cos__double(a(1)), cos__double(a(2))]},
+
+
+
+cos__double4: |a:double4|{[cos__double(a(0)), cos__double(a(1)), cos__double(a(2)), cos__double(a(3))]},
+
+
+
+cross__float3_float3: |a:float3, b:float3|{
+    [a(1) * b(2) - a(2) * b(1), a(2) * b(0) - a(0) * b(2), a(0) * b(1) - a(1) * b(0)]
+},
+
+
+
+cross__double3_double3: |a:double3, b:double3|{
+    [a(1) * b(2) - a(2) * b(1), a(2) * b(0) - a(0) * b(2), a(0) * b(1) - a(1) * b(0)]
+},
+
+
+
+degrees__float: |a:float|{a * 180.0f / pi},
+
+
+
+degrees__float2: |a:float2|{[degrees__float(a(0)), degrees__float(a(1))]},
+
+
+
+degrees__float3: |a:float3|{[degrees__float(a(0)), degrees__float(a(1)), degrees__float(a(2))]},
+
+
+
+degrees__float4: |a:float4|{[degrees__float(a(0)), degrees__float(a(1)), degrees__float(a(2)), degrees__float(a(3))]},
+
+
+
+degrees__double: |a:double|{a * 180.0 / pi},
+
+
+
+degrees__double2: |a:double2|{[degrees__double(a(0)), degrees__double(a(1))]},
+
+
+
+degrees__double3: |a:double3|{[degrees__double(a(0)), degrees__double(a(1)), degrees__double(a(2))]},
+
+
+
+degrees__double4: |a:double4|{[degrees__double(a(0)), degrees__double(a(1)), degrees__double(a(2)), degrees__double(a(3))]},
+
+
+
+distance__float_float: |a:float, b:float|{math.fabsf(b - a)},
+
+
+
+distance__float2_float2: |a: float2, b:float2|{
+    math.sqrtf(math.powf(b(0) - a(0), 2.0f) + math.powf(b(1) - a(1), 2.0f))
+},
+
+
+
+distance__float3_float3: |a: float3, b:float3|{
+    math.sqrtf(math.powf(b(0) - a(0), 2.0f) + math.powf(b(1) - a(1), 2.0f) + math.powf(b(2) - a(2), 2.0f))
+},
+
+
+
+distance__float4_float4: |a: float4, b:float4|{
+    math.sqrtf(math.powf(b(0) - a(0), 2.0f) + math.powf(b(1) - a(1), 2.0f) + math.powf(b(2) - a(2), 2.0f) + math.powf(b(3) - a(3), 2.0f))
+},
+
+
+
+distance__double_double: |a:double, b:double|{math.absf(b - a)},
+
+
+
+distance__double2_double2: |a: double2, b:double2|{
+    math.sqrt(math.pow(b(0) - a(0), 2.0f) + math.pow(b(1) - a(1), 2.0f))
+},
+
+
+
+distance__double3_double3: |a: double3, b:double3|{
+    math.sqrt(math.pow(b(0) - a(0), 2.0f) + math.pow(b(1) - a(1), 2.0f) + math.pow(b(2) - a(2), 2.0f))
+},
+
+
+
+distance__double4_double4: |a: double4, b:double4|{
+    math.sqrt(math.pow(b(0) - a(0), 2.0f) + math.pow(b(1) - a(1), 2.0f) + math.pow(b(2) - a(2), 2.0f) + math.pow(b(3) - a(3), 2.0f))
+},
+
+
+
+dot__float_float: |a:float, b:float|{a * b},
+
+
+
+dot__float2_float2: |a:float2, b:float2|{a(0) * b(0) + a(1) * b(1)},
+
+
+
+dot__float3_float3: |a:float3, b:float3|{a(0) * b(0) + a(1) * b(1) + a(2) * b(2)},
+
+
+
+dot__float4_float4: |a:float4, b:float4|{a(0) * b(0) + a(1) * b(1) + a(2) * b(2) + a(3) * b(3)},
+
+
+
+dot__double_double: |a:double, b:double|{a * b},
+
+
+
+dot__double2_double2: |a:double2, b:double2|{a(0) * b(0) + a(1) * b(1)},
+
+
+
+dot__double3_double3: |a:double3, b:double3|{a(0) * b(0) + a(1) * b(1) + a(2) * b(2)},
+
+
+
+dot__double4_double4: |a:double4, b:double4|{a(0) * b(0) + a(1) * b(1) + a(2) * b(2) + a(3) * b(3)},
+
+
+// TODO
+eval_at_wavelength__color_float: |a:color. b:float|{0.0f},
+
+
+
+exp__float: |a:float|{math.expf(a)},
+
+
+
+exp__float2: |a:float2|{[exp__float(a(0)), exp__float(a(1))]},
+
+
+
+exp__float3: |a:float3|{[exp__float(a(0)), exp__float(a(1)), exp__float(a(2))]},
+
+
+
+exp__float4: |a:float4|{[exp__float(a(0)), exp__float(a(1)), exp__float(a(2)), exp__float(a(3))]},
+
+
+
+exp__double: |a:double|{math.exp(a)},
+
+
+
+exp__double2: |a:double2|{[exp__double(a(0)), exp__double(a(1))]},
+
+
+
+exp__double3: |a:double3|{[exp__double(a(0)), exp__double(a(1)), exp__double(a(2))]},
+
+
+
+exp__double4: |a:double4|{[exp__double(a(0)), exp__double(a(1)), exp__double(a(2)), exp__double(a(3))]},
+
+
+
+exp__color: |c:color|{[exp__float(c(0)), exp__float(c(1)), exp__float(c(2))]},
+
+
+
+exp2__float: |a:float|{math.exp2f(a)},
+
+
+
+exp2__float2: |a:float2|{[exp2__float(a(0)), exp2__float(a(1))]},
+
+
+
+exp2__float3: |a:float3|{[exp2__float(a(0)), exp2__float(a(1)), exp2__float(a(2))]},
+
+
+
+exp2__float4: |a:float4|{[exp2__float(a(0)), exp2__float(a(1)), exp2__float(a(2)), exp2__float(a(3))]},
+
+
+
+exp2__double: |a:double|{math.exp2(a)},
+
+
+
+exp2__double2: |a:double2|{[exp2__double(a(0)), exp2__double(a(1))]},
+
+
+
+exp2__double3: |a:double3|{[exp2__double(a(0)), exp2__double(a(1)), exp2__double(a(2))]},
+
+
+
+exp2__double4: |a:double4|{[exp2__double(a(0)), exp2__double(a(1)), exp2__double(a(2)), exp2__double(a(3))]},
+
+
+
+exp2__color: |c:color|{[exp2__float(c(0)), exp2__float(c(1)), exp2__float(c(2))]},
+
+
+
+floor__float: |a:float|{math.floorf(a)},
+
+
+
+floor__float2: |a:float2|{[floor__float(a(0)), floor__float(a(1))]},
+
+
+
+floor__float3: |a:float3|{[floor__float(a(0)), floor__float(a(1)), floor__float(a(2))]},
+
+
+
+floor__float4: |a:float4|{[floor__float(a(0)), floor__float(a(1)), floor__float(a(2)), floor__float(a(3))]},
+
+
+
+floor__double: |a:double|{math.floor(a)},
+
+
+
+floor__double2: |a:double2|{[floor__double(a(0)), floor__double(a(1))]},
+
+
+
+floor__double3: |a:double3|{[floor__double(a(0)), floor__double(a(1)), floor__double(a(2))]},
+
+
+
+floor__double4: |a:double4|{[floor__double(a(0)), floor__double(a(1)), floor__double(a(2)), floor__double(a(3))]},
+
+
+
+fmod__float_float: |a:float, b:float|{math.fmodf(a,b)},
+
+
+
+fmod__float2_float2: |a:float2, b:float2|{[math.fmodf(a(0),b(0)), math.fmodf(a(1),b(1))]},
+
+
+
+fmod__float3_float3: |a:float3, b:float3|{[math.fmodf(a(0),b(0)), math.fmodf(a(1),b(1)), math.fmodf(a(2), b(2))]},
+
+
+
+fmod__float4_float4: |a:float4, b:float4|{[math.fmodf(a(0),b(0)), math.fmodf(a(1),b(1)), math.fmodf(a(2), b(2)), math.fmodf(a(3), b(3))]},
+
+
+
+fmod__double_double: |a:double, b:double|{math.fmod(a,b)},
+
+
+
+fmod__double2_double2: |a:double2, b:double2|{[math.fmod(a(0),b(0)), math.fmod(a(1),b(1))]},
+
+
+
+fmod__double3_double3: |a:double3, b:double3|{[math.fmod(a(0),b(0)), math.fmod(a(1),b(1)), math.fmod(a(2), b(2))]},
+
+
+
+fmod__double4_double4: |a:double4, b:double4|{[math.fmod(a(0),b(0)), math.fmod(a(1),b(1)), math.fmod(a(2), b(2)), math.fmod(a(3), b(3))]},
+
+
+
+
+fmod__float2_float: |a:float2, b:float|{[math.fmodf(a(0),b), math.fmodf(a(1),b)]},
+
+
+
+fmod__float3_float: |a:float3, b:float|{[math.fmodf(a(0),b), math.fmodf(a(1),b), math.fmodf(a(2), b)]},
+
+
+
+fmod__float4_float: |a:float4, b:float|{[math.fmodf(a(0),b), math.fmodf(a(1),b), math.fmodf(a(2), b), math.fmodf(a(3), b)]},
+
+
+
+
+
+
+fmod__double2_double: |a:double2, b:double|{[math.fmod(a(0),b), math.fmod(a(1),b)]},
+
+
+
+fmod__double3_double: |a:double3, b:double|{[math.fmod(a(0),b), math.fmod(a(1),b), math.fmod(a(2), b)]},
+
+
+
+fmod__double4_double: |a:double4, b:double|{[math.fmod(a(0),b), math.fmod(a(1),b), math.fmod(a(2), b), math.fmod(a(3), b)]},
+
+
+
+
+frac__float: |a:float|{math.fabsf(a - ((a as i32) as f32))},
+
+
+
+frac__float2: |a:float2|{[frac__float(a(0)), frac__float(a(1))]},
+
+
+
+frac__float3: |a:float3|{[frac__float(a(0)), frac__float(a(1)), frac__float(a(2))]},
+
+
+
+frac__float4: |a:float4|{[frac__float(a(0)), frac__float(a(1)), frac__float(a(2)), frac__float(a(3))]},
+
+
+
+frac__double: |a:double|{math.fabs(a - ((a as i64) as f64))},
+
+
+
+frac__double2: |a:double2|{[frac__double(a(0)), frac__double(a(1))]},
+
+
+
+frac__double3: |a:double3|{[frac__double(a(0)), frac__double(a(1)), frac__double(a(2))]},
+
+
+
+frac__double4: |a:double4|{[frac__double(a(0)), frac__double(a(1)), frac__double(a(2)), frac__double(a(3))]},
+
+
+
+
+isnan__float: |a:float|{math.isnanf(a)},
+
+
+
+isnan__float2: |a:float2|{[isnan__float(a(0)), isnan__float(a(1))]},
+
+
+
+isnan__float3: |a:float3|{[isnan__float(a(0)), isnan__float(a(1)), isnan__float(a(2))]},
+
+
+
+isnan__float4: |a:float4|{[isnan__float(a(0)), isnan__float(a(1)), isnan__float(a(2)), isnan__float(a(3))]},
+
+
+
+isnan__double: |a:double|{math.isnan(a)},
+
+
+
+isnan__double2: |a:double2|{[isnan__double(a(0)), isnan__double(a(1))]},
+
+
+
+isnan__double3: |a:double3|{[isnan__double(a(0)), isnan__double(a(1)), isnan__double(a(2))]},
+
+
+
+isnan__double4: |a:double4|{[isnan__double(a(0)), isnan__double(a(1)), isnan__double(a(2)), isnan__double(a(3))]},
+
+
+
+isfinite__float: |a:float|{math.isfinitef(a)},
+
+
+
+isfinite__float2: |a:float2|{[isfinite__float(a(0)), isfinite__float(a(1))]},
+
+
+
+isfinite__float3: |a:float3|{[isfinite__float(a(0)), isfinite__float(a(1)), isfinite__float(a(2))]},
+
+
+
+isfinite__float4: |a:float4|{[isfinite__float(a(0)), isfinite__float(a(1)), isfinite__float(a(2)), isfinite__float(a(3))]},
+
+
+
+isfinite__double: |a:double|{math.isfinite(a)},
+
+
+
+isfinite__double2: |a:double2|{[isfinite__double(a(0)), isfinite__double(a(1))]},
+
+
+
+isfinite__double3: |a:double3|{[isfinite__double(a(0)), isfinite__double(a(1)), isfinite__double(a(2))]},
+
+
+
+isfinite__double4: |a:double4|{[isfinite__double(a(0)), isfinite__double(a(1)), isfinite__double(a(2)), isfinite__double(a(3))]},
+
+
+
+
+length__float: |a:float|{a},
+
+
+
+length__float2: |a:float2|{math.sqrtf(math.powf(a(0), 2.0f) + math.powf(a(1), 2.0f))},
+
+
+
+length__float3: |a:float3|{math.sqrtf(math.powf(a(0), 2.0f) + math.powf(a(1), 2.0f) + math.powf(a(2), 2.0f))},
+
+
+
+length__float4: |a:float4|{math.sqrtf(math.powf(a(0), 2.0f) + math.powf(a(1), 2.0f) + math.powf(a(2), 2.0f) + math.powf(a(3), 2.0f))},
+
+
+
+length__double: |a:double|{a},
+
+
+
+length__double2: |a:double2|{math.sqrt(math.pow(a(0), 2.0f) + math.pow(a(1), 2.0f))},
+
+
+
+length__double3: |a:double3|{math.sqrt(math.pow(a(0), 2.0f) + math.pow(a(1), 2.0f) + math.pow(a(2), 2.0f))},
+
+
+
+length__double4: |a:double4|{math.sqrt(math.pow(a(0), 2.0f) + math.pow(a(1), 2.0f) + math.pow(a(2), 2.0f) + math.pow(a(3), 2.0f))},
+
+
+
+lerp__float_float_float: |a: float, b: float, l:float|{
+    a * (1.0f - l) + b * l;
+},
+
+
+
+lerp__float2_float2_float2: |a: float2, b: float2, l:float2|{[
+    lerp__float_float_float(a(0), b(0),l(0)),
+    lerp__float_float_float(a(1), b(1),l(1))
+]},
+
+
+
+lerp__float3_float3_float3: |a: float3, b: float3, l:float3|{[
+    lerp__float_float_float(a(0),b(0),l(0)),
+    lerp__float_float_float(a(1),b(1),l(1)),
+    lerp__float_float_float(a(2),b(2),l(2))
+]},
+
+
+
+lerp__float4_float4_float4: |a: float4, b: float4, l:float4|{[
+    lerp__float_float_float(a(0),b(0),l(0)),
+    lerp__float_float_float(a(1),b(1),l(1)),
+    lerp__float_float_float(a(2),b(2),l(2)),
+    lerp__float_float_float(a(3),b(3),l(3))
+]},
+
+
+
+lerp__double_double_double: |a: double, b: double, l:double|{
+    a * (1.0 - l) + b * l;
+},
+
+
+
+lerp__double2_double2_double2: |a: double2, b: double2, l:double2|{[
+    lerp__double_double_double(a(0), b(0),l(0)),
+    lerp__double_double_double(a(1), b(1),l(1))
+]},
+
+
+
+lerp__double3_double3_double3: |a: double3, b: double3, l:double3|{[
+    lerp__double_double_double(a(0),b(0),l(0)),
+    lerp__double_double_double(a(1),b(1),l(1)),
+    lerp__double_double_double(a(2),b(2),l(2))
+]},
+
+
+
+lerp__double4_double4_double4: |a: double4, b: double4, l:double4|{[
+    lerp__double_double_double(a(0),b(0),l(0)),
+    lerp__double_double_double(a(1),b(1),l(1)),
+    lerp__double_double_double(a(2),b(2),l(2)),
+    lerp__double_double_double(a(3),b(3),l(3))
+]},
+
+
+
+lerp__float2_float2_float: |a: float2, b: float2, l:float|{[
+    lerp__float_float_float(a(0), b(0),l),
+    lerp__float_float_float(a(1), b(1),l)
+]},
+
+
+
+lerp__float3_float3_float: |a: float3, b: float3, l:float|{[
+    lerp__float_float_float(a(0),b(0),l),
+    lerp__float_float_float(a(1),b(1),l),
+    lerp__float_float_float(a(2),b(2),l)
+]},
+
+
+
+lerp__float4_float4_float: |a: float4, b: float4, l:float|{[
+    lerp__float_float_float(a(0),b(0),l),
+    lerp__float_float_float(a(1),b(1),l),
+    lerp__float_float_float(a(2),b(2),l),
+    lerp__float_float_float(a(3),b(3),l)
+]},
+
+
+
+lerp__double2_double2_double: |a: double2, b: double2, l:double|{[
+    lerp__double_double_double(a(0), b(0),l),
+    lerp__double_double_double(a(1), b(1),l)
+]},
+
+
+
+lerp__double3_double3_double: |a: double3, b: double3, l:double|{[
+    lerp__double_double_double(a(0),b(0),l),
+    lerp__double_double_double(a(1),b(1),l),
+    lerp__double_double_double(a(2),b(2),l)
+]},
+
+
+
+lerp__double4_double4_double: |a: double4, b: double4, l:double|{[
+    lerp__double_double_double(a(0),b(0),l),
+    lerp__double_double_double(a(1),b(1),l),
+    lerp__double_double_double(a(2),b(2),l),
+    lerp__double_double_double(a(3),b(3),l)
+]},
+
+
+lerp__color_color_color: |a: color, b: color, l:color|{[
+    lerp__float_float_float(a(0),b(0),l(0)),
+    lerp__float_float_float(a(1),b(1),l(1)),
+    lerp__float_float_float(a(2),b(2),l(2))
+]},
+
+lerp__color_color_float: |a: color, b: color, l:float|{[
+    lerp__float_float_float(a(0),b(0),l),
+    lerp__float_float_float(a(1),b(1),l),
+    lerp__float_float_float(a(2),b(2),l)
+]},
+
+
+
+log__float: |a:float|{math.logf(a)},
+
+
+
+log__float2: |a:float2|{[log__float(a(0)), log__float(a(1))]},
+
+
+
+log__float3: |a:float3|{[log__float(a(0)), log__float(a(1)), log__float(a(2))]},
+
+
+
+log__float4: |a:float4|{[log__float(a(0)), log__float(a(1)), log__float(a(2)), log__float(a(3))]},
+
+
+
+log__double: |a:double|{math.log(a)},
+
+
+
+log__double2: |a:double2|{[log__double(a(0)), log__double(a(1))]},
+
+
+
+log__double3: |a:double3|{[log__double(a(0)), log__double(a(1)), log__double(a(2))]},
+
+
+
+log__double4: |a:double4|{[log__double(a(0)), log__double(a(1)), log__double(a(2)), log__double(a(3))]},
+
+
+
+log__color: |c:color|{[log__float(c(0)), log__float(c(1)), log__float(c(2))]},
+
+
+
+log2__float: |a:float|{math.log2f(a)},
+
+
+
+log2__float2: |a:float2|{[log2__float(a(0)), log2__float(a(1))]},
+
+
+
+log2__float3: |a:float3|{[log2__float(a(0)), log2__float(a(1)), log2__float(a(2))]},
+
+
+
+log2__float4: |a:float4|{[log2__float(a(0)), log2__float(a(1)), log2__float(a(2)), log2__float(a(3))]},
+
+
+
+log2__double: |a:double|{math.log2(a)},
+
+
+
+log2__double2: |a:double2|{[log2__double(a(0)), log2__double(a(1))]},
+
+
+
+log2__double3: |a:double3|{[log2__double(a(0)), log2__double(a(1)), log2__double(a(2))]},
+
+
+
+log2__double4: |a:double4|{[log2__double(a(0)), log2__double(a(1)), log2__double(a(2)), log2__double(a(3))]},
+
+
+
+log2__color: |c:color|{[log2__float(c(0)), log2__float(c(1)), log2__float(c(2))]},
+
+
+//log10 doesn't apper in the MDL doc, so I wont implement it here
+
+log10__float: |a:float|{a},
+
+
+
+log10__float2: |a:float2|{a},
+
+
+
+log10__float3: |a:float3|{a},
+
+
+
+log10__float4: |a:float4|{a},
+
+
+
+log10__double: |a:double|{a},
+
+
+
+log10__double2: |a:double2|{a},
+
+
+
+log10__double3: |a:double3|{a},
+
+
+
+log10__double4: |a:double4|{a},
+
+
+
+log10__color: |c:color|{c},
+
+
+
+luminance__float3: |a:float3|{
+    0.212671 * a(0) + 0.715160 * a(1) + 0.072169 * a.(2)
+},
+
+
+//implementation dependent, you'll have to use your own function
+luminance__color: |a:color|{a(0)},
+
+
+
+max__int_int: |a:int, b:int|{math.max(a,b)},
+
+
+
+max__int2_int2: |a:int2, b:int2|{[math.max(a(0),b(0)), math.max(a(1),b(1))]},
+
+
+
+max__int3_int3: |a:int3, b:int3|{[math.max(a(0),b(0)), math.max(a(1),b(1)), math.max(a(2), b(2))]},
+
+
+
+max__int4_int4: |a:int4, b:int4|{[math.max(a(0),b(0)), math.max(a(1),b(1)), math.max(a(2), b(2)), math.max(a(3), b(3))]},
+
+
+
+
+
+max__int2_int: |a:int2, b:int|{[math.max(a(0),b), math.max(a(1),b)]},
+
+
+
+max__int3_int: |a:int3, b:int|{[math.max(a(0),b), math.max(a(1),b), math.max(a(2), b)]},
+
+
+
+max__int4_int: |a:int4, b:int|{[math.max(a(0),b), math.max(a(1),b), math.max(a(2), b), math.max(a(3), b)]},
+
+
+
+
+max__int_int2: |a:int, b:int2|{[math.max(b(0),a), math.max(b(1),a)]},
+
+
+
+max__int_int3: |a:int, b:int3|{[math.max(b(0),a), math.max(b(1),a), math.max(b(2), a)]},
+
+
+
+max__int_int4: |a:int, b:int4|{[math.max(b(0),a), math.max(b(1),a), math.max(b(2), a), math.max(b(3), a)]},
+
+
+
+
+
+
+max__float_float: |a:float, b:float|{math.fmaxf(a,b)},
+
+
+
+max__float2_float2: |a:float2, b:float2|{[math.fmaxf(a(0),b(0)), math.fmaxf(a(1),b(1))]},
+
+
+
+max__float3_float3: |a:float3, b:float3|{[math.fmaxf(a(0),b(0)), math.fmaxf(a(1),b(1)), math.fmaxf(a(2), b(2))]},
+
+
+
+max__float4_float4: |a:float4, b:float4|{[math.fmaxf(a(0),b(0)), math.fmaxf(a(1),b(1)), math.fmaxf(a(2), b(2)), math.fmaxf(a(3), b(3))]},
+
+
+
+
+
+max__float2_float: |a:float2, b:float|{[math.fmaxf(a(0),b), math.fmaxf(a(1),b)]},
+
+
+
+max__float3_float: |a:float3, b:float|{[math.fmaxf(a(0),b), math.fmaxf(a(1),b), math.fmaxf(a(2), b)]},
+
+
+
+max__float4_float: |a:float4, b:float|{[math.fmaxf(a(0),b), math.fmaxf(a(1),b), math.fmaxf(a(2), b), math.fmaxf(a(3), b)]},
+
+
+
+
+max__float_float2: |a:float, b:float2|{[math.fmaxf(b(0),a), math.fmaxf(b(1),a)]},
+
+
+
+max__float_float3: |a:float, b:float3|{[math.fmaxf(b(0),a), math.fmaxf(b(1),a), math.fmaxf(b(2), a)]},
+
+
+
+max__float_float4: |a:float, b:float4|{[math.fmaxf(b(0),a), math.fmaxf(b(1),a), math.fmaxf(b(2), a), math.fmaxf(b(3), a)]},
+
+
+
+
+
+max__double_double: |a:double, b:double|{math.fmax(a,b)},
+
+
+
+max__double2_double2: |a:double2, b:double2|{[math.fmax(a(0),b(0)), math.fmax(a(1),b(1))]},
+
+
+
+max__double3_double3: |a:double3, b:double3|{[math.fmax(a(0),b(0)), math.fmax(a(1),b(1)), math.fmax(a(2), b(2))]},
+
+
+
+max__double4_double4: |a:double4, b:double4|{[math.fmax(a(0),b(0)), math.fmax(a(1),b(1)), math.fmax(a(2), b(2)), math.fmax(a(3), b(3))]},
+
+
+
+
+
+max__double2_double: |a:double2, b:double|{[math.fmax(a(0),b), math.fmax(a(1),b)]},
+
+
+
+max__double3_double: |a:double3, b:double|{[math.fmax(a(0),b), math.fmax(a(1),b), math.fmax(a(2), b)]},
+
+
+
+max__double4_double: |a:double4, b:double|{[math.fmax(a(0),b), math.fmax(a(1),b), math.fmax(a(2), b), math.fmax(a(3), b)]},
+
+
+
+
+max__double_double2: |a:double, b:double2|{[math.fmax(b(0),a), math.fmax(b(1),a)]},
+
+
+
+max__double_double3: |a:double, b:double3|{[math.fmax(b(0),a), math.fmax(b(1),a), math.fmax(b(2), a)]},
+
+
+
+max__double_double4: |a:double, b:double4|{[math.fmax(b(0),a), math.fmax(b(1),a), math.fmax(b(2), a), math.fmax(b(3), a)]},
+
+
+
+
+
+max__color_color: |a:color, b:color|{[math.fmaxf(a(0),b(0)), math.fmaxf(a(1),b(1)), math.fmaxf(a(2), b(2))]},
+
+
+
+max__float_color: |a:float, b:color|{[math.fmaxf(a,b(0)), math.fmaxf(a,b(1)), math.fmaxf(a, b(2))]},
+
+
+
+max__color_float: |a:color, b:float|{[math.fmaxf(a(0),b), math.fmaxf(a(1),b), math.fmaxf(a(2), b)]},
+
+
+
+max_value__float: |a:float|{a},
+
+
+
+max_value__float2: |a:float2|{math.fmaxf(a(0), a(1))},
+
+
+
+max_value__float3: |a:float3|{math.fmaxf(math.fmaxf(a(0), a(1)), a(2))},
+
+
+
+max_value__float4: |a:float4|{math.fmaxf(math.fmaxf(a(0), a(1)), math.fmaxf(a(2), a(3)))},
+
+
+
+max_value__double: |a:double|{a},
+
+
+
+max_value__double2: |a:double2|{math.fmax(a(0), a(1))},
+
+
+
+max_value__double3: |a:double3|{math.fmax(math.fmax(a(0), a(1)), a(2))},
+
+
+
+max_value__double4: |a:double4|{math.fmax(math.fmax(a(0), a(1)), math.fmax(a(2), a(3)))},
+
+
+
+max_value__color: |a:color|{math.fmaxf(math.fmaxf(a(0), a(1)), a(2))},
+
+//CONTINUE HERE
+
+max_value_wavelength__color: |a:color|{a(0)},
+
+
+
+min__int_int: fn(int, int) -> int,
+
+
+
+min__int2_int2: fn(int2, int2) -> int2,
+
+
+
+min__int3_int3: fn(int3, int3) -> int3,
+
+
+
+min__int4_int4: fn(int4, int4) -> int4,
+
+
+
+min__int2_int: fn(int2, int) -> int2,
+
+
+
+min__int3_int: fn(int3, int) -> int3,
+
+
+
+min__int4_int: fn(int4, int) -> int4,
+
+
+
+min__int_int2: fn(int, int2) -> int2,
+
+
+
+min__int_int3: fn(int, int3) -> int3,
+
+
+
+min__int_int4: fn(int, int4) -> int4,
+
+
+
+min__float_float: |a:float, b:float|{a},
+
+
+
+min__float2_float2: |a:float2, b:float2|{a},
+
+
+
+min__float3_float3: |a:float3, b:float3|{a},
+
+
+
+min__float4_float4: |a:float4, b:float4|{a},
+
+
+
+min__float2_float: fn(float2, float) -> float2,
+
+
+
+min__float3_float: fn(float3, float) -> float3,
+
+
+
+min__float4_float: fn(float4, float) -> float4,
+
+
+
+min__float_float2: fn(float, float2) -> float2,
+
+
+
+min__float_float3: fn(float, float3) -> float3,
+
+
+
+min__float_float4: fn(float, float4) -> float4,
+
+
+
+min__double_double: |a:double, b:double|{a},
+
+
+
+min__double2_double2: |a:double2, b:double2|{a},
+
+
+
+min__double3_double3: |a:double3, b:double3|{a},
+
+
+
+min__double4_double4: |a:double4, b:double4|{a},
+
+
+
+min__double2_double: fn(double2, double) -> double2,
+
+
+
+min__double3_double: fn(double3, double) -> double3,
+
+
+
+min__double4_double: fn(double4, double) -> double4,
+
+
+
+min__double_double2: fn(double, double2) -> double2,
+
+
+
+min__double_double3: fn(double, double3) -> double3,
+
+
+
+min__double_double4: fn(double, double4) -> double4,
+
+
+
+min__color_color: fn(color, color) -> color,
+
+
+
+min__float_color: fn(float, color) -> color,
+
+
+
+min__color_float: fn(color, float) -> color,
+
+
+
+min_value__float: |a:float|{a},
+
+
+
+min_value__float2: |a:float2|{a(0)},
+
+
+
+min_value__float3: |a:float3|{a(0)},
+
+
+
+min_value__float4: |a:float4|{a(0)},
+
+
+
+min_value__double: |a:double|{a},
+
+
+
+min_value__double2: |a:double2|{a(0)},
+
+
+
+min_value__double3: |a:double3|{a(0)},
+
+
+
+min_value__double4: |a:double4|{a(0)},
+
+
+
+min_value__color: |a:color|{a(0)},
+
+
+
+min_value_wavelength__color: |a:color|{a(0)},
+
+
+
+modf__float: fn(float) -> [float*2],
+
+
+
+modf__float2: fn(float2) -> [float2*2],
+
+
+
+modf__float3: fn(float3) -> [float3*2],
+
+
+
+modf__float4: fn(float4) -> [float4*2],
+
+
+
+modf__double: fn(double) -> [double*2],
+
+
+
+modf__double2: fn(double2) -> [double2*2],
+
+
+
+modf__double3: fn(double3) -> [double3*2],
+
+
+
+modf__double4: fn(double4) -> [double4*2],
+
+
+
+normalize__float: |a:float|{a},
+
+
+
+normalize__float2: |a:float2|{a},
+
+
+
+normalize__float3: |a:float3|{a},
+
+
+
+normalize__float4: |a:float4|{a},
+
+
+
+normalize__double: |a:double|{a},
+
+
+
+normalize__double2: |a:double2|{a},
+
+
+
+normalize__double3: |a:double3|{a},
+
+
+
+normalize__double4: |a:double4|{a},
+
+
+
+pow__int_int: fn(int, int) -> int,
+
+
+
+pow__int2_int2: fn(int2, int2) -> int2,
+
+
+
+pow__int3_int3: fn(int3, int3) -> int3,
+
+
+
+pow__int4_int4: fn(int4, int4) -> int4,
+
+
+
+pow__float_float: |a:float, b:float|{a},
+
+
+
+pow__float2_float2: |a:float2, b:float2|{a},
+
+
+
+pow__float3_float3: |a:float3, b:float3|{a},
+
+
+
+pow__float4_float4: |a:float4, b:float4|{a},
+
+
+
+pow__double_double: |a:double, b:double|{a},
+
+
+
+pow__double2_double2: |a:double2, b:double2|{a},
+
+
+
+pow__double3_double3: |a:double3, b:double3|{a},
+
+
+
+pow__double4_double4: |a:double4, b:double4|{a},
+
+
+
+pow__int2_int: fn(int2, int) -> int2,
+
+
+
+pow__int3_int: fn(int3, int) -> int3,
+
+
+
+pow__int4_int: fn(int4, int) -> int4,
+
+
+
+pow__float2_float: fn(float2, float) -> float2,
+
+
+
+pow__float3_float: fn(float3, float) -> float3,
+
+
+
+pow__float4_float: fn(float4, float) -> float4,
+
+
+
+pow__double2_double: fn(double2, double) -> double2,
+
+
+
+pow__double3_double: fn(double3, double) -> double3,
+
+
+
+pow__double4_double: fn(double4, double) -> double4,
+
+
+
+pow__color_color: fn(color, color) -> color,
+
+
+
+pow__color_float: fn(color, float) -> color,
+
+
+
+radians__float: |a:float|{a},
+
+
+
+radians__float2: |a:float2|{a},
+
+
+
+radians__float3: |a:float3|{a},
+
+
+
+radians__float4: |a:float4|{a},
+
+
+
+radians__double: |a:double|{a},
+
+
+
+radians__double2: |a:double2|{a},
+
+
+
+radians__double3: |a:double3|{a},
+
+
+
+radians__double4: |a:double4|{a},
+
+
+
+round__float: |a:float|{a},
+
+
+
+round__float2: |a:float2|{a},
+
+
+
+round__float3: |a:float3|{a},
+
+
+
+round__float4: |a:float4|{a},
+
+
+
+round__double: |a:double|{a},
+
+
+
+round__double2: |a:double2|{a},
+
+
+
+round__double3: |a:double3|{a},
+
+
+
+round__double4: |a:double4|{a},
+
+
+
+rsqrt__float: |a:float|{a},
+
+
+
+rsqrt__float2: |a:float2|{a},
+
+
+
+rsqrt__float3: |a:float3|{a},
+
+
+
+rsqrt__float4: |a:float4|{a},
+
+
+
+rsqrt__double: |a:double|{a},
+
+
+
+rsqrt__double2: |a:double2|{a},
+
+
+
+rsqrt__double3: |a:double3|{a},
+
+
+
+rsqrt__double4: |a:double4|{a},
+
+
+
+rsqrt__color: |c:color|{c},
+
+
+
+saturate__float: |a:float|{a},
+
+
+
+saturate__float2: |a:float2|{a},
+
+
+
+saturate__float3: |a:float3|{a},
+
+
+
+saturate__float4: |a:float4|{a},
+
+
+
+saturate__double: |a:double|{a},
+
+
+
+saturate__double2: |a:double2|{a},
+
+
+
+saturate__double3: |a:double3|{a},
+
+
+
+saturate__double4: |a:double4|{a},
+
+
+
+saturate__color: |c:color|{c},
+
+
+
+sign__int: |a:int|{a},
+
+
+
+sign__int2: |a:int2|{a},
+
+
+
+sign__int3: |a:int3|{a},
+
+
+
+sign__int4: |a:int4|{a},
+
+
+
+sign__float: |a:float|{a},
+
+
+
+sign__float2: |a:float2|{a},
+
+
+
+sign__float3: |a:float3|{a},
+
+
+
+sign__float4: |a:float4|{a},
+
+
+
+sign__double: |a:double|{a},
+
+
+
+sign__double2: |a:double2|{a},
+
+
+
+sign__double3: |a:double3|{a},
+
+
+
+sign__double4: |a:double4|{a},
+
+
+
+sin__float: |a:float|{a},
+
+
+
+sin__float2: |a:float2|{a},
+
+
+
+sin__float3: |a:float3|{a},
+
+
+
+sin__float4: |a:float4|{a},
+
+
+
+sin__double: |a:double|{a},
+
+
+
+sin__double2: |a:double2|{a},
+
+
+
+sin__double3: |a:double3|{a},
+
+
+
+sin__double4: |a:double4|{a},
+
+
+
+sincos__float: fn(float) -> [float*2],
+
+
+
+sincos__float2: fn(float2) -> [float2*2],
+
+
+
+sincos__float3: fn(float3) -> [float3*2],
+
+
+
+sincos__float4: fn(float4) -> [float4*2],
+
+
+
+sincos__double: fn(double) -> [double*2],
+
+
+
+sincos__double2: fn(double2) -> [double2*2],
+
+
+
+sincos__double3: fn(double3) -> [double3*2],
+
+
+
+sincos__double4: fn(double4) -> [double4*2],
+
+
+
+smoothstep__float_float_float: fn(float, float, float) -> float,
+
+
+
+smoothstep__float2_float2_float2: fn(float2, float2, float2) -> float2,
+
+
+
+smoothstep__float3_float3_float3: fn(float3, float3, float3) -> float3,
+
+
+
+smoothstep__float4_float4_float4: fn(float4, float4, float4) -> float4,
+
+
+
+smoothstep__double_double_double: fn(double, double, double) -> double,
+
+
+
+smoothstep__double2_double2_double2: fn(double2, double2, double2) -> double2,
+
+
+
+smoothstep__double3_double3_double3: fn(double3, double3, double3) -> double3,
+
+
+
+smoothstep__double4_double4_double4: fn(double4, double4, double4) -> double4,
+
+
+
+smoothstep__float2_float2_float: fn(float2, float2, float) -> float2,
+
+
+
+smoothstep__float3_float3_float: fn(float3, float3, float) -> float3,
+
+
+
+smoothstep__float4_float4_float: fn(float4, float4, float) -> float4,
+
+
+
+smoothstep__double2_double2_double: fn(double2, double2, double) -> double2,
+
+
+
+smoothstep__double3_double3_double: fn(double3, double3, double) -> double3,
+
+
+
+smoothstep__double4_double4_double: fn(double4, double4, double) -> double4,
+
+
+
+sqrt__float: |a:float|{a},
+
+
+
+sqrt__float2: |a:float2|{a},
+
+
+
+sqrt__float3: |a:float3|{a},
+
+
+
+sqrt__float4: |a:float4|{a},
+
+
+
+sqrt__double: |a:double|{a},
+
+
+
+sqrt__double2: |a:double2|{a},
+
+
+
+sqrt__double3: |a:double3|{a},
+
+
+
+sqrt__double4: |a:double4|{a},
+
+
+
+sqrt__color: |c:color|{c},
+
+
+
+step__float_float: |a:float, b:float|{a},
+
+
+
+step__float2_float2: |a:float2, b:float2|{a},
+
+
+
+step__float3_float3: |a:float3, b:float3|{a},
+
+
+
+step__float4_float4: |a:float4, b:float4|{a},
+
+
+
+step__double_double: |a:double, b:double|{a},
+
+
+
+step__double2_double2: |a:double2, b:double2|{a},
+
+
+
+step__double3_double3: |a:double3, b:double3|{a},
+
+
+
+step__double4_double4: |a:double4, b:double4|{a},
+
+
+
+tan__float: |a:float|{a},
+
+
+
+tan__float2: |a:float2|{a},
+
+
+
+tan__float3: |a:float3|{a},
+
+
+
+tan__float4: |a:float4|{a},
+
+
+
+tan__double: |a:double|{a},
+
+
+
+tan__double2: |a:double2|{a},
+
+
+
+tan__double3: |a:double3|{a},
+
+
+
+tan__double4: |a:double4|{a},
+
+
+
+transpose__float2x2: fn(float2x2) -> float2x2,
+
+
+
+transpose__float2x3: fn(float2x3) -> float3x2,
+
+
+
+transpose__float3x2: fn(float3x2) -> float2x3,
+
+
+
+transpose__float3x3: fn(float3x3) -> float3x3,
+
+
+
+transpose__float4x2: fn(float4x2) -> float2x4,
+
+
+
+transpose__float2x4: fn(float2x4) -> float4x2,
+
+
+
+transpose__float3x4: fn(float3x4) -> float4x3,
+
+
+
+transpose__float4x3: fn(float4x3) -> float3x4,
+
+
+
+transpose__float4x4: fn(float4x4) -> float4x4,
+
+
+
+transpose__double2x2: fn(double2x2) -> double2x2,
+
+
+
+transpose__double2x3: fn(double2x3) -> double3x2,
+
+
+
+transpose__double3x2: fn(double3x2) -> double2x3,
+
+
+
+transpose__double3x3: fn(double3x3) -> double3x3,
+
+
+
+transpose__double4x2: fn(double4x2) -> double2x4,
+
+
+
+transpose__double2x4: fn(double2x4) -> double4x2,
+
+
+
+transpose__double3x4: fn(double3x4) -> double4x3,
+
+
+
+transpose__double4x3: fn(double4x3) -> double3x4,
+
+
+
+transpose__double4x4: fn(double4x4) -> double4x4,
+
+
+
+blackbody__float: fn(float) -> color,
+
+
+
+emission_color__float_arr_float_arr_State_mdl_math : fn(&[float], &[float],State,mdl_math) -> color,
+
+
+emission_color__color: |c:color|{c},
+
+
+
+DX__float: |a:float|{a},
+
+
+
+DX__float2: |a:float2|{a},
+
+
+
+DX__float3: |a:float3|{a},
+
+
+
+DX__float4: |a:float4|{a},
+
+
+
+DY__float: |a:float|{a},
+
+
+
+DY__float2: |a:float2|{a},
+
+
+
+DY__float3: |a:float3|{a},
+
+
+
+DY__float4: |a:float4|{a},
+
+
+
+DX__double: |a:double|{a},
+
+
+
+DX__double2: |a:double2|{a},
+
+
+
+DX__double3: |a:double3|{a},
+
+
+
+DX__double4: |a:double4|{a},
+
+
+
+DY__double: |a:double|{a},
+
+
+
+DY__double2: |a:double2|{a},
+
+
+
+DY__double3: |a:double3|{a},
+
+
+
+DY__double4: fn(double4) -> double4
+    }
+}

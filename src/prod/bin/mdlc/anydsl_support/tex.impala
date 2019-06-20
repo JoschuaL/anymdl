@@ -1,0 +1,202 @@
+enum gamma_mode{
+    gamma_default,
+    gamma_linear,
+    gamma_srgb,
+}
+enum wrap_mode{
+    wrap_clamp,
+    wrap_repeat,
+    wrap_mirrored_repeat,
+    wrap_clip,
+}
+fn @width__texture_2d_State_mdl_math(tex : fn(State) -> texture_2d,  state : State, math : mdl_math) -> fn(State) -> int{
+{}
+}
+
+fn @width__texture_2d_int2_State_mdl_math(tex : fn(State) -> texture_2d, uv_tile : fn(State) -> int2,  state : State, math : mdl_math) -> fn(State) -> int{
+{}
+}
+
+fn @height__texture_2d_State_mdl_math(tex : fn(State) -> texture_2d,  state : State, math : mdl_math) -> fn(State) -> int{
+{}
+}
+
+fn @height__texture_2d_int2_State_mdl_math(tex : fn(State) -> texture_2d, uv_tile : fn(State) -> int2,  state : State, math : mdl_math) -> fn(State) -> int{
+{}
+}
+
+fn @width__texture_3d_State_mdl_math(tex : fn(State) -> texture_3d,  state : State, math : mdl_math) -> fn(State) -> int{
+{}
+}
+
+fn @height__texture_3d_State_mdl_math(tex : fn(State) -> texture_3d,  state : State, math : mdl_math) -> fn(State) -> int{
+{}
+}
+
+fn @depth__texture_3d_State_mdl_math(tex : fn(State) -> texture_3d,  state : State, math : mdl_math) -> fn(State) -> int{
+{}
+}
+
+fn @width__texture_cube_State_mdl_math(tex : fn(State) -> texture_cube,  state : State, math : mdl_math) -> fn(State) -> int{
+{}
+}
+
+fn @height__texture_cube_State_mdl_math(tex : fn(State) -> texture_cube,  state : State, math : mdl_math) -> fn(State) -> int{
+{}
+}
+
+fn @lookup_float__texture_2d_float2_wrap_mode_wrap_mode_float2_float2_State_mdl_math(tex : fn(State) -> texture_2d, coord : fn(State) -> float2, wrap_u : fn(State) -> wrap_mode, wrap_v : fn(State) -> wrap_mode, crop_u : fn(State) -> float2, crop_v : fn(State) -> float2,  state : State, math : mdl_math) -> fn(State) -> float{
+{}
+}
+
+fn @lookup_float__texture_3d_float3_wrap_mode_wrap_mode_wrap_mode_float2_float2_float2_State_mdl_math(tex : fn(State) -> texture_3d, coord : fn(State) -> float3, wrap_u : fn(State) -> wrap_mode, wrap_v : fn(State) -> wrap_mode, wrap_w : fn(State) -> wrap_mode, crop_u : fn(State) -> float2, crop_v : fn(State) -> float2, crop_w : fn(State) -> float2,  state : State, math : mdl_math) -> fn(State) -> float{
+{}
+}
+
+fn @lookup_float__texture_cube_float3_State_mdl_math(tex : fn(State) -> texture_cube, coord : fn(State) -> float3,  state : State, math : mdl_math) -> fn(State) -> float{
+{}
+}
+
+fn @lookup_float__texture_ptex_int_State_mdl_math(tex : fn(State) -> texture_ptex, channel : fn(State) -> int,  state : State, math : mdl_math) -> fn(State) -> float{
+{}
+}
+
+fn @lookup_float2__texture_2d_float2_wrap_mode_wrap_mode_float2_float2_State_mdl_math(tex : fn(State) -> texture_2d, coord : fn(State) -> float2, wrap_u : fn(State) -> wrap_mode, wrap_v : fn(State) -> wrap_mode, crop_u : fn(State) -> float2, crop_v : fn(State) -> float2,  state : State, math : mdl_math) -> fn(State) -> float2{
+{}
+}
+
+fn @lookup_float2__texture_3d_float3_wrap_mode_wrap_mode_wrap_mode_float2_float2_float2_State_mdl_math(tex : fn(State) -> texture_3d, coord : fn(State) -> float3, wrap_u : fn(State) -> wrap_mode, wrap_v : fn(State) -> wrap_mode, wrap_w : fn(State) -> wrap_mode, crop_u : fn(State) -> float2, crop_v : fn(State) -> float2, crop_w : fn(State) -> float2,  state : State, math : mdl_math) -> fn(State) -> float2{
+{}
+}
+
+fn @lookup_float2__texture_cube_float3_State_mdl_math(tex : fn(State) -> texture_cube, coord : fn(State) -> float3,  state : State, math : mdl_math) -> fn(State) -> float2{
+{}
+}
+
+fn @lookup_float2__texture_ptex_int_State_mdl_math(tex : fn(State) -> texture_ptex, channel : fn(State) -> int,  state : State, math : mdl_math) -> fn(State) -> float2{
+{}
+}
+
+fn @lookup_float3__texture_2d_float2_wrap_mode_wrap_mode_float2_float2_State_mdl_math(tex : fn(State) -> texture_2d, coord : fn(State) -> float2, wrap_u : fn(State) -> wrap_mode, wrap_v : fn(State) -> wrap_mode, crop_u : fn(State) -> float2, crop_v : fn(State) -> float2,  state : State, math : mdl_math) -> fn(State) -> float3{
+{}
+}
+
+fn @lookup_float3__texture_3d_float3_wrap_mode_wrap_mode_wrap_mode_float2_float2_float2_State_mdl_math(tex : fn(State) -> texture_3d, coord : fn(State) -> float3, wrap_u : fn(State) -> wrap_mode, wrap_v : fn(State) -> wrap_mode, wrap_w : fn(State) -> wrap_mode, crop_u : fn(State) -> float2, crop_v : fn(State) -> float2, crop_w : fn(State) -> float2,  state : State, math : mdl_math) -> fn(State) -> float3{
+{}
+}
+
+fn @lookup_float3__texture_cube_float3_State_mdl_math(tex : fn(State) -> texture_cube, coord : fn(State) -> float3,  state : State, math : mdl_math) -> fn(State) -> float3{
+{}
+}
+
+fn @lookup_float3__texture_ptex_int_State_mdl_math(tex : fn(State) -> texture_ptex, channel : fn(State) -> int,  state : State, math : mdl_math) -> fn(State) -> float3{
+{}
+}
+
+fn @lookup_float4__texture_2d_float2_wrap_mode_wrap_mode_float2_float2_State_mdl_math(tex : fn(State) -> texture_2d, coord : fn(State) -> float2, wrap_u : fn(State) -> wrap_mode, wrap_v : fn(State) -> wrap_mode, crop_u : fn(State) -> float2, crop_v : fn(State) -> float2,  state : State, math : mdl_math) -> fn(State) -> float4{
+{}
+}
+
+fn @lookup_float4__texture_3d_float3_wrap_mode_wrap_mode_wrap_mode_float2_float2_float2_State_mdl_math(tex : fn(State) -> texture_3d, coord : fn(State) -> float3, wrap_u : fn(State) -> wrap_mode, wrap_v : fn(State) -> wrap_mode, wrap_w : fn(State) -> wrap_mode, crop_u : fn(State) -> float2, crop_v : fn(State) -> float2, crop_w : fn(State) -> float2,  state : State, math : mdl_math) -> fn(State) -> float4{
+{}
+}
+
+fn @lookup_float4__texture_cube_float3_State_mdl_math(tex : fn(State) -> texture_cube, coord : fn(State) -> float3,  state : State, math : mdl_math) -> fn(State) -> float4{
+{}
+}
+
+fn @lookup_float4__texture_ptex_int_State_mdl_math(tex : fn(State) -> texture_ptex, channel : fn(State) -> int,  state : State, math : mdl_math) -> fn(State) -> float4{
+{}
+}
+
+fn @lookup_color__texture_2d_float2_wrap_mode_wrap_mode_float2_float2_State_mdl_math(tex : fn(State) -> texture_2d, coord : fn(State) -> float2, wrap_u : fn(State) -> wrap_mode, wrap_v : fn(State) -> wrap_mode, crop_u : fn(State) -> float2, crop_v : fn(State) -> float2,  state : State, math : mdl_math) -> fn(State) -> color{
+{}
+}
+
+fn @lookup_color__texture_3d_float3_wrap_mode_wrap_mode_wrap_mode_float2_float2_float2_State_mdl_math(tex : fn(State) -> texture_3d, coord : fn(State) -> float3, wrap_u : fn(State) -> wrap_mode, wrap_v : fn(State) -> wrap_mode, wrap_w : fn(State) -> wrap_mode, crop_u : fn(State) -> float2, crop_v : fn(State) -> float2, crop_w : fn(State) -> float2,  state : State, math : mdl_math) -> fn(State) -> color{
+{}
+}
+
+fn @lookup_color__texture_cube_float3_State_mdl_math(tex : fn(State) -> texture_cube, coord : fn(State) -> float3,  state : State, math : mdl_math) -> fn(State) -> color{
+{}
+}
+
+fn @lookup_color__texture_ptex_int_State_mdl_math(tex : fn(State) -> texture_ptex, channel : fn(State) -> int,  state : State, math : mdl_math) -> fn(State) -> color{
+{}
+}
+
+fn @texel_float__texture_2d_int2_State_mdl_math(tex : fn(State) -> texture_2d, coord : fn(State) -> int2,  state : State, math : mdl_math) -> fn(State) -> float{
+{}
+}
+
+fn @texel_float__texture_2d_int2_int2_State_mdl_math(tex : fn(State) -> texture_2d, coord : fn(State) -> int2, uv_tile : fn(State) -> int2,  state : State, math : mdl_math) -> fn(State) -> float{
+{}
+}
+
+fn @texel_float2__texture_2d_int2_State_mdl_math(tex : fn(State) -> texture_2d, coord : fn(State) -> int2,  state : State, math : mdl_math) -> fn(State) -> float2{
+{}
+}
+
+fn @texel_float2__texture_2d_int2_int2_State_mdl_math(tex : fn(State) -> texture_2d, coord : fn(State) -> int2, uv_tile : fn(State) -> int2,  state : State, math : mdl_math) -> fn(State) -> float2{
+{}
+}
+
+fn @texel_float3__texture_2d_int2_State_mdl_math(tex : fn(State) -> texture_2d, coord : fn(State) -> int2,  state : State, math : mdl_math) -> fn(State) -> float3{
+{}
+}
+
+fn @texel_float3__texture_2d_int2_int2_State_mdl_math(tex : fn(State) -> texture_2d, coord : fn(State) -> int2, uv_tile : fn(State) -> int2,  state : State, math : mdl_math) -> fn(State) -> float3{
+{}
+}
+
+fn @texel_float4__texture_2d_int2_State_mdl_math(tex : fn(State) -> texture_2d, coord : fn(State) -> int2,  state : State, math : mdl_math) -> fn(State) -> float4{
+{}
+}
+
+fn @texel_float4__texture_2d_int2_int2_State_mdl_math(tex : fn(State) -> texture_2d, coord : fn(State) -> int2, uv_tile : fn(State) -> int2,  state : State, math : mdl_math) -> fn(State) -> float4{
+{}
+}
+
+fn @texel_color__texture_2d_int2_State_mdl_math(tex : fn(State) -> texture_2d, coord : fn(State) -> int2,  state : State, math : mdl_math) -> fn(State) -> color{
+{}
+}
+
+fn @texel_color__texture_2d_int2_int2_State_mdl_math(tex : fn(State) -> texture_2d, coord : fn(State) -> int2, uv_tile : fn(State) -> int2,  state : State, math : mdl_math) -> fn(State) -> color{
+{}
+}
+
+fn @texel_float__texture_3d_int3_State_mdl_math(tex : fn(State) -> texture_3d, coord : fn(State) -> int3,  state : State, math : mdl_math) -> fn(State) -> float{
+{}
+}
+
+fn @texel_float2__texture_3d_int3_State_mdl_math(tex : fn(State) -> texture_3d, coord : fn(State) -> int3,  state : State, math : mdl_math) -> fn(State) -> float2{
+{}
+}
+
+fn @texel_float3__texture_3d_int3_State_mdl_math(tex : fn(State) -> texture_3d, coord : fn(State) -> int3,  state : State, math : mdl_math) -> fn(State) -> float3{
+{}
+}
+
+fn @texel_float4__texture_3d_int3_State_mdl_math(tex : fn(State) -> texture_3d, coord : fn(State) -> int3,  state : State, math : mdl_math) -> fn(State) -> float4{
+{}
+}
+
+fn @texel_color__texture_3d_int3_State_mdl_math(tex : fn(State) -> texture_3d, coord : fn(State) -> int3,  state : State, math : mdl_math) -> fn(State) -> color{
+{}
+}
+
+fn @texture_isvalid__texture_2d_State_mdl_math(tex : fn(State) -> texture_2d,  state : State, math : mdl_math) -> fn(State) -> bool{
+{}
+}
+
+fn @texture_isvalid__texture_3d_State_mdl_math(tex : fn(State) -> texture_3d,  state : State, math : mdl_math) -> fn(State) -> bool{
+{}
+}
+
+fn @texture_isvalid__texture_cube_State_mdl_math(tex : fn(State) -> texture_cube,  state : State, math : mdl_math) -> fn(State) -> bool{
+{}
+}
+
+fn @texture_isvalid__texture_ptex_State_mdl_math(tex : fn(State) -> texture_ptex,  state : State, math : mdl_math) -> fn(State) -> bool{
+{}
+}
