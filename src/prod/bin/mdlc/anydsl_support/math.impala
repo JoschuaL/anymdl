@@ -1407,35 +1407,35 @@ min_value_wavelength__color: fn(color) -> float,
 
 
 
-modf__float: fn(float) -> [float*2],
+modf__float: fn(float) -> float2,
 
 
 
-modf__float2: fn(float2) -> [float2*2],
+modf__float2: fn(float2) -> float2x2,
 
 
 
-modf__float3: fn(float3) -> [float3*2],
+modf__float3: fn(float3) -> float3x2,
 
 
 
-modf__float4: fn(float4) -> [float4*2],
+modf__float4: fn(float4) -> float4x2,
 
 
 
-modf__double: fn(double) -> [double*2],
+modf__double: fn(double) -> double2,
 
 
 
-modf__double2: fn(double2) -> [double2*2],
+modf__double2: fn(double2) -> double2x2,
 
 
 
-modf__double3: fn(double3) -> [double3*2],
+modf__double3: fn(double3) -> double3x2,
 
 
 
-modf__double4: fn(double4) -> [double4*2],
+modf__double4: fn(double4) -> double4x2,
 
 
 
