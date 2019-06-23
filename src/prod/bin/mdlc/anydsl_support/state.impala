@@ -1,107 +1,161 @@
+fn @make_state(
+    position: float3,
+    normal: float3,
+    geometry_normal:float3,
+    motion: float3,
+    texture_space_max: int,
+    texture_coordinate: fn(int) -> float3,
+    texture_tangent_u : fn(int) -> float3,
+    texture_tangent_v : fn(int) -> float3,
+    tangent_space : fn(int) -> float3x3,
+    geometry_tangent_u : fn(int) -> float3,
+    geometry_tangent_v : fn(int) -> float3,
+    direction: float3,
+    animation_time: float,
+    wavelength_base: float,
+    meters_per_scene_unit: float,
+    scene_units_per_meter: float,
+    object_id: int,
+    wavelength_min: float,
+    wavelength_max: float,
+    world_coordinate_space: float3x3,
+    object_coordinate_space: float3x3,
+    global_coordinate_space: float3x3
+) -> State{
+    State{
+        position: @||{ position},
+        normal: @||{ normal},
+        geometry_normal: @||{ geometry_normal},
+        motion: @||{ motion},
+        texture_space_max: @||{texture_space_max},
+        texture_coordinate_int : texture_coordinate,
+        texture_tangent_u_int : texture_tangent_u,
+        texture_tangent_v_int : texture_tangent_v,
+        tangent_space_int : tangent_space,
+        geometry_tangent_u_int : geometry_tangent_u,
+        geometry_tangent_v_int : geometry_tangent_v,
+        direction: @||{direction},
+        animation_time: @||{animation_time},
+        wavelength_base: @||{[wavelength_base]},
+        transform_coordinate_space_coordinate_space : @|from_space:coordinate_space, to_space:coordinate_space,|{ [[0.0f,0.0f,0.0f,0.0f],[0.0f,0.0f,0.0f,0.0f],[0.0f,0.0f,0.0f,0.0f],[0.0f,0.0f,0.0f,0.0f]]},
+        transform_point_coordinate_space_coordinate_space_float3 : @|from_space:coordinate_space, to_space:coordinate_space,coord:float3,|{[0.0f, 0.0f, 0.0f]},
+        transform_vector_coordinate_space_coordinate_space_float3 : @|from_space:coordinate_space, to_space:coordinate_space,coord:float3,|{[0.0f, 0.0f, 0.0f]},
+        transform_normal_coordinate_space_coordinate_space_float3 : @|from_space:coordinate_space, to_space:coordinate_space,coord:float3,|{[0.0f, 0.0f, 0.0f]},
+        transform_scale_coordinate_space_coordinate_space_float : @|from_space:coordinate_space, to_space:coordinate_space,scale:float,|{ 0.0f},
+        rounded_corner_normal_float_bool : @|factor:float,is:bool,|{[0.0f, 0.0f, 0.0f]},
+        rounded_corner_normal_float_bool_float : @|factor:float,is:bool,factor2:float,|{[0.0f, 0.0f, 0.0f]},
+        meters_per_scene_unit: @||{meters_per_scene_unit},
+        scene_units_per_meter: @||{scene_units_per_meter},
+        object_id: @||{object_id},
+        wavelength_min: @||{wavelength_min},
+        wavelength_max: @||{wavelength_max}
+    }
+}
+
 static dummy_state: State = State{
-    position: ||{ [0.0f, 0.0f, 0.0f]},
+    position: @||{ [0.0f, 0.0f, 0.0f]},
 
 
 
-    normal: ||{ [0.0f, 0.0f, 0.0f]},
+    normal: @||{ [0.0f, 0.0f, 0.0f]},
 
 
 
-    geometry_normal: ||{ [0.0f, 0.0f, 0.0f]},
+    geometry_normal: @||{ [0.0f, 0.0f, 0.0f]},
 
 
 
-    motion: ||{ [0.0f, 0.0f, 0.0f]},
+    motion: @||{ [0.0f, 0.0f, 0.0f]},
 
 
 
-    texture_space_max: ||{0},
+    texture_space_max: @||{0},
 
 
 
-    texture_coordinate_int : |index:int|{ [0.0f, 0.0f, 0.0f]},
+    texture_coordinate_int : @|index:int|{ [0.0f, 0.0f, 0.0f]},
 
 
 
-    texture_tangent_u_int : |index:int|{ [0.0f, 0.0f, 0.0f]},
+    texture_tangent_u_int : @|index:int|{ [0.0f, 0.0f, 0.0f]},
 
 
 
-    texture_tangent_v_int : |index:int|{ [0.0f, 0.0f, 0.0f]},
+    texture_tangent_v_int : @|index:int|{ [0.0f, 0.0f, 0.0f]},
 
 
 
-    tangent_space_int : |index:int|{ [[0.0f,0.0f,0.0f],[0.0f,0.0f,0.0f],[0.0f,0.0f,0.0f]]},
+    tangent_space_int : @|index:int|{ [[0.0f,0.0f,0.0f],[0.0f,0.0f,0.0f],[0.0f,0.0f,0.0f]]},
 
 
 
-    geometry_tangent_u_int : |index:int|{ [0.0f, 0.0f, 0.0f]},
+    geometry_tangent_u_int : @|index:int|{ [0.0f, 0.0f, 0.0f]},
 
 
 
-    geometry_tangent_v_int : |index:int|{ [0.0f, 0.0f, 0.0f]},
+    geometry_tangent_v_int : @|index:int|{ [0.0f, 0.0f, 0.0f]},
 
 
 
-    direction: ||{ [0.0f, 0.0f, 0.0f]},
+    direction: @||{ [0.0f, 0.0f, 0.0f]},
 
 
 
-    animation_time: ||{ 0.0f},
+    animation_time: @||{ 0.0f},
 
 
 
-    wavelength_base: ||{ [0.0f]},
+    wavelength_base: @||{ [0.0f]},
 
 
 
 
 
-    transform_coordinate_space_coordinate_space : |from_space:coordinate_space, to_space:coordinate_space,|{ [[0.0f,0.0f,0.0f,0.0f],[0.0f,0.0f,0.0f,0.0f],[0.0f,0.0f,0.0f,0.0f],[0.0f,0.0f,0.0f,0.0f]]},
+    transform_coordinate_space_coordinate_space : @|from_space:coordinate_space, to_space:coordinate_space,|{ [[0.0f,0.0f,0.0f,0.0f],[0.0f,0.0f,0.0f,0.0f],[0.0f,0.0f,0.0f,0.0f],[0.0f,0.0f,0.0f,0.0f]]},
 
 
 
-    transform_point_coordinate_space_coordinate_space_float3 : |from_space:coordinate_space, to_space:coordinate_space,coord:float3,|{[0.0f, 0.0f, 0.0f]},
+    transform_point_coordinate_space_coordinate_space_float3 : @|from_space:coordinate_space, to_space:coordinate_space,coord:float3,|{[0.0f, 0.0f, 0.0f]},
 
 
 
-    transform_vector_coordinate_space_coordinate_space_float3 : |from_space:coordinate_space, to_space:coordinate_space,coord:float3,|{[0.0f, 0.0f, 0.0f]},
+    transform_vector_coordinate_space_coordinate_space_float3 : @|from_space:coordinate_space, to_space:coordinate_space,coord:float3,|{[0.0f, 0.0f, 0.0f]},
 
 
 
-    transform_normal_coordinate_space_coordinate_space_float3 : |from_space:coordinate_space, to_space:coordinate_space,coord:float3,|{[0.0f, 0.0f, 0.0f]},
+    transform_normal_coordinate_space_coordinate_space_float3 : @|from_space:coordinate_space, to_space:coordinate_space,coord:float3,|{[0.0f, 0.0f, 0.0f]},
 
 
 
-    transform_scale_coordinate_space_coordinate_space_float : |from_space:coordinate_space, to_space:coordinate_space,scale:float,|{ 0.0f},
+    transform_scale_coordinate_space_coordinate_space_float : @|from_space:coordinate_space, to_space:coordinate_space,scale:float,|{ 0.0f},
 
 
 
-    rounded_corner_normal_float_bool : |factor:float,is:bool,|{[0.0f, 0.0f, 0.0f]},
+    rounded_corner_normal_float_bool : @|factor:float,is:bool,|{[0.0f, 0.0f, 0.0f]},
 
 
 
-    rounded_corner_normal_float_bool_float : |factor:float,is:bool,factor2:float,|{[0.0f, 0.0f, 0.0f]},
+    rounded_corner_normal_float_bool_float : @|factor:float,is:bool,factor2:float,|{[0.0f, 0.0f, 0.0f]},
 
 
 
-    meters_per_scene_unit: ||{ 0.0f},
+    meters_per_scene_unit: @||{ 0.0f},
 
 
 
-    scene_units_per_meter: ||{ 0.0f},
+    scene_units_per_meter: @||{ 0.0f},
 
 
 
-    object_id: ||{0},
+    object_id: @||{0},
 
 
 
-    wavelength_min: ||{ 0.0f},
+    wavelength_min: @||{ 0.0f},
 
 
 
-    wavelength_max: ||{ 0.0f}
+    wavelength_max: @||{ 0.0f}
 };
 
 

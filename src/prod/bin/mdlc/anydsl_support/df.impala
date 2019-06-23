@@ -255,6 +255,7 @@ fn @diffuse_reflection_bsdf_pdf(
     diffuse_pdf(data, state, inherited_normal, false, math);
 }
 
+
 fn @diffuse_evaluate(
     data: &mut BSDF_evaluate_data,
     state: State,
@@ -308,7 +309,7 @@ fn @diffuse_reflection_bsdf__color_float_mdl_math(
 {
     |geo:material_geometry|{
         executable_bsdf{
-            sample: |data:&mut BSDF_sample_data, state:State|{
+            sample: @|data:&mut BSDF_sample_data, state:State|{
                 diffuse_reflection_bsdf_sample(
                     data,
                     state,
@@ -318,7 +319,7 @@ fn @diffuse_reflection_bsdf__color_float_mdl_math(
                     math
                 );
             },
-            pdf: |data:&mut BSDF_pdf_data, state:State|{
+            pdf: @|data:&mut BSDF_pdf_data, state:State|{
                 diffuse_reflection_bsdf_pdf(
                     data,
                     state,
@@ -328,7 +329,7 @@ fn @diffuse_reflection_bsdf__color_float_mdl_math(
                     math
                 );
             },
-            evaluate: |data:&mut BSDF_evaluate_data, state:State|{
+            evaluate: @|data:&mut BSDF_evaluate_data, state:State|{
                 diffuse_reflection_bsdf_evaluate(
                     data,
                     state,

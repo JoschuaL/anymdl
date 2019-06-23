@@ -1,189 +1,53 @@
-fn @glossy_material__float2_color_mdl_math(roughness : fn(State) -> float2, tint : fn(State) -> color,  math : mdl_math) -> material {
-    let mut tmp: bsdf = bsdf__bsdf_mdl_math(
-        |state:State|{simple_glossy_bsdf__float_float_color_float3_scatter_mode_mdl_math(
-            |state:State|{roughness(state)(0)},
-            |state:State|{roughness(state)(1)},
-            |state:State|{mul__color_color(
-                color__float3_mdl_math(
-                    state.normal(),
-                    math
-                ),
-                tint(state)
-            )},
-            |state:State|{state.texture_tangent_u_int(0, )},
-            |state:State|{scatter_mode::scatter_reflect},
-            math
-        )},
-        math
-    );
-    {
-        material__bool_material_surface_material_surface_color_material_volume_material_geometry_mdl_math(
-            |state:State|{false},
-            |state:State|{material_surface__bsdf_material_emission_mdl_math(
-                |state:State|{tmp},
-                |state:State|{material_emission__edf_color_intensity_mode_mdl_math(
-                    |state:State|{edf__mdl_math(math)},
-                    |state:State|{[0.000000f, 0.000000f, 0.000000f]},
-                    |state:State|{intensity_mode::intensity_radiant_exitance},
-                    math
-                )},
-                math
-            )},
-            |state:State|{material_surface__bsdf_material_emission_mdl_math(
-                |state:State|{tmp},
-                |state:State|{material_emission__edf_color_intensity_mode_mdl_math(
-                    |state:State|{edf__mdl_math(math)},
-                    |state:State|{[0.000000f, 0.000000f, 0.000000f]},
-                    |state:State|{intensity_mode::intensity_radiant_exitance},
-                    math
-                )},
-                math
-            )},
-            |state:State|{[1.000000f, 1.000000f, 1.000000f]},
-            |state:State|{material_volume__vdf_color_color_mdl_math(
-                |state:State|{vdf__mdl_math(math)},
-                |state:State|{[0.000000f, 0.000000f, 0.000000f]},
-                |state:State|{[0.000000f, 0.000000f, 0.000000f]},
-                math
-            )},
-            |state:State|{material_geometry__float3_float_float3_mdl_math(
-                |state:State|{[0.000000f, 0.000000f, 0.000000f, ]},
-                |state:State|{1.000000f},
-                |state:State|{state.normal()},
-                math
-            )},
-            math
-        )
-    }
-
-}
-
-fn @simple_glossy_material__mdl_math( math : mdl_math) -> material {
-    glossy_material__float2_color_mdl_math(
-        |state:State|{[0.000000f, 0.000000f, ]},
-        |state:State|{[1.000000f, 1.000000f, 1.000000f]},
-        math
-    )
-}
-
-fn @example_compilation__color_mdl_math(tint : fn(State) -> color,  math : mdl_math) -> material {
-    material__bool_material_surface_material_surface_color_material_volume_material_geometry_mdl_math(
-        |state:State|{false},
-        |state:State|{material_surface__bsdf_material_emission_mdl_math(
-            |state:State|{diffuse_reflection_bsdf__color_float_mdl_math(
-                |state:State|{mul__color_color(
-                    tint(state),
-                    color__float3_mdl_math(
-                        state.normal(),
-                        math
-                    )
-                )},
-                |state:State|{0.000000f},
-                math
-            )},
-            |state:State|{material_emission__edf_color_intensity_mode_mdl_math(
-                |state:State|{edf__mdl_math(math)},
-                |state:State|{[0.000000f, 0.000000f, 0.000000f]},
-                |state:State|{intensity_mode::intensity_radiant_exitance},
-                math
-            )},
-            math
-        )},
-        |state:State|{material_surface__bsdf_material_emission_mdl_math(
-            |state:State|{diffuse_reflection_bsdf__color_float_mdl_math(
-                |state:State|{mul__color_float(
-                    mul__color_color(
-                        tint(state),
-                        color__float3_mdl_math(
-                            state.normal(),
-                            math
-                        )
-                    ),
-                    math.sin__float(
-                        float__int_mdl_math(
-                            3,
-                            math
-                        ),
-                    )
-                )},
-                |state:State|{0.000000f},
-                math
-            )},
-            |state:State|{material_emission__edf_color_intensity_mode_mdl_math(
-                |state:State|{edf__mdl_math(math)},
-                |state:State|{[0.000000f, 0.000000f, 0.000000f]},
-                |state:State|{intensity_mode::intensity_radiant_exitance},
-                math
-            )},
-            math
-        )},
-        |state:State|{[1.000000f, 1.000000f, 1.000000f]},
-        |state:State|{material_volume__vdf_color_color_mdl_math(
-            |state:State|{vdf__mdl_math(math)},
-            |state:State|{[0.000000f, 0.000000f, 0.000000f]},
-            |state:State|{[0.000000f, 0.000000f, 0.000000f]},
-            math
-        )},
-        |state:State|{material_geometry__float3_float_float3_mdl_math(
-            |state:State|{[0.000000f, 0.000000f, 0.000000f, ]},
-            |state:State|{1.000000f},
-            |state:State|{state.normal()},
-            math
-        )},
-        math
-    )
-}
-
 fn @uv_as_color_material__color_mdl_math(tt : fn(State) -> color,  math : mdl_math) -> material {
-    let mut diffuse_color: fn(State) -> color = |state:State|{color__float3_mdl_math(
+    let mut diffuse_color: fn(State) -> color = @|state:State|{color__float3_mdl_math(
         state.texture_coordinate_int(0, ),
         math
     )};
     let mut diffuse_bsdf: bsdf = bsdf__bsdf_mdl_math(
-        |state:State|{diffuse_reflection_bsdf__color_float_mdl_math(
-            |state:State|{mul__color_color(
+        @|state:State|{diffuse_reflection_bsdf__color_float_mdl_math(
+            @|state:State|{mul__color_color(
                 diffuse_color(state),
                 tt(state)
             )},
-            |state:State|{0.000000f},
+            @|state:State|{0.000000f},
             math
         )},
         math
     );
     {
         material__bool_material_surface_material_surface_color_material_volume_material_geometry_mdl_math(
-            |state:State|{false},
-            |state:State|{material_surface__bsdf_material_emission_mdl_math(
-                |state:State|{diffuse_bsdf},
-                |state:State|{material_emission__edf_color_intensity_mode_mdl_math(
-                    |state:State|{edf__mdl_math(math)},
-                    |state:State|{[0.000000f, 0.000000f, 0.000000f]},
-                    |state:State|{intensity_mode::intensity_radiant_exitance},
+            @|state:State|{false},
+            @|state:State|{material_surface__bsdf_material_emission_mdl_math(
+                @|state:State|{diffuse_bsdf},
+                @|state:State|{material_emission__edf_color_intensity_mode_mdl_math(
+                    @|state:State|{edf__mdl_math(math)},
+                    @|state:State|{[0.000000f, 0.000000f, 0.000000f]},
+                    @|state:State|{intensity_mode::intensity_radiant_exitance},
                     math
                 )},
                 math
             )},
-            |state:State|{material_surface__bsdf_material_emission_mdl_math(
-                |state:State|{bsdf__mdl_math(math)},
-                |state:State|{material_emission__edf_color_intensity_mode_mdl_math(
-                    |state:State|{edf__mdl_math(math)},
-                    |state:State|{[0.000000f, 0.000000f, 0.000000f]},
-                    |state:State|{intensity_mode::intensity_radiant_exitance},
+            @|state:State|{material_surface__bsdf_material_emission_mdl_math(
+                @|state:State|{bsdf__mdl_math(math)},
+                @|state:State|{material_emission__edf_color_intensity_mode_mdl_math(
+                    @|state:State|{edf__mdl_math(math)},
+                    @|state:State|{[0.000000f, 0.000000f, 0.000000f]},
+                    @|state:State|{intensity_mode::intensity_radiant_exitance},
                     math
                 )},
                 math
             )},
-            |state:State|{[1.000000f, 1.000000f, 1.000000f]},
-            |state:State|{material_volume__vdf_color_color_mdl_math(
-                |state:State|{vdf__mdl_math(math)},
-                |state:State|{[0.000000f, 0.000000f, 0.000000f]},
-                |state:State|{[0.000000f, 0.000000f, 0.000000f]},
+            @|state:State|{[1.000000f, 1.000000f, 1.000000f]},
+            @|state:State|{material_volume__vdf_color_color_mdl_math(
+                @|state:State|{vdf__mdl_math(math)},
+                @|state:State|{[0.000000f, 0.000000f, 0.000000f]},
+                @|state:State|{[0.000000f, 0.000000f, 0.000000f]},
                 math
             )},
-            |state:State|{material_geometry__float3_float_float3_mdl_math(
-                |state:State|{[0.000000f, 0.000000f, 0.000000f, ]},
-                |state:State|{1.000000f},
-                |state:State|{state.normal()},
+            @|state:State|{material_geometry__float3_float_float3_mdl_math(
+                @|state:State|{[0.000000f, 0.000000f, 0.000000f, ]},
+                @|state:State|{1.000000f},
+                @|state:State|{state.normal()},
                 math
             )},
             math
@@ -191,3 +55,58 @@ fn @uv_as_color_material__color_mdl_math(tt : fn(State) -> color,  math : mdl_ma
     }
 
 }
+
+
+fn @material_test() -> f32{
+    
+    let stat = make_state(
+        [0.0f, 0.0f, 0.0f],
+        [0.0f,0.0f,1.0f],
+        [0.0f,0.0f,1.0f],
+        [0.0f,0.0f,0.0f],
+        1,
+        |i:int|{[0.0f,0.0f,0.0f]},
+        |i:int|{[1.0f,0.0f,0.0f]},
+        |i:int|{[0.0f,1.0f,0.0f]},
+        |i:int|{[[1.0f,0.0f,0.0f],[0.0f,1.0f,0.0f],[0.0f,0.0f,1.0f]]},
+        |i:int|{[1.0f,0.0f,0.0f]},
+        |i:int|{[0.0f,1.0f,0.0f]},
+        [0.0f,0.0f,0.0f],
+        0.0f,
+        0.0f,
+        1.0f,
+        1.0f,
+        0,
+        380.000000f,
+        780.000000f,
+        [[1.0f,0.0f,0.0f],[0.0f,1.0f,0.0f],[0.0f,0.0f,1.0f]],
+        [[1.0f,0.0f,0.0f],[0.0f,1.0f,0.0f],[0.0f,0.0f,1.0f]],
+        [[1.0f,0.0f,0.0f],[0.0f,1.0f,0.0f],[0.0f,0.0f,1.0f]]
+    );
+
+    
+
+    let math = make_mdl_math(cpu_intrinsics);
+
+    let mat = uv_as_color_material__color_mdl_math(@|state:State|{[0.5f,0.5f,0.5f]}, math);
+
+    let mut data = make_bsdf_evaluate_data(
+        [1.0f,1.0f,1.0f],
+        [1.0f,1.0f,1.0f],
+        [0.0f,0.0f,-1.0f],
+        [0.0f,0.0f,1.0f]
+    );
+
+    
+
+    mat.surface.scattering.evaluate(&mut data, stat);
+
+ 
+    if((data.bsdf(0) + data.bsdf(1) + data.bsdf(2)) == 0.0f) {1.0f} else {2.0f}
+
+}
+
+extern fn main() -> float{
+    material_test()
+}
+
