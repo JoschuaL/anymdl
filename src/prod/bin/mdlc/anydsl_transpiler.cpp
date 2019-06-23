@@ -1004,7 +1004,7 @@ namespace mi {
                         if (j > 0) {
                             add_to_code("", true);
                         }
-                        add_to_code("let mut ");
+                        add_to_code("let ");
                         add_to_code(var_decl->get_variable_name(j)->get_symbol()->get_name());
                         add_to_code(": ");
                         add_to_code(var_type);
