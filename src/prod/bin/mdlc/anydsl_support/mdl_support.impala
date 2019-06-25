@@ -65,10 +65,10 @@ type color = [float*3];
 
 struct material {
     thin_walled: bool,
-    surface: compiled_material_surface,
-    backface: compiled_material_surface,
+    surface: material_surface,
+    backface: material_surface,
     ior: color,
-    volume: compiled_material_volume,
+    volume: material_volume,
     geometry: material_geometry,
 }
 
@@ -82,14 +82,14 @@ fn @material__bool_material_surface_material_surface_color_material_volume_mater
     geometry: fn(State) -> material_geometry,
     math: mdl_math
 ) -> material {
-    let geo: material_geometry = geometry(dummy_state);
+    
     material{
         thin_walled: thin_walled(dummy_state),
-        surface: surface(dummy_state)(geo),
-        backface: backface(dummy_state)(geo),
+        surface: surface(dummy_state),
+        backface: backface(dummy_state),
         ior: ior(dummy_state),
-        volume: volume(dummy_state)(geo),
-        geometry: geo,
+        volume: volume(dummy_state),
+        geometry: geometry(dummy_state),
     }
 }
 
@@ -97,11 +97,11 @@ fn @material__material(copy: fn(State) -> material) -> material{
     copy(dummy_state)
 }
 
-type material_surface = fn(material_geometry) -> compiled_material_surface;
 
-struct compiled_material_surface {
-    scattering: executable_bsdf,
-    emission: compiled_material_emission,
+
+struct material_surface {
+    scattering: bsdf,
+    emission: material_emission,
 };
 
 fn @material_surface__bsdf_material_emission_mdl_math(
@@ -109,12 +109,12 @@ fn @material_surface__bsdf_material_emission_mdl_math(
     emission: fn(State) -> material_emission,
     math: mdl_math
 ) -> material_surface{
-    @|geo:material_geometry|{
-        compiled_material_surface{
-            scattering: scattering(dummy_state)(geo),
-            emission: emission(dummy_state)(geo)
+    
+        material_surface{
+            scattering: scattering(dummy_state),
+            emission: emission(dummy_state)
         }
-    }
+    
 }
 
 
@@ -122,10 +122,10 @@ fn @material_surface__material_surface(copy: fn(State) -> material_surface) -> m
     copy(dummy_state)
 }
 
-type material_emission = fn(material_geometry) -> compiled_material_emission;
 
-struct compiled_material_emission {
-    emission: executable_edf,
+
+struct material_emission {
+    emission: edf,
     intensity: fn(State) -> color,
     mode: intensity_mode
 };
@@ -135,13 +135,13 @@ fn @material_emission__edf_color_intensity_mode_mdl_math(
     mode: fn(State) -> intensity_mode,
     math: mdl_math
 ) -> material_emission{
-    @|geo:material_geometry|{
-        compiled_material_emission{
-            emission: emission(dummy_state)(geo),
+    
+        material_emission{
+            emission: emission(dummy_state),
             intensity: intensity,
             mode: mode(dummy_state)
         }
-    }
+    
 }
 
 enum intensity_mode {
@@ -149,10 +149,10 @@ enum intensity_mode {
     intensity_power
 }
 
-type material_volume = fn(material_geometry) -> compiled_material_volume;
 
-struct compiled_material_volume {
-    scattering: executable_vdf,
+
+struct material_volume {
+    scattering: vdf,
     absorption_coefficient: fn(State) -> color,
     scattering_coefficient: fn(State) -> color
 }
@@ -164,13 +164,13 @@ fn @material_volume__vdf_color_color_mdl_math(
     math: mdl_math
 ) -> material_volume 
 {
-    @|geo:material_geometry|{
-        compiled_material_volume{
-            scattering: scattering(dummy_state)(geo),
+    
+        material_volume{
+            scattering: scattering(dummy_state),
             absorption_coefficient: absorption_coefficient,
             scattering_coefficient: scattering_coefficient
         }
-    }
+    
 }
 
 struct material_geometry {
@@ -320,11 +320,9 @@ struct VDF_pdf_data{}
 
 struct VDF_evaluate_data{}
 
-type bsdf = fn(material_geometry) -> executable_bsdf;
-type edf = fn(material_geometry) -> executable_edf;
-type vdf = fn(material_geometry) -> executable_vdf;
 
-struct executable_bsdf{
+
+struct bsdf{
     sample: fn(&mut BSDF_sample_data, State) -> (),
     pdf: fn(&mut BSDF_pdf_data, State) -> (),
     evaluate: fn(&mut BSDF_evaluate_data, State) -> (),
@@ -332,14 +330,14 @@ struct executable_bsdf{
 }
 
 
-struct executable_edf{
+struct edf{
     sample: fn(&mut EDF_sample_data, State) -> (),
     pdf: fn(&mut EDF_pdf_data, State) -> (),
     evaluate: fn(&mut EDF_evaluate_data, State) -> (),
     is_default: bool
 }
 
-struct executable_vdf{
+struct vdf{
     sample: fn(&mut VDF_sample_data, State) -> (),
     pdf: fn(&mut VDF_pdf_data, State) -> (),
     evaluate: fn(&mut VDF_evaluate_data, State) -> (),
@@ -348,8 +346,8 @@ struct executable_vdf{
 
 fn @bsdf__mdl_math(math: mdl_math) -> bsdf
 {
-    @|geo:material_geometry|{
-    executable_bsdf{
+    
+    bsdf{
         sample: @|data:&mut BSDF_sample_data, state:State|{
             absorb_sample(data);
         },
@@ -361,13 +359,13 @@ fn @bsdf__mdl_math(math: mdl_math) -> bsdf
         },
         is_default: true
     }
-    }
+    
 }
 
 fn @vdf__mdl_math(math: mdl_math) -> vdf
 {
-    @|geo:material_geometry|{
-    executable_vdf{
+    
+    vdf{
         sample: @|data:&mut VDF_sample_data, state:State|{
             
         },
@@ -379,13 +377,13 @@ fn @vdf__mdl_math(math: mdl_math) -> vdf
         },
         is_default: true
     }
-    }
+    
 }
 
 fn @edf__mdl_math(math: mdl_math) -> edf
 {
-    @|geo:material_geometry|{
-    executable_edf{
+    
+    edf{
         sample: @|data:&mut EDF_sample_data, state:State|{
             no_emission_sample(data)
         },
@@ -397,5 +395,5 @@ fn @edf__mdl_math(math: mdl_math) -> edf
         },
         is_default: true
     }
-    }
+    
 }

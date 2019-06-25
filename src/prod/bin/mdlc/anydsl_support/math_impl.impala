@@ -17,9 +17,9 @@ fn @make_mdl_math(math: Intrinsics) -> mdl_math{
     let average__float = |a:float|{a};
     let ceil__float = |a:float|{math.floorf(a + 1.0f)};
     let ceil__double = |a:double|{math.floor(a + 1.0)};
-    let clamp__int_int_int = |a:int, b:int, c:int|{if(a < b){b} else if(a > c){c} else {a}};
-    let clamp__float_float_float = |a:float, b:float, c:float|{if(a < b){b} else if(a > c){c} else {a}};
-    let clamp__double_double_double = |a:double, b:double, c:double|{if(a < b){b} else if(a > c){c} else {a}};
+    let clamp__int_int_int = |a:int, b:int, c:int|{math.min(c, math.max(b, a))};
+    let clamp__float_float_float = |a:float, b:float, c:float|{math.fminf(c, math.fmaxf(b, a))};
+    let clamp__double_double_double = |a:double, b:double, c:double|{math.fmin(c, math.fmax(b, a))};
     let cos__float = |a:float|{math.cosf(a)};
     let cos__double = |a:double|{math.cos(a)};
     let degrees__float = |a:float|{a * 180.0f / pi};
@@ -57,6 +57,59 @@ fn @make_mdl_math(math: Intrinsics) -> mdl_math{
     let pow__int_int = |a:int, b:int|{math.powf(a as float,b as float) as int};
     let pow__float_float = |a:float, b:float|{math.powf(a,b)};
     let pow__double_double = |a:double, b:double|{math.pow(a,b)};
+    let radians__float = |a:float|{pi * a / 180.0f};
+    let radians__double = |a:double|{pi as double * a / 180.0};
+    let round__double = |a:double|{
+        let floor = floor__double(a);
+        let l = a-floor;
+        let h = floor + 1.0 - a;
+        if(l < h){l} else {h}
+    };
+
+    let round__float = |a:float|{
+        let floor = floor__float(a);
+        let l = a-floor;
+        let h = floor + 1.0f - a;
+        if(l < h){l} else {h}
+    };
+
+    let rsqrt__float = |a:float|{math.rsqrtf(a)};
+
+    let rsqrt__double = |a:double|{math.rsqrt(a)};
+
+    let saturate__float = |a:float|{clamp__float_float_float(a, 0.0f,1.0f)};
+    let saturate__double = |a:double|{clamp__double_double_double(a, 0.0, 1.0)};
+    let sign__int = |a:int|{if(a > 0) {1} else if(a < 0) {-1} else {0}};
+    let sign__float = |a:float|{if(a > 0.0f) {1.0f} else if(a < 0.0f) {-1.0f} else {0.0f}};
+    let sign__double = |a:double|{if(a > 0.0) {1.0} else if(a < 0.0) {-1.0} else {0.0}};
+    let sin__float = |a:float|{math.sinf(a)};
+    let sin__double = |a:double|{math.sin(a)};
+    let sincos__float = |a:float|{[math.sinf(a), math.cosf(a)]};
+    let sincos__double = |a:double|{[math.sin(a), math.cos(a)]};
+
+    let smoothstep__float_float_float = |a:float, b:float, l:float|{
+        let t = clamp__float_float_float((l - a) / (b - a), 0.0f, 1.0f);
+        t * t * (3.0f - 2.0f * t)
+    };
+
+    let smoothstep__double_double_double = |a:double, b:double, l:double|{
+        let t = clamp__double_double_double((l - a) / (b - a), 0.0, 1.0);
+        t * t * (3.0 - 2.0 * t)
+    };
+
+ 
+
+    let step__float_float = |a:float, b:float|{if(b < a) {0.0f} else {1.0f}};
+
+    let step__double_double = |a:double, b:double|{if(b < a) {0.0} else {1.0}};
+
+    let tan__double = |a:double|{math.tan(a)};
+
+    let tan__float = |a:float|{math.tanf(a)};
+
+    let sqrt__float = |a:float|{math.sqrtf(a)};
+
+    let sqrt__double = |a:double|{math.sqrt(a)};
 
     mdl_math{
     PI: pi,
@@ -346,7 +399,7 @@ ceil__double4: |a:double4|{[ceil__double(a(0)), ceil__double(a(1)), ceil__double
 
 
 
-clamp__int_int_int: |a:int, b:int, c:int|{if(a < b){b} else if(a > c){c} else {a}},
+clamp__int_int_int: |a:int, b:int, c:int|{math.min(c, math.max(b, a))},
 
 
 
@@ -374,7 +427,7 @@ clamp__int4_int4_int4: |a:int4, b:int4, c:int4|{[
 
 
 
-clamp__float_float_float: |a:float, b:float, c:float|{if(a < b){b} else if(a > c){c} else {a}},
+clamp__float_float_float: |a:float, b:float, c:float|{math.fminf(c, math.fmaxf(b, a))},
 
 
 
@@ -402,7 +455,7 @@ clamp__float4_float4_float4: |a:float4, b:float4, c:float4|{[
 
 
 
-clamp__double_double_double: |a:double, b:double, c:double|{if(a < b){b} else if(a > c){c} else {a}},
+clamp__double_double_double: |a:double, b:double, c:double|{math.fmin(c, math.fmax(b, a))},
 
 
 
@@ -1937,492 +1990,713 @@ pow__color_float: |a:color, b:float|{[math.powf(a(0),b), math.powf(a(1),b), math
 
 
 
-radians__float: |a:float|{a},
+radians__float: |a:float|{pi * a / 180.0f},
 
 
 
-radians__float2: |a:float2|{a},
+radians__float2: |a:float2|{[radians__float(a(0)), radians__float(a(1))]},
 
 
 
-radians__float3: |a:float3|{a},
+radians__float3: |a:float3|{[radians__float(a(0)), radians__float(a(1)), radians__float(a(2))]},
 
 
 
-radians__float4: |a:float4|{a},
+radians__float4: |a:float4|{[radians__float(a(0)), radians__float(a(1)), radians__float(a(2)), radians__float(a(3))]},
 
 
 
-radians__double: |a:double|{a},
+radians__double: |a:double|{pi as double * a / 180.0},
 
 
 
-radians__double2: |a:double2|{a},
+radians__double2: |a:double2|{[radians__double(a(0)), radians__double(a(1))]},
 
 
 
-radians__double3: |a:double3|{a},
+radians__double3: |a:double3|{[radians__double(a(0)), radians__double(a(1)), radians__double(a(2))]},
 
 
 
-radians__double4: |a:double4|{a},
+radians__double4: |a:double4|{[radians__double(a(0)), radians__double(a(1)), radians__double(a(2)), radians__double(a(3))]},
 
 
 
-round__float: |a:float|{a},
 
 
+round__float: |a:float|{
+    let floor = floor__float(a);
+    let l = a-floor;
+    let h = floor + 1.0f - a;
+    if(l < h){l} else {h}
+},
 
-round__float2: |a:float2|{a},
 
+round__float2: |a:float2|{[round__float(a(0)), round__float(a(1))]},
 
 
-round__float3: |a:float3|{a},
 
+round__float3: |a:float3|{[round__float(a(0)), round__float(a(1)), round__float(a(2))]},
 
 
-round__float4: |a:float4|{a},
 
+round__float4: |a:float4|{[round__float(a(0)), round__float(a(1)), round__float(a(2)), round__float(a(3))]},
 
 
-round__double: |a:double|{a},
 
+round__double: |a:double|{
+    let floor = floor__double(a);
+    let l = a-floor;
+    let h = floor + 1.0 - a;
+    if(l < h){l} else {h}
+},
 
 
-round__double2: |a:double2|{a},
 
+round__double2: |a:double2|{[round__double(a(0)), round__double(a(1))]},
 
 
-round__double3: |a:double3|{a},
 
+round__double3: |a:double3|{[round__double(a(0)), round__double(a(1)), round__double(a(2))]},
 
 
-round__double4: |a:double4|{a},
 
+round__double4: |a:double4|{[round__double(a(0)), round__double(a(1)), round__double(a(2)), round__double(a(3))]},
 
 
-rsqrt__float: |a:float|{a},
 
 
 
-rsqrt__float2: |a:float2|{a},
+rsqrt__float: |a:float|{math.rsqrtf(a)},
 
 
 
-rsqrt__float3: |a:float3|{a},
+rsqrt__float2: |a:float2|{[rsqrt__float(a(0)), rsqrt__float(a(1))]},
 
 
 
-rsqrt__float4: |a:float4|{a},
+rsqrt__float3: |a:float3|{[rsqrt__float(a(0)), rsqrt__float(a(1)), rsqrt__float(a(2))]},
 
 
 
-rsqrt__double: |a:double|{a},
+rsqrt__float4: |a:float4|{[rsqrt__float(a(0)), rsqrt__float(a(1)), rsqrt__float(a(2)), rsqrt__float(a(3))]},
 
 
 
-rsqrt__double2: |a:double2|{a},
+rsqrt__double: |a:double|{math.rsqrt(a)},
 
 
 
-rsqrt__double3: |a:double3|{a},
+rsqrt__double2: |a:double2|{[rsqrt__double(a(0)), rsqrt__double(a(1))]},
 
 
 
-rsqrt__double4: |a:double4|{a},
+rsqrt__double3: |a:double3|{[rsqrt__double(a(0)), rsqrt__double(a(1)), rsqrt__double(a(2))]},
 
 
 
-rsqrt__color: |c:color|{c},
+rsqrt__double4: |a:double4|{[rsqrt__double(a(0)), rsqrt__double(a(1)), rsqrt__double(a(2)), rsqrt__double(a(3))]},
 
 
 
-saturate__float: |a:float|{a},
+rsqrt__color: |c:color|{[rsqrt__float(c(0)), rsqrt__float(c(1)), rsqrt__float(c(2))]},
 
 
 
-saturate__float2: |a:float2|{a},
+saturate__float: |a:float|{clamp__float_float_float(a, 0.0f,1.0f)},
 
 
 
-saturate__float3: |a:float3|{a},
+saturate__float2: |a:float2|{[saturate__float(a(0)), saturate__float(a(1))]},
 
 
 
-saturate__float4: |a:float4|{a},
+saturate__float3: |a:float3|{[saturate__float(a(0)), saturate__float(a(1)), saturate__float(a(2))]},
 
 
 
-saturate__double: |a:double|{a},
+saturate__float4: |a:float4|{[saturate__float(a(0)), saturate__float(a(1)), saturate__float(a(2)), saturate__float(a(3))]},
 
 
 
-saturate__double2: |a:double2|{a},
+saturate__double: |a:double|{clamp__double_double_double(a, 0.0, 1.0)},
 
 
 
-saturate__double3: |a:double3|{a},
+saturate__double2: |a:double2|{[saturate__double(a(0)), saturate__double(a(1))]},
 
 
 
-saturate__double4: |a:double4|{a},
+saturate__double3: |a:double3|{[saturate__double(a(0)), saturate__double(a(1)), saturate__double(a(2))]},
 
 
 
-saturate__color: |c:color|{c},
+saturate__double4: |a:double4|{[saturate__double(a(0)), saturate__double(a(1)), saturate__double(a(2)), saturate__double(a(3))]},
 
 
 
-sign__int: |a:int|{a},
+saturate__color: |c:color|{[saturate__float(c(0)), saturate__float(c(1)), saturate__float(c(2))]},
 
 
 
-sign__int2: |a:int2|{a},
+sign__int: |a:int|{if(a > 0) {1} else if(a < 0) {-1} else {0}},
 
 
 
-sign__int3: |a:int3|{a},
+sign__int2: |a:int2|{[sign__int(a(0)), sign__int(a(1))]},
 
 
 
-sign__int4: |a:int4|{a},
+sign__int3: |a:int3|{[sign__int(a(0)), sign__int(a(1)), sign__int(a(2))]},
 
 
 
-sign__float: |a:float|{a},
+sign__int4: |a:int4|{[sign__int(a(0)), sign__int(a(1)), sign__int(a(2)), sign__int(a(3))]},
 
 
 
-sign__float2: |a:float2|{a},
 
 
+sign__float: |a:float|{if(a > 0.0f) {1.0f} else if(a < 0.0f) {-1.0f} else {0.0f}},
 
-sign__float3: |a:float3|{a},
 
 
+sign__float2: |a:float2|{[sign__float(a(0)), sign__float(a(1))]},
 
-sign__float4: |a:float4|{a},
 
 
+sign__float3: |a:float3|{[sign__float(a(0)), sign__float(a(1)), sign__float(a(2))]},
 
-sign__double: |a:double|{a},
 
 
+sign__float4: |a:float4|{[sign__float(a(0)), sign__float(a(1)), sign__float(a(2)), sign__float(a(3))]},
 
-sign__double2: |a:double2|{a},
+sign__double: |a:double|{if(a > 0.0) {1.0} else if(a < 0.0) {-1.0} else {0.0}},
 
 
 
-sign__double3: |a:double3|{a},
+sign__double2: |a:double2|{[sign__double(a(0)), sign__double(a(1))]},
 
 
 
-sign__double4: |a:double4|{a},
+sign__double3: |a:double3|{[sign__double(a(0)), sign__double(a(1)), sign__double(a(2))]},
 
 
 
-sin__float: |a:float|{a},
+sign__double4: |a:double4|{[sign__double(a(0)), sign__double(a(1)), sign__double(a(2)), sign__double(a(3))]},
 
 
 
-sin__float2: |a:float2|{a},
 
 
+sin__float: |a:float|{math.sinf(a)},
 
-sin__float3: |a:float3|{a},
 
 
+sin__float2: |a:float2|{[sin__float(a(0)), sin__float(a(1))]},
 
-sin__float4: |a:float4|{a},
 
 
+sin__float3: |a:float3|{[sin__float(a(0)), sin__float(a(1)), sin__float(a(2))]},
 
-sin__double: |a:double|{a},
 
 
+sin__float4: |a:float4|{[sin__float(a(0)), sin__float(a(1)), sin__float(a(2)), sin__float(a(3))]},
 
-sin__double2: |a:double2|{a},
 
 
+sin__double: |a:double|{math.sin(a)},
 
-sin__double3: |a:double3|{a},
 
 
+sin__double2: |a:double2|{[sin__double(a(0)), sin__double(a(1))]},
 
-sin__double4: |a:double4|{a},
 
 
+sin__double3: |a:double3|{[sin__double(a(0)), sin__double(a(1)), sin__double(a(2))]},
 
-sincos__float: |a:float|{[a,a]},
 
 
+sin__double4: |a:double4|{[sin__double(a(0)), sin__double(a(1)), sin__double(a(2)), sin__double(a(3))]},
 
-sincos__float2: |a:float2|{[a,a]},
 
 
 
-sincos__float3: |a:float3|{[a,a]},
+sincos__float: |a:float|{[math.sinf(a), math.cosf(a)]},
 
 
 
-sincos__float4: |a:float4|{[a,a]},
+sincos__float2: |a:float2|{[sincos__float(a(0)), sincos__float(a(1))]},
 
 
 
-sincos__double: |a:double|{[a,a]},
+sincos__float3: |a:float3|{[sincos__float(a(0)), sincos__float(a(1)), sincos__float(a(2))]},
 
 
 
-sincos__double2: |a:double2|{[a,a]},
+sincos__float4: |a:float4|{[sincos__float(a(0)), sincos__float(a(1)), sincos__float(a(2)), sincos__float(a(3))]},
 
 
 
-sincos__double3: |a:double3|{[a,a]},
+sincos__double: |a:double|{[math.sin(a), math.cos(a)]},
 
 
 
-sincos__double4: |a:double4|{[a,a]},
+sincos__double2: |a:double2|{[sincos__double(a(0)), sincos__double(a(1))]},
 
 
 
-smoothstep__float_float_float: |a:float, b:float, c:float|{a},
+sincos__double3: |a:double3|{[sincos__double(a(0)), sincos__double(a(1)), sincos__double(a(2))]},
 
 
 
-smoothstep__float2_float2_float2: |a:float2, b:float2, c:float2|{a},
+sincos__double4: |a:double4|{[sincos__double(a(0)), sincos__double(a(1)), sincos__double(a(2)), sincos__double(a(3))]},
 
 
 
-smoothstep__float3_float3_float3: |a:float3, b:float3, c:float3|{a},
 
+smoothstep__float_float_float: |a:float, b:float, l:float|{
+    let t = clamp__float_float_float((l - a) / (b - a), 0.0f, 1.0f);
+    t * t * (3.0f - 2.0f * t)
+},
 
 
-smoothstep__float4_float4_float4: |a:float4, b:float4, c:float4|{a},
 
+smoothstep__float2_float2_float2: |a:float2, b:float2, c:float2|{
+    [
+        smoothstep__float_float_float(a(0), b(0), c(0)),
+        smoothstep__float_float_float(a(1), b(1), c(1))
+    ]
+},
 
 
-smoothstep__double_double_double: |a:double, b:double, c:double|{a},
 
+smoothstep__float3_float3_float3: |a:float3, b:float3, c:float3|{
+    [
+        smoothstep__float_float_float(a(0), b(0), c(0)),
+        smoothstep__float_float_float(a(1), b(1), c(1)),
+        smoothstep__float_float_float(a(2), b(2), c(2))
+    ]
+},
 
 
-smoothstep__double2_double2_double2: |a:double2, b:double2, c:double2|{a},
 
+smoothstep__float4_float4_float4: |a:float4, b:float4, c:float4|{
+    [
+        smoothstep__float_float_float(a(0), b(0), c(0)),
+        smoothstep__float_float_float(a(1), b(1), c(1)),
+        smoothstep__float_float_float(a(2), b(2), c(2)),
+        smoothstep__float_float_float(a(3), b(3), c(3))
+    ]
+},
 
 
-smoothstep__double3_double3_double3: |a:double3, b:double3, c:double3|{a},
 
+smoothstep__double_double_double: |a:double, b:double, l:double|{
+    let t = clamp__double_double_double((l - a) / (b - a), 0.0, 1.0);
+    t * t * (3.0 - 2.0 * t)
+},
 
 
-smoothstep__double4_double4_double4: |a:double4, b:double4, c:double4|{a},
 
+smoothstep__double2_double2_double2: |a:double2, b:double2, c:double2|{
+    [
+        smoothstep__double_double_double(a(0), b(0), c(0)),
+        smoothstep__double_double_double(a(1), b(1), c(1))
+    ]
+},
 
 
-smoothstep__float2_float2_float: |a:float2, b:float2, c:float|{a},
 
+smoothstep__double3_double3_double3: |a:double3, b:double3, c:double3|{
+    [
+        smoothstep__double_double_double(a(0), b(0), c(0)),
+        smoothstep__double_double_double(a(1), b(1), c(1)),
+        smoothstep__double_double_double(a(2), b(2), c(2))
+    ]
+},
 
 
-smoothstep__float3_float3_float: |a:float3, b:float3, c:float|{a},
 
+smoothstep__double4_double4_double4: |a:double4, b:double4, c:double4|{
+    [
+        smoothstep__double_double_double(a(0), b(0), c(0)),
+        smoothstep__double_double_double(a(1), b(1), c(1)),
+        smoothstep__double_double_double(a(2), b(2), c(2)),
+        smoothstep__double_double_double(a(3), b(3), c(3))
+    ]
+},
 
 
-smoothstep__float4_float4_float: |a:float4, b:float4, c:float|{a},
+smoothstep__float2_float2_float: |a:float2, b:float2, c:float|{
+    [
+        smoothstep__float_float_float(a(0), b(0), c),
+        smoothstep__float_float_float(a(1), b(1), c)
+    ]
+},
 
 
 
-smoothstep__double2_double2_double: |a:double2, b:double2, c:double|{a},
+smoothstep__float3_float3_float: |a:float3, b:float3, c:float|{
+    [
+        smoothstep__float_float_float(a(0), b(0), c),
+        smoothstep__float_float_float(a(1), b(1), c),
+        smoothstep__float_float_float(a(2), b(2), c)
+    ]
+},
 
 
 
-smoothstep__double3_double3_double: |a:double3, b:double3, c:double|{a},
+smoothstep__float4_float4_float: |a:float4, b:float4, c:float|{
+    [
+        smoothstep__float_float_float(a(0), b(0), c),
+        smoothstep__float_float_float(a(1), b(1), c),
+        smoothstep__float_float_float(a(2), b(2), c),
+        smoothstep__float_float_float(a(3), b(3), c)
+    ]
+},
 
 
 
-smoothstep__double4_double4_double: |a:double4, b:double4, c:double|{a},
+smoothstep__double2_double2_double: |a:double2, b:double2, c:double|{
+    [
+        smoothstep__double_double_double(a(0), b(0), c),
+        smoothstep__double_double_double(a(1), b(1), c)
+    ]
+},
 
 
-sqrt__float: |a:float|{a},
 
+smoothstep__double3_double3_double: |a:double3, b:double3, c:double|{
+    [
+        smoothstep__double_double_double(a(0), b(0), c),
+        smoothstep__double_double_double(a(1), b(1), c),
+        smoothstep__double_double_double(a(2), b(2), c)
+    ]
+},
 
 
-sqrt__float2: |a:float2|{a},
 
+smoothstep__double4_double4_double: |a:double4, b:double4, c:double|{
+    [
+        smoothstep__double_double_double(a(0), b(0), c),
+        smoothstep__double_double_double(a(1), b(1), c),
+        smoothstep__double_double_double(a(2), b(2), c),
+        smoothstep__double_double_double(a(3), b(3), c)
+    ]
+},
 
 
-sqrt__float3: |a:float3|{a},
+sqrt__float: |a:float|{math.sqrtf(a)},
 
 
 
-sqrt__float4: |a:float4|{a},
+sqrt__float2: |a:float2|{[sqrt__float(a(0)), sqrt__float(a(1))]},
 
 
 
-sqrt__double: |a:double|{a},
+sqrt__float3: |a:float3|{[sqrt__float(a(0)), sqrt__float(a(1)), sqrt__float(a(2))]},
 
 
 
-sqrt__double2: |a:double2|{a},
+sqrt__float4: |a:float4|{[sqrt__float(a(0)), sqrt__float(a(1)), sqrt__float(a(2)), sqrt__float(a(3))]},
 
 
 
-sqrt__double3: |a:double3|{a},
+sqrt__double: |a:double|{math.sqrt(a)},
 
 
 
-sqrt__double4: |a:double4|{a},
+sqrt__double2: |a:double2|{[sqrt__double(a(0)), sqrt__double(a(1))]},
 
 
 
-sqrt__color: |c:color|{c},
+sqrt__double3: |a:double3|{[sqrt__double(a(0)), sqrt__double(a(1)), sqrt__double(a(2))]},
 
 
 
-step__float_float: |a:float, b:float|{a},
+sqrt__double4: |a:double4|{[sqrt__double(a(0)), sqrt__double(a(1)), sqrt__double(a(2)), sqrt__double(a(3))]},
 
 
 
-step__float2_float2: |a:float2, b:float2|{a},
+sqrt__color: |c:color|{[sqrt__float(c(0)), sqrt__float(c(1)), sqrt__float(c(2))]},
 
 
 
-step__float3_float3: |a:float3, b:float3|{a},
 
 
 
-step__float4_float4: |a:float4, b:float4|{a},
+step__float_float: |a:float, b:float|{if(b < a) {0.0f} else {1.0f}},
 
 
 
-step__double_double: |a:double, b:double|{a},
+step__float2_float2: |a:float2, b:float2|{[step__float_float(a(0),b(0)), step__float_float(a(1),b(1))]},
 
 
 
-step__double2_double2: |a:double2, b:double2|{a},
+step__float3_float3: |a:float3, b:float3|{[step__float_float(a(0),b(0)), step__float_float(a(1),b(1)), step__float_float(a(2), b(2))]},
 
 
 
-step__double3_double3: |a:double3, b:double3|{a},
+step__float4_float4: |a:float4, b:float4|{[step__float_float(a(0),b(0)), step__float_float(a(1),b(1)), step__float_float(a(2), b(2)), step__float_float(a(3), b(3))]},
 
 
 
-step__double4_double4: |a:double4, b:double4|{a},
 
 
+step__double_double: |a:double, b:double|{if(b < a) {0.0} else {1.0}},
 
-tan__float: |a:float|{a},
 
 
+step__double2_double2: |a:double2, b:double2|{[step__double_double(a(0),b(0)), step__double_double(a(1),b(1))]},
 
-tan__float2: |a:float2|{a},
 
 
+step__double3_double3: |a:double3, b:double3|{[step__double_double(a(0),b(0)), step__double_double(a(1),b(1)), step__double_double(a(2), b(2))]},
 
-tan__float3: |a:float3|{a},
 
 
+step__double4_double4: |a:double4, b:double4|{[step__double_double(a(0),b(0)), step__double_double(a(1),b(1)), step__double_double(a(2), b(2)), step__double_double(a(3), b(3))]},
 
-tan__float4: |a:float4|{a},
 
 
 
-tan__double: |a:double|{a},
 
+tan__float: |a:float|{math.tanf(a)},
 
 
-tan__double2: |a:double2|{a},
 
+tan__float2: |a:float2|{[tan__float(a(0)), tan__float(a(1))]},
 
 
-tan__double3: |a:double3|{a},
 
+tan__float3: |a:float3|{[tan__float(a(0)), tan__float(a(1)), tan__float(a(2))]},
 
 
-tan__double4: |a:double4|{a},
 
+tan__float4: |a:float4|{[tan__float(a(0)), tan__float(a(1)), tan__float(a(2)), tan__float(a(3))]},
 
 
-transpose__float2x2: |a:float2x2|{a},
 
+tan__double: |a:double|{math.tan(a)},
 
 
-transpose__float2x3: |a:float2x3|{[[0.0f,0.0f],[0.0f,0.0f],[0.0f,0.0f]]},
 
+tan__double2: |a:double2|{[tan__double(a(0)), tan__double(a(1))]},
 
 
-transpose__float3x2: |a:float3x2|{[[0.0f,0.0f,0.0f],[0.0f,0.0f,0.0f]]},
 
+tan__double3: |a:double3|{[tan__double(a(0)), tan__double(a(1)), tan__double(a(2))]},
 
 
-transpose__float3x3: |a:float3x3|{a},
 
+tan__double4: |a:double4|{[tan__double(a(0)), tan__double(a(1)), tan__double(a(2)), tan__double(a(3))]},
 
 
-transpose__float4x2: |a:float4x2|{[[0.0f,0.0f,0.0f,0.0f], [0.0f,0.0f,0.0f,0.0f]]},
 
 
 
-transpose__float2x4: |a:float2x4|{[[0.0f,0.0f],[0.0f,0.0f],[0.0f,0.0f],[0.0f,0.0f]]},
+transpose__float2x2: |mat:float2x2|{
+    [
+                [mat(0)(0), mat(0)(1)],
+                [mat(1)(0), mat(1)(1)],
+    ]
+},
 
 
 
-transpose__float3x4: |a:float3x4|{[[0.0f,0.0f,0.0f],[0.0f,0.0f,0.0f],[0.0f,0.0f,0.0f],[0.0f,0.0f,0.0f]]},
+transpose__float2x3: |mat:float2x3|{
+    [
+                [mat(0)(0), mat(1)(0)],
+                [mat(0)(1), mat(1)(1)],
+                [mat(0)(2), mat(1)(2)],
+                
+    ]
+},
 
 
 
-transpose__float4x3: |a:float4x3|{[[0.0f,0.0f,0.0f,0.0f],[0.0f,0.0f,0.0f,0.0f],[0.0f,0.0f,0.0f,0.0f]]},
+transpose__float3x2: |mat:float3x2|{
+    [   
+                [mat(0)(0), mat(1)(0), mat(2)(0)],
+                [mat(0)(1), mat(1)(1), mat(2)(1)],
+    ]
+},
 
 
 
-transpose__float4x4: |a:float4x4|{a},
+transpose__float3x3: |mat:float3x3|{
+    [
+                [mat(0)(0), mat(0)(1), mat(0)(2)],
+                [mat(1)(0), mat(1)(1), mat(1)(2)],
+                [mat(2)(0), mat(2)(1), mat(2)(2)],
+                
+    ]
+},
 
 
 
-transpose__double2x2: |a:double2x2|{a},
+transpose__float4x2: |mat:float4x2|{
+    [
+                [mat(0)(0), mat(1)(0), mat(2)(0), mat(3)(0)],
+                [mat(0)(1), mat(1)(1), mat(2)(1), mat(3)(1)]
+    ]
+},
 
 
 
-transpose__double2x3: |a:double2x3|{[[0.0,0.0],[0.0,0.0],[0.0,0.0]]},
+transpose__float2x4: |mat:float2x4|{
 
+    [
+                [mat(0)(0), mat(1)(0)],
+                [mat(0)(1), mat(1)(1)],
+                [mat(0)(2), mat(1)(2)],
+                [mat(0)(3), mat(1)(3)]
+    ]
+},
 
 
-transpose__double3x2: |a:double3x2|{[[0.0,0.0,0.0], [0.0,0.0,0.0]]},
 
+transpose__float3x4: |mat:float3x4|{
+    [
+                [mat(0)(0), mat(1)(0), mat(2)(0)],
+                [mat(0)(1), mat(1)(1), mat(2)(1)],
+                [mat(0)(2), mat(1)(2), mat(2)(2)],
+                [mat(0)(3), mat(1)(3), mat(2)(3)]
+    ]
+    
+},
 
 
-transpose__double3x3: |a:double3x3|{a},
 
+transpose__float4x3: |mat:float4x3|{
 
+    [
+                [mat(0)(0), mat(1)(0), mat(2)(0), mat(3)(0)],
+                [mat(0)(1), mat(1)(1), mat(2)(1), mat(3)(1)],
+                [mat(0)(2), mat(1)(2), mat(2)(2), mat(3)(2)]
+    ]
+},
 
-transpose__double4x2: |a:double4x2|{[[0.0,0.0,0.0,0.0], [0.0,0.0,0.0,0.0]]},
 
 
+transpose__float4x4: |mat:float4x4|{
+    [
+                [mat(0)(0), mat(0)(1), mat(0)(2), mat(0)(3)],
+                [mat(1)(0), mat(1)(1), mat(1)(2), mat(1)(3)],
+                [mat(2)(0), mat(2)(1), mat(2)(2), mat(2)(3)],
+                [mat(3)(0), mat(3)(1), mat(3)(2), mat(3)(3)]
+    ]
+},
 
-transpose__double2x4: |a:double2x4|{[[0.0,0.0],[0.0,0.0],[0.0,0.0],[0.0,0.0]]},
 
 
+transpose__double2x2: |mat:double2x2|{
+    [
+                [mat(0)(0), mat(0)(1)],
+                [mat(1)(0), mat(1)(1)],
+    ]
+},
 
-transpose__double3x4: |a:double3x4|{[[0.0,0.0,0.0],[0.0,0.0,0.0],[0.0,0.0,0.0],[0.0,0.0,0.0]]},
 
 
+transpose__double2x3: |mat:double2x3|{
+    [
+                [mat(0)(0), mat(1)(0)],
+                [mat(0)(1), mat(1)(1)],
+                [mat(0)(2), mat(1)(2)],
+                
+    ]
+},
 
-transpose__double4x3: |a:double4x3|{[[0.0,0.0,0.0,0.0],[0.0,0.0,0.0,0.0],[0.0,0.0,0.0,0.0]]},
 
 
+transpose__double3x2: |mat:double3x2|{
+    [   
+                [mat(0)(0), mat(1)(0), mat(2)(0)],
+                [mat(0)(1), mat(1)(1), mat(2)(1)],
+    ]
+},
 
-transpose__double4x4: |a:double4x4|{a},
 
 
+transpose__double3x3: |mat:double3x3|{
+    [
+                [mat(0)(0), mat(0)(1), mat(0)(2)],
+                [mat(1)(0), mat(1)(1), mat(1)(2)],
+                [mat(2)(0), mat(2)(1), mat(2)(2)],
+                
+    ]
+},
 
+
+
+transpose__double4x2: |mat:double4x2|{
+    [
+                [mat(0)(0), mat(1)(0), mat(2)(0), mat(3)(0)],
+                [mat(0)(1), mat(1)(1), mat(2)(1), mat(3)(1)]
+    ]
+},
+
+
+
+transpose__double2x4: |mat:double2x4|{
+
+    [
+                [mat(0)(0), mat(1)(0)],
+                [mat(0)(1), mat(1)(1)],
+                [mat(0)(2), mat(1)(2)],
+                [mat(0)(3), mat(1)(3)]
+    ]
+},
+
+
+
+transpose__double3x4: |mat:double3x4|{
+
+    [
+                [mat(0)(0), mat(1)(0), mat(2)(0)],
+                [mat(0)(1), mat(1)(1), mat(2)(1)],
+                [mat(0)(2), mat(1)(2), mat(2)(2)],
+                [mat(0)(3), mat(1)(3), mat(2)(3)]
+    ]
+    
+},
+
+
+
+transpose__double4x3: |mat:double4x3|{
+
+    [
+                [mat(0)(0), mat(1)(0), mat(2)(0), mat(3)(0)],
+                [mat(0)(1), mat(1)(1), mat(2)(1), mat(3)(1)],
+                [mat(0)(2), mat(1)(2), mat(2)(2), mat(3)(2)]
+    ]
+},
+
+
+
+transpose__double4x4: |mat:double4x4|{
+    [
+                [mat(0)(0), mat(0)(1), mat(0)(2), mat(0)(3)],
+                [mat(1)(0), mat(1)(1), mat(1)(2), mat(1)(3)],
+                [mat(2)(0), mat(2)(1), mat(2)(2), mat(2)(3)],
+                [mat(3)(0), mat(3)(1), mat(3)(2), mat(3)(3)]
+    ]
+},
+
+//using this in mdl without a constant value (i.e. without it getting folded during compilation) results in a compilation error, so not really sure what formular they use
 blackbody__float: |a:float|{[a,a,a]},
 
 
+//wavelengths, thus renderer specific
+emission_color__float_arr_float_arr : |a:&[float], b: &[float]|{[0.0f, 0.0f, 0.0f]},
 
-emission_color__float_arr_float_arr_State_mdl_math : |a:&[float], b: &[float], state:State, math: mdl_math|{[0.0f, 0.0f, 0.0f]},
-
-
+//in mdl this doesn't seem to do anything, so I don't do anything either
 emission_color__color: |c:color|{c},
 
 
-
+//These appear nowhere in the MDL language specification, so no idea what they are supposed to do
 DX__float: |a:float|{a},
 
 
@@ -2484,5 +2758,6 @@ DY__double3: |a:double3|{a},
 
 
 DY__double4: |a:double4|{a}
+
     }
 }

@@ -1779,35 +1779,35 @@ sin__double4: fn(double4) -> double4,
 
 
 
-sincos__float: fn(float) -> [float*2],
+sincos__float: fn(float) -> float2,
 
 
 
-sincos__float2: fn(float2) -> [float2*2],
+sincos__float2: fn(float2) -> float2x2,
 
 
 
-sincos__float3: fn(float3) -> [float3*2],
+sincos__float3: fn(float3) -> float3x2,
 
 
 
-sincos__float4: fn(float4) -> [float4*2],
+sincos__float4: fn(float4) -> float4x2,
 
 
 
-sincos__double: fn(double) -> [double*2],
+sincos__double: fn(double) -> double2,
 
 
 
-sincos__double2: fn(double2) -> [double2*2],
+sincos__double2: fn(double2) -> double2x2,
 
 
 
-sincos__double3: fn(double3) -> [double3*2],
+sincos__double3: fn(double3) -> double3x2,
 
 
 
-sincos__double4: fn(double4) -> [double4*2],
+sincos__double4: fn(double4) -> double4x2,
 
 
 
@@ -2043,7 +2043,7 @@ blackbody__float: fn(float) -> color,
 
 
 
-emission_color__float_arr_float_arr_State_mdl_math : fn(&[float], &[float],State,mdl_math) -> color,
+emission_color__float_arr_float_arr : fn(&[float], &[float]) -> color,
 
 
 emission_color__color: fn(color) -> color,

@@ -1,14 +1,7 @@
 fn @uv_as_color_material__color_mdl_math(tt : fn(State) -> color,  math : mdl_math) -> material {
-    let mut diffuse_color: fn(State) -> color = @|state:State|{color__float3_mdl_math(
-        state.texture_coordinate_int(0, ),
-        math
-    )};
-    let mut diffuse_bsdf: bsdf = bsdf__bsdf_mdl_math(
+    let diffuse_bsdf: bsdf = bsdf__bsdf_mdl_math(
         @|state:State|{diffuse_reflection_bsdf__color_float_mdl_math(
-            @|state:State|{mul__color_color(
-                diffuse_color(state),
-                tt(state)
-            )},
+            @|state:State|{tt(state)},
             @|state:State|{0.000000f},
             math
         )},
@@ -57,56 +50,5 @@ fn @uv_as_color_material__color_mdl_math(tt : fn(State) -> color,  math : mdl_ma
 }
 
 
-fn @material_test() -> f32{
-    
-    let stat = make_state(
-        [0.0f, 0.0f, 0.0f],
-        [0.0f,0.0f,1.0f],
-        [0.0f,0.0f,1.0f],
-        [0.0f,0.0f,0.0f],
-        1,
-        |i:int|{[0.0f,0.0f,0.0f]},
-        |i:int|{[1.0f,0.0f,0.0f]},
-        |i:int|{[0.0f,1.0f,0.0f]},
-        |i:int|{[[1.0f,0.0f,0.0f],[0.0f,1.0f,0.0f],[0.0f,0.0f,1.0f]]},
-        |i:int|{[1.0f,0.0f,0.0f]},
-        |i:int|{[0.0f,1.0f,0.0f]},
-        [0.0f,0.0f,0.0f],
-        0.0f,
-        0.0f,
-        1.0f,
-        1.0f,
-        0,
-        380.000000f,
-        780.000000f,
-        [[1.0f,0.0f,0.0f],[0.0f,1.0f,0.0f],[0.0f,0.0f,1.0f]],
-        [[1.0f,0.0f,0.0f],[0.0f,1.0f,0.0f],[0.0f,0.0f,1.0f]],
-        [[1.0f,0.0f,0.0f],[0.0f,1.0f,0.0f],[0.0f,0.0f,1.0f]]
-    );
 
-    
-
-    let math = make_mdl_math(cpu_intrinsics);
-
-    let mat = uv_as_color_material__color_mdl_math(@|state:State|{[0.5f,0.5f,0.5f]}, math);
-
-    let mut data = make_bsdf_evaluate_data(
-        [1.0f,1.0f,1.0f],
-        [1.0f,1.0f,1.0f],
-        [0.0f,0.0f,-1.0f],
-        [0.0f,0.0f,1.0f]
-    );
-
-    
-
-    mat.surface.scattering.evaluate(&mut data, stat);
-
- 
-    if((data.bsdf(0) + data.bsdf(1) + data.bsdf(2)) == 0.0f) {1.0f} else {2.0f}
-
-}
-
-extern fn main() -> float{
-    material_test()
-}
 
