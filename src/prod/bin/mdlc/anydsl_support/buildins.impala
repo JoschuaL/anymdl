@@ -184,7 +184,11 @@ fn @neg__int3(x : int3) -> int3;
 fn @neg__int4(x : int4) -> int4;
 fn @neg__float(x : float) -> float;
 fn @neg__float2(x : float2) -> float2;
-fn @neg__float3(x : float3) -> float3;
+*/
+fn @neg__float3(x : float3) -> float3{
+    [-x(0), -x(1), -x(2)]
+}
+/*
 fn @neg__float4(x : float4) -> float4;
 fn @neg__double(x : double) -> double;
 fn @neg__double2(x : double2) -> double2;
