@@ -265,6 +265,8 @@ fn @diffuse_evaluate(
     transmit: bool,
     math: mdl_math
 ) -> (){
+    
+ 
     let mut shading_normal: float3;
     let mut geometry_normal: float3;
     get_oriented_normals(
@@ -307,13 +309,13 @@ fn @diffuse_reflection_bsdf__color_float_mdl_math(
     roughness : fn(State) -> float,  
     math : mdl_math) -> bsdf
 {
-    |geo:material_geometry|{
-        executable_bsdf{
+    
+        bsdf{
             sample: @|data:&mut BSDF_sample_data, state:State|{
                 diffuse_reflection_bsdf_sample(
                     data,
                     state,
-                    geo.normal(state),
+                    state.normal(),
                     tint(state),
                     roughness(state),
                     math
@@ -323,7 +325,7 @@ fn @diffuse_reflection_bsdf__color_float_mdl_math(
                 diffuse_reflection_bsdf_pdf(
                     data,
                     state,
-                    geo.normal(state),
+                    state.normal(),
                     tint(state),
                     roughness(state),
                     math
@@ -333,7 +335,7 @@ fn @diffuse_reflection_bsdf__color_float_mdl_math(
                 diffuse_reflection_bsdf_evaluate(
                     data,
                     state,
-                    geo.normal(state),
+                    state.normal(),
                     tint(state),
                     roughness(state),
                     math
@@ -345,7 +347,7 @@ fn @diffuse_reflection_bsdf__color_float_mdl_math(
     }
     
      
-}
+
 /*
 fn @diffuse_transmission_bsdf__color_State_mdl_math(tint : fn(State) -> color,  state : State, math : mdl_math) -> bsdf{
 {}
