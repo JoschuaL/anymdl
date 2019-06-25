@@ -1,4 +1,4 @@
-/*enum scatter_mode{
+enum scatter_mode{
     scatter_reflect,
     scatter_transmit,
     scatter_reflect_transmit,
@@ -6,7 +6,7 @@
 
 
 
-*/
+
 
 
 
@@ -310,42 +310,873 @@ fn @diffuse_reflection_bsdf__color_float_mdl_math(
     math : mdl_math) -> bsdf
 {
     
-        bsdf{
-            sample: @|data:&mut BSDF_sample_data, state:State|{
-                diffuse_reflection_bsdf_sample(
-                    data,
-                    state,
-                    state.normal(),
-                    tint(state),
-                    roughness(state),
-                    math
-                );
-            },
-            pdf: @|data:&mut BSDF_pdf_data, state:State|{
-                diffuse_reflection_bsdf_pdf(
-                    data,
-                    state,
-                    state.normal(),
-                    tint(state),
-                    roughness(state),
-                    math
-                );
-            },
-            evaluate: @|data:&mut BSDF_evaluate_data, state:State|{
-                diffuse_reflection_bsdf_evaluate(
-                    data,
-                    state,
-                    state.normal(),
-                    tint(state),
-                    roughness(state),
-                    math
-                );
-            },
-            is_default: false
+    bsdf{
+        sample: @|data:&mut BSDF_sample_data, state:State|{
+            diffuse_reflection_bsdf_sample(
+                data,
+                state,
+                state.normal(),
+                tint(state),
+                roughness(state),
+                math
+            );
+        },
+        pdf: @|data:&mut BSDF_pdf_data, state:State|{
+            diffuse_reflection_bsdf_pdf(
+                data,
+                state,
+                state.normal(),
+                tint(state),
+                roughness(state),
+                math
+            );
+        },
+        evaluate: @|data:&mut BSDF_evaluate_data, state:State|{
+            diffuse_reflection_bsdf_evaluate(
+                data,
+                state,
+                state.normal(),
+                tint(state),
+                roughness(state),
+                math
+            );
+        },
+        is_default: false
+    }
+}
 
+struct Distribution{
+    sample: fn(float3, float3) -> float3,
+    eval: fn(float3) -> float,
+    shadow_mask: fn(
+        &mut float,
+        &mut float,
+        float,
+        float3,
+        float,
+        float3,
+        float,
+        bool
+    ) -> float 
+}
+
+fn refract(
+    k: float3,
+    n: float3,
+    b: float,
+    nk: float,
+    total_reflection: &mut bool,
+    math: mdl_math
+) -> float3
+{
+    let refract = b * b * (1.0f - nk * nk);
+    *total_reflection = (refract > 1.0f);
+    if(*total_reflection) 
+        {sub__float3_float3(mul__float3_float(n, nk + nk), k)} 
+    else 
+        {math.normalize__float3(add__float3_float3(mul__float3_float(neg__float3(k),b), mul__float3_float(n, (b * nk - math.sqrt__float(1.0f - refract)))))}
+}
+
+fn ior_fresnel(
+    eta: float,
+    kh: float,
+    math: mdl_math
+) -> float
+{
+    let mut costheta = 1.0f - (1.0f - kh * kh) / (eta * eta);
+    if(costheta < 0.0f){
+        return(1.0f)
+    }
+    costheta = math.sqrt__float(costheta);
+
+    let n1t1 = kh;
+    let n1t2 = costheta;
+    let n2t1 = kh * eta;
+    let n2t2 = costheta * eta;
+    let r_p = (n1t2 - n2t1) / (n1t2 + n2t1);
+    let r_o = (n1t1 - n2t2) / (n1t1 + n2t2);
+    let fres = 0.5f * (r_p * r_p + r_o * r_o);
+
+    math.saturate__float(fres)
+}
+
+fn process_ior_sample(
+    data: &mut BSDF_sample_data,
+    mat_ior: float3,
+    math: mdl_math
+) -> float2
+{
+    if(data.ior1(0) == BSDF_USE_MATERIAL_IOR){
+        data.ior1 = mat_ior;
+    }
+    if(data.ior2(0) == BSDF_USE_MATERIAL_IOR){
+        data.ior2 = mat_ior;
+    }
+
+    let mut ior = [
+        (data.ior1(0) + data.ior1(1) + data.ior1(2)) * (1.0 / 3.0) as float,
+        (data.ior2(0) + data.ior2(1) + data.ior2(2)) * (1.0 / 3.0) as float
+    ];
+
+    let IOR_THRESHOLD = 1e-4f;
+    let ior_diff = ior(1) - ior(0);
+    if(math.abs__float(ior_diff) < IOR_THRESHOLD){
+        ior(1) = ior(0) + copysignf(IOR_THRESHOLD, ior_diff, math);
+    }
+
+    ior
+}
+
+fn process_ior_evaluate(
+    data: &mut BSDF_evaluate_data,
+    mat_ior: float3,
+    math: mdl_math
+) -> float2
+{
+    if(data.ior1(0) == BSDF_USE_MATERIAL_IOR){
+        data.ior1 = mat_ior;
+    }
+    if(data.ior2(0) == BSDF_USE_MATERIAL_IOR){
+        data.ior2 = mat_ior;
+    }
+
+    let mut ior = [
+        (data.ior1(0) + data.ior1(1) + data.ior1(2)) * (1.0 / 3.0) as float,
+        (data.ior2(0) + data.ior2(1) + data.ior2(2)) * (1.0 / 3.0) as float
+    ];
+
+    let IOR_THRESHOLD = 1e-4f;
+    let ior_diff = ior(1) - ior(0);
+    if(math.abs__float(ior_diff) < IOR_THRESHOLD){
+        ior(1) = ior(0) + copysignf(IOR_THRESHOLD, ior_diff, math);
+    }
+
+    ior
+}
+
+fn process_ior_pdf(
+    data: &mut BSDF_pdf_data,
+    mat_ior: float3,
+    math: mdl_math
+) -> float2
+{
+    if(data.ior1(0) == BSDF_USE_MATERIAL_IOR){
+        data.ior1 = mat_ior;
+    }
+    if(data.ior2(0) == BSDF_USE_MATERIAL_IOR){
+        data.ior2 = mat_ior;
+    }
+
+    let mut ior = [
+        (data.ior1(0) + data.ior1(1) + data.ior1(2)) * (1.0 / 3.0) as float,
+        (data.ior2(0) + data.ior2(1) + data.ior2(2)) * (1.0 / 3.0) as float
+    ];
+
+    let IOR_THRESHOLD = 1e-4f;
+    let ior_diff = ior(1) - ior(0);
+    if(math.abs__float(ior_diff) < IOR_THRESHOLD){
+        ior(1) = ior(0) + copysignf(IOR_THRESHOLD, ior_diff, math);
+    }
+
+    ior
+}
+
+
+fn microfacet_sample_geometry(
+    ph: Distribution,
+    data: &mut BSDF_sample_data,
+    state: State,
+    g: Geometry,
+    tint: float3,
+    mode: scatter_mode,
+    thin_walled: bool,
+    mat_ior: float3,
+    math: mdl_math
+) -> ()
+{
+    let nk1 = math.abs__float(math.dot__float3_float3(data.k1, g.n.shading_normal));
+
+    let k10 = [
+        math.dot__float3_float3(data.k1, g.x_axis),
+        nk1,
+        math.dot__float3_float3(data.k1, g.z_axis)
+    ];
+
+    let h0 = ph.sample(data.xi, k10);
+
+    let h = add__float3_float3(
+        mul__float3_float(g.n.shading_normal,h0(1)),
+        add__float3_float3(
+            mul__float3_float(g.x_axis, h0(0)), 
+            mul__float3_float(g.z_axis, h0(2))
+        )
+    );
+
+    let kh = math.dot__float3_float3(data.k1, h);
+
+    if(kh <= 0.0f){
+        absorb_sample(data);
+        return()
+    }
+
+    let ior = process_ior_sample(data, mat_ior, math);
+    let mut f_refl;
+
+    match(mode){
+        scatter_mode::scatter_reflect => f_refl = 1.0f,
+        scatter_mode::scatter_transmit => f_refl = 0.0f,
+        scatter_mode::scatter_reflect_transmit => f_refl = ior_fresnel(ior(1) / ior(0), kh, math)
+    }
+
+    if(data.xi(2) < f_refl){
+        data.k2 = sub__float3_float3(mul__float3_float(h , (2.0f * kh)), data.k1);
+        data.event_type = BSDF_EVENT_GLOSSY_REFLECTION;
+    } else {
+        let mut tir = false;
+        if(thin_walled){
+            data.k2 = sub__float3_float3(mul__float3_float(h , (2.0f * kh)), data.k1);
+            data.k2 = math.normalize__float3(
+                sub__float3_float3(data.k2, mul__float3_float(g.n.shading_normal, 2.0f * math.dot__float3_float3(data.k2, g.n.shading_normal)))
+            );
+
+        } else {
+            data.k2 = refract(data.k1, h, ior(0) / ior(1), kh, &mut tir, math);
+        }
+
+        data.event_type = if(tir) {BSDF_EVENT_GLOSSY_REFLECTION} else {BSDF_EVENT_GLOSSY_TRANSMISSION};
+        let ttmp = match(mode){
+            scatter_mode::scatter_transmit => true,
+            _ => false
+        };
+        if(tir && ttmp){
+            absorb_sample(data);
+            return()
         }
     }
-    
+
+    let gnk2 = math.dot__float3_float3(data.k2, g.n.geometry_normal) * (
+        if(data.event_type == BSDF_EVENT_GLOSSY_REFLECTION) {1.0f} else {-1.0f}
+    );
+
+    if(gnk2 <= 0.0f){
+        absorb_sample(data);
+        return()
+    }
+
+    let refraction = !thin_walled && (data.event_type == BSDF_EVENT_GLOSSY_TRANSMISSION);
+
+    data.bsdf_over_pdf = tint;
+
+    let nk2 = math.abs__float(math.dot__float3_float3(data.k2, g.n.shading_normal));
+    let k2h = math.abs__float(math.dot__float3_float3(data.k2, h));
+
+    let mut G1: float;
+    let mut G2: float;
+
+    let G12 = ph.shadow_mask(
+        &mut G1, &mut G2, h0(1),
+        k10, kh,
+        [
+            math.dot__float3_float3(data.k2, g.x_axis),
+            nk2,
+            math.dot__float3_float3(data.k1, g.z_axis)
+        ], k2h, refraction
+    );
+
+    if(G12 <= 0.0f){
+        absorb_sample(data);
+        return()
+    }
+
+    data.bsdf_over_pdf = mul__float3_float(data.bsdf_over_pdf, G12 / G1);
+
+    {
+        data.pdf = ph.eval(h0) * G1;
+
+        if(refraction){
+            let tmp = kh * ior(0) - k2h * ior(1);
+            data.pdf *= kh * k2h / (nk1 * h0(1) * tmp * tmp);
+        } else {
+            data.pdf *= 0.25f / (nk1 * h0(1));
+        }
+    }
+}
+
+fn microfacet_sample(
+    ph: Distribution,
+    data: &mut BSDF_sample_data,
+    state: State,
+    normal: float3,
+    tangent_u: float3,
+    tint: float3,
+    mode: scatter_mode,
+    thin_walled: bool,
+    mat_ior: float3,
+    math: mdl_math
+) -> ()
+{
+    let mut g: Geometry;
+    if(!get_geometry(&mut g, normal, tangent_u, data.k1, state, math)){
+        absorb_sample(data);
+        return()
+    }
+
+    microfacet_sample_geometry(ph, data, state, g, tint, mode, thin_walled, mat_ior, math)
+}
+
+fn compute_half_vector(
+    k1: float3,
+    k2: float3,
+    shading_normal: float3,
+    ior: float2,
+    nk1: float,
+    nk2: float,
+    transmission: bool,
+    thin_walled: bool,
+    math: mdl_math
+) -> float3
+{
+    let mut h : float3;
+    if(transmission){
+        if(thin_walled){
+            h = add__float3_float3(k1, add__float3_float3(mul__float3_float(shading_normal,nk2 + nk2), k2));
+        } else {
+            h = add__float3_float3(mul__float3_float(k2, ior(1)), mul__float3_float(k1, ior(0)));
+            if(ior(1) > ior(2)){
+                h = mul__float3_float(h, -1.0f);
+            }
+        }
+    } else {
+        h = add__float3_float3(k1, k2);
+    }
+
+    math.normalize__float3(h)
+}
+
+fn microfacet_evaluate_geometry_evaluate(
+    ph: Distribution,
+    data: &mut BSDF_evaluate_data,
+    state: State,
+    g: Geometry,
+    mode: scatter_mode,
+    thin_walled: bool,
+    mat_ior: float3,
+    math: mdl_math
+) -> float
+{
+    let backside_eval = math.dot__float3_float3(data.k2, g.n.geometry_normal) < 0.0f;
+    let mmode = match(mode){
+        scatter_mode::scatter_reflect => 1,
+        scatter_mode::scatter_transmit => 2,
+        scatter_mode::scatter_reflect_transmit => 3,
+        _ => 0
+    };
+    if((backside_eval && (mmode == 1)) || (!backside_eval && (mmode == 2))){
+        absorb_evaluate(data);
+        return(0.0f)
+    }
+
+    let nk1 = math.abs__float(math.dot__float3_float3(g.n.shading_normal, data.k1));
+    let nk2 = math.abs__float(math.dot__float3_float3(g.n.shading_normal, data.k2));
+    let ior = process_ior_evaluate(data, mat_ior, math);
+    let h = compute_half_vector(
+        data.k1,
+        data.k2,
+        g.n.shading_normal,
+        ior,
+        nk1,
+        nk2,
+        backside_eval,
+        thin_walled,
+        math
+    );
+
+    let nh = math.dot__float3_float3(g.n.shading_normal, h);
+    let k1h = math.dot__float3_float3(data.k1, h);
+    let k2h = math.dot__float3_float3(data.k2, h) * (if(backside_eval){-1.0f} else {1.0f});
+
+    if(nh < 0.0f || k1h < 0.0f || k2h < 0.0f){
+        absorb_evaluate(data);
+        return(0.0f)
+    }
+
+    let fresnnel_refl = ior_fresnel(ior(1) / ior(0), k1h, math);
+
+    let weight = if(mmode == 3){if(backside_eval){1.0f - fresnnel_refl} else {fresnnel_refl}} else {1.0f};
+
+    let mut G1: float;
+    let mut G2: float;
+
+    let refraction = !thin_walled && backside_eval;
+
+    let G12 = ph.shadow_mask(
+        &mut G1,
+        &mut G2,
+        nh,
+        [
+            math.dot__float3_float3(g.x_axis, data.k1),
+            nk1, 
+            math.dot__float3_float3(g.z_axis, data.k1)
+        ],
+        k1h,
+        [
+            math.dot__float3_float3(g.x_axis, data.k2),
+            nk2, 
+            math.dot__float3_float3(g.z_axis, data.k2)
+        ],
+        k2h,
+        refraction
+    );
+
+    if(refraction){
+        let tmp = k1h * ior(0) - k2h * ior(1);
+        data.pdf *= k1h * k2h / (nk1 * nh * tmp * tmp);
+    } else {
+        data.pdf *= 0.25f / (nk1 * nh);
+    }
+
+    let bsdf = data.pdf * weight * G12;
+    data.pdf *= G1;
+    bsdf
+}
+
+fn microfacet_evaluate_geometry_pdf(
+    ph: Distribution,
+    data: &mut BSDF_pdf_data,
+    state: State,
+    g: Geometry,
+    mode: scatter_mode,
+    thin_walled: bool,
+    mat_ior: float3,
+    math: mdl_math
+) -> float
+{
+    let backside_eval = math.dot__float3_float3(data.k2, g.n.geometry_normal) < 0.0f;
+    let mmode = match(mode){
+        scatter_mode::scatter_reflect => 1,
+        scatter_mode::scatter_transmit => 2,
+        scatter_mode::scatter_reflect_transmit => 3,
+        _ => 0
+    };
+    if((backside_eval && (mmode == 1)) || (!backside_eval && (mmode == 2))){
+        absorb_pdf(data);
+        return(0.0f)
+    }
+
+    let nk1 = math.abs__float(math.dot__float3_float3(g.n.shading_normal, data.k1));
+    let nk2 = math.abs__float(math.dot__float3_float3(g.n.shading_normal, data.k2));
+    let ior = process_ior_pdf(data, mat_ior, math);
+    let h = compute_half_vector(
+        data.k1,
+        data.k2,
+        g.n.shading_normal,
+        ior,
+        nk1,
+        nk2,
+        backside_eval,
+        thin_walled,
+        math
+    );
+
+    let nh = math.dot__float3_float3(g.n.shading_normal, h);
+    let k1h = math.dot__float3_float3(data.k1, h);
+    let k2h = math.dot__float3_float3(data.k2, h) * (if(backside_eval){-1.0f} else {1.0f});
+
+    if(nh < 0.0f || k1h < 0.0f || k2h < 0.0f){
+        absorb_pdf(data);
+        return(0.0f)
+    }
+
+    let fresnnel_refl = ior_fresnel(ior(1) / ior(0), k1h, math);
+
+    let weight = if(mmode == 3){if(backside_eval){1.0f - fresnnel_refl} else {fresnnel_refl}} else {1.0f};
+
+    let mut G1: float;
+    let mut G2: float;
+
+    let refraction = !thin_walled && backside_eval;
+
+    let G12 = ph.shadow_mask(
+        &mut G1,
+        &mut G2,
+        nh,
+        [
+            math.dot__float3_float3(g.x_axis, data.k1),
+            nk1, 
+            math.dot__float3_float3(g.z_axis, data.k1)
+        ],
+        k1h,
+        [
+            math.dot__float3_float3(g.x_axis, data.k2),
+            nk2, 
+            math.dot__float3_float3(g.z_axis, data.k2)
+        ],
+        k2h,
+        refraction
+    );
+
+    if(refraction){
+        let tmp = k1h * ior(0) - k2h * ior(1);
+        data.pdf *= k1h * k2h / (nk1 * nh * tmp * tmp);
+    } else {
+        data.pdf *= 0.25f / (nk1 * nh);
+    }
+
+    let bsdf = data.pdf * weight * G12;
+    data.pdf *= G1;
+    bsdf
+}
+
+fn microfacet_evaluate_geometry_sample(
+    ph: Distribution,
+    data: &mut BSDF_sample_data,
+    state: State,
+    g: Geometry,
+    mode: scatter_mode,
+    thin_walled: bool,
+    mat_ior: float3,
+    math: mdl_math
+) -> float
+{
+    let backside_eval = math.dot__float3_float3(data.k2, g.n.geometry_normal) < 0.0f;
+    let mmode = match(mode){
+        scatter_mode::scatter_reflect => 1,
+        scatter_mode::scatter_transmit => 2,
+        scatter_mode::scatter_reflect_transmit => 3,
+        _ => 0
+    };
+    if((backside_eval && (mmode == 1)) || (!backside_eval && (mmode == 2))){
+        absorb_sample(data);
+        return(0.0f)
+    }
+
+    let nk1 = math.abs__float(math.dot__float3_float3(g.n.shading_normal, data.k1));
+    let nk2 = math.abs__float(math.dot__float3_float3(g.n.shading_normal, data.k2));
+    let ior = process_ior_sample(data, mat_ior, math);
+    let h = compute_half_vector(
+        data.k1,
+        data.k2,
+        g.n.shading_normal,
+        ior,
+        nk1,
+        nk2,
+        backside_eval,
+        thin_walled,
+        math
+    );
+
+    let nh = math.dot__float3_float3(g.n.shading_normal, h);
+    let k1h = math.dot__float3_float3(data.k1, h);
+    let k2h = math.dot__float3_float3(data.k2, h) * (if(backside_eval){-1.0f} else {1.0f});
+
+    if(nh < 0.0f || k1h < 0.0f || k2h < 0.0f){
+        absorb_sample(data);
+        return(0.0f)
+    }
+
+    let fresnnel_refl = ior_fresnel(ior(1) / ior(0), k1h, math);
+
+    let weight = if(mmode == 3){if(backside_eval){1.0f - fresnnel_refl} else {fresnnel_refl}} else {1.0f};
+
+    let mut G1: float;
+    let mut G2: float;
+
+    let refraction = !thin_walled && backside_eval;
+
+    let G12 = ph.shadow_mask(
+        &mut G1,
+        &mut G2,
+        nh,
+        [
+            math.dot__float3_float3(g.x_axis, data.k1),
+            nk1, 
+            math.dot__float3_float3(g.z_axis, data.k1)
+        ],
+        k1h,
+        [
+            math.dot__float3_float3(g.x_axis, data.k2),
+            nk2, 
+            math.dot__float3_float3(g.z_axis, data.k2)
+        ],
+        k2h,
+        refraction
+    );
+
+    if(refraction){
+        let tmp = k1h * ior(0) - k2h * ior(1);
+        data.pdf *= k1h * k2h / (nk1 * nh * tmp * tmp);
+    } else {
+        data.pdf *= 0.25f / (nk1 * nh);
+    }
+
+    let bsdf = data.pdf * weight * G12;
+    data.pdf *= G1;
+    bsdf
+}
+
+fn microfacet_evaluate_evaluate(
+    ph: Distribution,
+    data: &mut BSDF_evaluate_data,
+    state: State,
+    normal : float3,
+    tangent_u: float3,
+    thin_walled: bool,
+    mat_ior: float3,
+    mode : scatter_mode,
+    math: mdl_math
+) -> float
+{
+    let mut g: Geometry;
+    if(!get_geometry(&mut g, normal, tangent_u, data.k1, state, math)){
+        absorb_evaluate(data);
+        return(0.0f)
+    }
+    microfacet_evaluate_geometry_evaluate(ph, data, state, g, mode, thin_walled, mat_ior, math)
+}
+
+fn microfacet_evaluate_sample(
+    ph: Distribution,
+    data: &mut BSDF_sample_data,
+    state: State,
+    normal : float3,
+    tangent_u: float3,
+    thin_walled: bool,
+    mat_ior: float3,
+    mode : scatter_mode,
+    math: mdl_math
+) -> float
+{
+    let mut g: Geometry;
+    if(!get_geometry(&mut g, normal, tangent_u, data.k1, state, math)){
+        absorb_sample(data);
+        return(0.0f)
+    }
+    microfacet_evaluate_geometry_sample(ph, data, state, g, mode, thin_walled, mat_ior, math)
+}
+
+fn microfacet_evaluate_pdf(
+    ph: Distribution,
+    data: &mut BSDF_pdf_data,
+    state: State,
+    normal : float3,
+    tangent_u: float3,
+    thin_walled: bool,
+    mat_ior: float3,
+    mode : scatter_mode,
+    math: mdl_math
+) -> float
+{
+    let mut g: Geometry;
+    if(!get_geometry(&mut g, normal, tangent_u, data.k1, state, math)){
+        absorb_pdf(data);
+        return(0.0f)
+    }
+    microfacet_evaluate_geometry_pdf(ph, data, state, g, mode, thin_walled, mat_ior, math)
+}
+
+fn microfacet_mask_v_cavities(
+    nh: float,
+    kh: float,
+    nk: float,
+    math: mdl_math
+) -> float{
+    math.min__float_float(1.0f, 2.0f * nh * nk / kh)
+}
+
+fn roughness_to_exponent(
+    roughness_u: float,
+    roughness_v: float
+) -> float2
+{
+    [
+        2.0f / (roughness_u * roughness_u),
+        2.0f / (roughness_v * roughness_v)
+    ]
+}
+
+fn clamp_roughness(r: float, math: mdl_math) -> float{
+    math.min__float_float(math.max__float_float(r, 0.0f), 1.0f)
+}
+
+fn hvd_phong_sample(samples: float2, exponent: float2, math: mdl_math) -> float3{
+    let sy4 = samples(0) * 4.0f;
+    let cosupper = math.cos__float(math.PI * math.frac__float(sy4));
+
+    let e = [
+        exponent(0) + 1.0f,
+        exponent(1) + 1.0f
+    ];
+
+    let eu1mcu = e(0) * (1.0f - cosupper);
+    let ev1pcu = e(1) * (1.0f + cosupper);
+    let t = eu1mcu + ev1pcu;
+
+    let tt = (math.pow__float_float(1.0f - samples(0), -t/(e(0) * e(1))) - 1.0f) / t;
+    let tttv = math.sqrt__float(ev1pcu * tt);
+    let tttu = math.sqrt__float(eu1mcu * tt);
+
+    math.normalize__float3(
+        [
+            if((samples(0) < 0.75f) && (samples(0) >= 0.25f)) {-tttv} else {tttv},
+            1.0f,
+            if(samples(0) >= 0.5f) {-tttu} else {tttu}
+        ]
+    )
+}
+
+fn hvd_phong_eval(
+    exponent: float2,
+    nh: float,
+    ht: float,
+    hb: float,
+    math: mdl_math
+) -> float
+{
+    let p = if(nh > 0.99999f) {1.0f} else {math.pow__float_float(nh, (exponent(0) * ht * ht + exponent(1) * hb * hb) / (1.0f - nh * nh))};
+    math.sqrt__float((exponent(0) + 1.0f) * (exponent(0) + 1.0f)) * (0.5f/math.PI) as float * p
+}
+
+fn flip(h: float3, k: float3, xi: float, math: mdl_math) -> float3{
+    let a = h(1) * k(1);
+    let b = h(0) * k(0) + h(2) * k(2);
+    let kh = math.max__float_float(a+b, 0.0f);
+    let kh_f = math.max__float_float(1.0f-b, 0.0f);
+
+    if(xi < kh_f / (kh + kh_f)){
+        [
+            -h(0),
+            h(1),
+            -h(2)
+        ]
+    } else {
+        h
+    }
+}
+
+
+
+fn simple_glossy_bsdf_sample(
+    data: &mut BSDF_sample_data,
+    state: State,
+    inherited_normal: float3,
+    roughness_u: float,
+    roughness_v: float,
+    tint: float3,
+    tangent_u: float3,
+    mode: scatter_mode,
+    math: mdl_math
+) -> ()
+{
+    let m_exponent = roughness_to_exponent(clamp_roughness(roughness_u, math), clamp_roughness(roughness_v, math));
+    let ph = Distribution{
+        sample: |xi: float3, k: float3|{
+            flip(hvd_phong_sample([xi(0), xi(1)], m_exponent, math), k, xi(2), math)
+        },
+        eval: |h: float3|{
+            hvd_phong_eval(m_exponent, h(1), h(0), h(2), math)
+        },
+        shadow_mask: 
+            |
+                G1: &mut float,
+                G2: &mut float,
+                nh: float,
+                k1: float3,
+                k1h: float,
+                k2: float3,
+                k2h: float,
+                refraction: bool
+            |{
+                *G1 = microfacet_mask_v_cavities(nh, k1h, k1(1), math);
+                *G2 = microfacet_mask_v_cavities(nh, k2h, k2(1), math);
+                if(refraction){math.max__float_float(*G1 + *G2 - 1.0f, 0.0f)} else {math.min__float_float(*G1, *G2)}
+            }
+
+    };
+}
+
+fn simple_glossy_bsdf_evaluate(
+    data: &mut BSDF_evaluate_data,
+    state: State,
+    inherited_normal: float3,
+    roughness_u: float,
+    roughness_v: float,
+    tint: float3,
+    tangent_u: float3,
+    mode: scatter_mode,
+    thin_walled: bool,
+    mat_ior: float3,
+    math: mdl_math
+) -> ()
+{
+    let m_exponent = roughness_to_exponent(clamp_roughness(roughness_u, math), clamp_roughness(roughness_v, math));
+    let ph = Distribution{
+        sample: |xi: float3, k: float3|{
+            flip(hvd_phong_sample([xi(0), xi(1)], m_exponent, math), k, xi(2), math)
+        },
+        eval: |h: float3|{
+            hvd_phong_eval(m_exponent, h(1), h(0), h(2), math)
+        },
+        shadow_mask: 
+            |
+                G1: &mut float,
+                G2: &mut float,
+                nh: float,
+                k1: float3,
+                k1h: float,
+                k2: float3,
+                k2h: float,
+                refraction: bool
+            |{
+                *G1 = microfacet_mask_v_cavities(nh, k1h, k1(1), math);
+                *G2 = microfacet_mask_v_cavities(nh, k2h, k2(1), math);
+                if(refraction){math.max__float_float(*G1 + *G2 - 1.0f, 0.0f)} else {math.min__float_float(*G1, *G2)}
+            }
+
+    };
+    microfacet_evaluate_evaluate(ph, data, state, inherited_normal, tangent_u, thin_walled, mat_ior, mode, math);
+}
+
+fn simple_glossy_bsdf_pdf(
+    data: &mut BSDF_pdf_data,
+    state: State,
+    inherited_normal: float3,
+    roughness_u: float,
+    roughness_v: float,
+    tint: float3,
+    tangent_u: float3,
+    mode: scatter_mode,
+    thin_walled:bool,
+    mat_ior: float3,
+    math: mdl_math
+) -> ()
+{
+    let m_exponent = roughness_to_exponent(clamp_roughness(roughness_u, math), clamp_roughness(roughness_v, math));
+    let ph = Distribution{
+        sample: |xi: float3, k: float3|{
+            flip(hvd_phong_sample([xi(0), xi(1)], m_exponent, math), k, xi(2), math)
+        },
+        eval: |h: float3|{
+            hvd_phong_eval(m_exponent, h(1), h(0), h(2), math)
+        },
+        shadow_mask: 
+            |
+                G1: &mut float,
+                G2: &mut float,
+                nh: float,
+                k1: float3,
+                k1h: float,
+                k2: float3,
+                k2h: float,
+                refraction: bool
+            |{
+                *G1 = microfacet_mask_v_cavities(nh, k1h, k1(1), math);
+                *G2 = microfacet_mask_v_cavities(nh, k2h, k2(1), math);
+                if(refraction){math.max__float_float(*G1 + *G2 - 1.0f, 0.0f)} else {math.min__float_float(*G1, *G2)}
+            }
+
+    };
+    microfacet_evaluate_pdf(ph, data, state, inherited_normal, tangent_u, thin_walled, mat_ior, mode, math);
+}
      
 
 /*
@@ -356,11 +1187,11 @@ fn @diffuse_transmission_bsdf__color_State_mdl_math(tint : fn(State) -> color,  
 fn @specular_bsdf__color_scatter_mode_State_mdl_math(tint : fn(State) -> color, mode : fn(State) -> fn(State) -> scatter_mode,  state : State, math : mdl_math) -> bsdf{
 {}
 }
-
+*/
 fn @simple_glossy_bsdf__float_float_color_float3_scatter_mode_State_mdl_math(roughness_u : fn(State) -> float, roughness_v : fn(State) -> float, tint : fn(State) -> color, tangent_u : fn(State) -> float3, mode : fn(State) -> fn(State) -> scatter_mode,  state : State, math : mdl_math) -> bsdf{
 {}
 }
-
+/*
 fn @backscattering_glossy_reflection_bsdf__float_float_color_float3_State_mdl_math(roughness_u : fn(State) -> float, roughness_v : fn(State) -> float, tint : fn(State) -> color, tangent_u : fn(State) -> float3,  state : State, math : mdl_math) -> bsdf{
 {}
 }
