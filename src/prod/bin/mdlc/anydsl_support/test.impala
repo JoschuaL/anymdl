@@ -1,4 +1,4 @@
-fn @uv_as_color_material__color_mdl_math(tt : fn(State) -> color,  math : mdl_math) -> material {
+/*fn @uv_as_color_material__color_mdl_math(tt : fn(State) -> color,  math : mdl_math) -> material {
     let diffuse_bsdf: bsdf = bsdf__bsdf_mdl_math(
         @|state:State|{diffuse_reflection_bsdf__color_float_mdl_math(
             @|state:State|{tt(state)},
@@ -52,3 +52,52 @@ fn @uv_as_color_material__color_mdl_math(tt : fn(State) -> color,  math : mdl_ma
 
 
 
+*/
+
+
+fn @gloss__color_float_float_mdl_math(tt : fn(State) -> color, ru : fn(State) -> float, rv : fn(State) -> float,  math : mdl_math) -> material {
+    material__bool_material_surface_material_surface_color_material_volume_material_geometry_mdl_math(
+        |state:State|{false},
+        |state:State|{material_surface__bsdf_material_emission_mdl_math(
+            |state:State|{simple_glossy_bsdf__float_float_color_float3_scatter_mode_mdl_math(
+                |state:State|{ru(state)},
+                |state:State|{rv(state)},
+                |state:State|{tt(state)},
+                |state:State|{state.texture_tangent_u_int(0, )},
+                |state:State|{scatter_mode::scatter_reflect},
+                math
+            )},
+            |state:State|{material_emission__edf_color_intensity_mode_mdl_math(
+                |state:State|{edf__mdl_math(math)},
+                |state:State|{[0.000000f, 0.000000f, 0.000000f]},
+                |state:State|{intensity_mode::intensity_radiant_exitance},
+                math
+            )},
+            math
+        )},
+        |state:State|{material_surface__bsdf_material_emission_mdl_math(
+            |state:State|{bsdf__mdl_math(math)},
+            |state:State|{material_emission__edf_color_intensity_mode_mdl_math(
+                |state:State|{edf__mdl_math(math)},
+                |state:State|{[0.000000f, 0.000000f, 0.000000f]},
+                |state:State|{intensity_mode::intensity_radiant_exitance},
+                math
+            )},
+            math
+        )},
+        |state:State|{[1.000000f, 1.000000f, 1.000000f]},
+        |state:State|{material_volume__vdf_color_color_mdl_math(
+            |state:State|{vdf__mdl_math(math)},
+            |state:State|{[0.000000f, 0.000000f, 0.000000f]},
+            |state:State|{[0.000000f, 0.000000f, 0.000000f]},
+            math
+        )},
+        |state:State|{material_geometry__float3_float_float3_mdl_math(
+            |state:State|{[0.000000f, 0.000000f, 0.000000f, ]},
+            |state:State|{1.000000f},
+            |state:State|{state.normal()},
+            math
+        )},
+        math
+    )
+}

@@ -33,20 +33,25 @@ export material example_compilation(color tint = color(1.0f))
     backface: material_surface(
         scattering: df::diffuse_reflection_bsdf(tint: tint * color(state::normal()) * math::sin(3))
     )
-);*/
+);
 
 
 
 
 export material uv_as_color_material(color tt = color(1.0)) =
 let {
-    color diffuse_color = color(state::texture_coordinate(0));
-    bsdf diffuse_bsdf = df::diffuse_reflection_bsdf(tint: diffuse_color * tt);
+    bsdf diffuse_bsdf = df::diffuse_reflection_bsdf(tint: tt);
 } in material(
    surface: material_surface(scattering: diffuse_bsdf));
 
 
 
+*/
+
+export material gloss(color tt = color(1.0), float ru = 0.0, float rv = 0.0) =
+    material(
+        surface: material_surface(scattering: df::simple_glossy_bsdf(roughness_u: ru, roughness_v: rv, tint: tt))
+    );
 
 
 

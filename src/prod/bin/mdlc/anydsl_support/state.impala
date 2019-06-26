@@ -1,3 +1,34 @@
+fn adjust_state(state: State, pos: float3, normal: float3) -> State{
+    State{
+        position: @||{pos},
+        normal: @||{ normal},
+        geometry_normal: state.geometry_normal,
+        motion: state.motion,
+        texture_space_max: state.texture_space_max,
+        texture_coordinate_int : state.texture_coordinate_int,
+        texture_tangent_u_int : state.texture_tangent_u_int,
+        texture_tangent_v_int : state.texture_tangent_v_int,
+        tangent_space_int : state.tangent_space_int,
+        geometry_tangent_u_int : state.geometry_tangent_u_int,
+        geometry_tangent_v_int : state.geometry_tangent_v_int,
+        direction: state.direction,
+        animation_time: state.animation_time,
+        wavelength_base: state.wavelength_base,
+        transform_coordinate_space_coordinate_space : state.transform_coordinate_space_coordinate_space,
+        transform_point_coordinate_space_coordinate_space_float3 :state.transform_point_coordinate_space_coordinate_space_float3,
+        transform_vector_coordinate_space_coordinate_space_float3 : state.transform_vector_coordinate_space_coordinate_space_float3,
+        transform_normal_coordinate_space_coordinate_space_float3 : state.transform_normal_coordinate_space_coordinate_space_float3,
+        transform_scale_coordinate_space_coordinate_space_float : state.transform_scale_coordinate_space_coordinate_space_float,
+        rounded_corner_normal_float_bool : state.rounded_corner_normal_float_bool,
+        rounded_corner_normal_float_bool_float : state.rounded_corner_normal_float_bool_float,
+        meters_per_scene_unit: state.meters_per_scene_unit,
+        scene_units_per_meter: state.scene_units_per_meter,
+        object_id: state.object_id,
+        wavelength_min: state.wavelength_min,
+        wavelength_max: state.wavelength_max,
+    }
+}
+
 fn @make_state(
     position: float3,
     normal: float3,

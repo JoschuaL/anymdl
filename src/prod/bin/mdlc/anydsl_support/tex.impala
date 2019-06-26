@@ -9,6 +9,7 @@ enum wrap_mode{
     wrap_mirrored_repeat,
     wrap_clip,
 }
+/*
 fn @width__texture_2d_State_mdl_math(tex : fn(State) -> texture_2d,  state : State, math : mdl_math) -> fn(State) -> int{
 {}
 }
@@ -200,3 +201,4 @@ fn @texture_isvalid__texture_cube_State_mdl_math(tex : fn(State) -> texture_cube
 fn @texture_isvalid__texture_ptex_State_mdl_math(tex : fn(State) -> texture_ptex,  state : State, math : mdl_math) -> fn(State) -> bool{
 {}
 }
+*/
