@@ -311,7 +311,7 @@ fn @diffuse_reflection_bsdf__color_float_mdl_math(
 {
     
     bsdf{
-        sample: @|data:&mut BSDF_sample_data, state:State|{
+        sample: @|data:&mut BSDF_sample_data, state:State, params: material_parameters|{
             diffuse_reflection_bsdf_sample(
                 data,
                 state,
@@ -321,7 +321,7 @@ fn @diffuse_reflection_bsdf__color_float_mdl_math(
                 math
             );
         },
-        pdf: @|data:&mut BSDF_pdf_data, state:State|{
+        pdf: @|data:&mut BSDF_pdf_data, state:State, params: material_parameters|{
             diffuse_reflection_bsdf_pdf(
                 data,
                 state,
@@ -331,7 +331,7 @@ fn @diffuse_reflection_bsdf__color_float_mdl_math(
                 math
             );
         },
-        evaluate: @|data:&mut BSDF_evaluate_data, state:State|{
+        evaluate: @|data:&mut BSDF_evaluate_data, state:State, params: material_parameters|{
             diffuse_reflection_bsdf_evaluate(
                 data,
                 state,
@@ -360,7 +360,7 @@ struct Distribution{
     ) -> float 
 }
 
-fn refract(
+fn @refract(
     k: float3,
     n: float3,
     b: float,
@@ -377,7 +377,7 @@ fn refract(
         {math.normalize__float3(add__float3_float3(mul__float3_float(neg__float3(k),b), mul__float3_float(n, (b * nk - math.sqrt__float(1.0f - refract)))))}
 }
 
-fn ior_fresnel(
+fn @ior_fresnel(
     eta: float,
     kh: float,
     math: mdl_math
@@ -400,7 +400,7 @@ fn ior_fresnel(
     math.saturate__float(fres)
 }
 
-fn process_ior_sample(
+fn @process_ior_sample(
     data: &mut BSDF_sample_data,
     mat_ior: float3,
     math: mdl_math
@@ -427,7 +427,7 @@ fn process_ior_sample(
     ior
 }
 
-fn process_ior_evaluate(
+fn @process_ior_evaluate(
     data: &mut BSDF_evaluate_data,
     mat_ior: float3,
     math: mdl_math
@@ -454,7 +454,7 @@ fn process_ior_evaluate(
     ior
 }
 
-fn process_ior_pdf(
+fn @process_ior_pdf(
     data: &mut BSDF_pdf_data,
     mat_ior: float3,
     math: mdl_math
@@ -482,7 +482,7 @@ fn process_ior_pdf(
 }
 
 
-fn microfacet_sample_geometry(
+fn @microfacet_sample_geometry(
     ph: Distribution,
     data: &mut BSDF_sample_data,
     state: State,
@@ -602,7 +602,7 @@ fn microfacet_sample_geometry(
     }
 }
 
-fn microfacet_sample(
+fn @microfacet_sample(
     ph: Distribution,
     data: &mut BSDF_sample_data,
     state: State,
@@ -624,7 +624,7 @@ fn microfacet_sample(
     microfacet_sample_geometry(ph, data, state, g, tint, mode, thin_walled, mat_ior, math)
 }
 
-fn compute_half_vector(
+fn @compute_half_vector(
     k1: float3,
     k2: float3,
     shading_normal: float3,
@@ -653,7 +653,7 @@ fn compute_half_vector(
     math.normalize__float3(h)
 }
 
-fn microfacet_evaluate_geometry_evaluate(
+fn @microfacet_evaluate_geometry_evaluate(
     ph: Distribution,
     data: &mut BSDF_evaluate_data,
     state: State,
@@ -704,6 +704,16 @@ fn microfacet_evaluate_geometry_evaluate(
 
     let weight = if(mmode == 3){if(backside_eval){1.0f - fresnnel_refl} else {fresnnel_refl}} else {1.0f};
 
+    data.pdf = ph.eval(
+        [
+            math.dot__float3_float3(g.x_axis, h),
+            nh,
+            math.dot__float3_float3(g.z_axis, h)
+        ]
+    );
+
+
+
     let mut G1: float;
     let mut G2: float;
 
@@ -733,6 +743,7 @@ fn microfacet_evaluate_geometry_evaluate(
         data.pdf *= k1h * k2h / (nk1 * nh * tmp * tmp);
     } else {
         data.pdf *= 0.25f / (nk1 * nh);
+        
     }
 
     let bsdf = data.pdf * weight * G12;
@@ -740,7 +751,7 @@ fn microfacet_evaluate_geometry_evaluate(
     bsdf
 }
 
-fn microfacet_evaluate_geometry_pdf(
+fn @microfacet_evaluate_geometry_pdf(
     ph: Distribution,
     data: &mut BSDF_pdf_data,
     state: State,
@@ -827,7 +838,7 @@ fn microfacet_evaluate_geometry_pdf(
     bsdf
 }
 
-fn microfacet_evaluate_geometry_sample(
+fn @microfacet_evaluate_geometry_sample(
     ph: Distribution,
     data: &mut BSDF_sample_data,
     state: State,
@@ -914,7 +925,7 @@ fn microfacet_evaluate_geometry_sample(
     bsdf
 }
 
-fn microfacet_evaluate_evaluate(
+fn @microfacet_evaluate_evaluate(
     ph: Distribution,
     data: &mut BSDF_evaluate_data,
     state: State,
@@ -934,7 +945,7 @@ fn microfacet_evaluate_evaluate(
     microfacet_evaluate_geometry_evaluate(ph, data, state, g, mode, thin_walled, mat_ior, math)
 }
 
-fn microfacet_evaluate_sample(
+fn @microfacet_evaluate_sample(
     ph: Distribution,
     data: &mut BSDF_sample_data,
     state: State,
@@ -954,7 +965,7 @@ fn microfacet_evaluate_sample(
     microfacet_evaluate_geometry_sample(ph, data, state, g, mode, thin_walled, mat_ior, math)
 }
 
-fn microfacet_evaluate_pdf(
+fn @microfacet_evaluate_pdf(
     ph: Distribution,
     data: &mut BSDF_pdf_data,
     state: State,
@@ -974,7 +985,7 @@ fn microfacet_evaluate_pdf(
     microfacet_evaluate_geometry_pdf(ph, data, state, g, mode, thin_walled, mat_ior, math)
 }
 
-fn microfacet_mask_v_cavities(
+fn @microfacet_mask_v_cavities(
     nh: float,
     kh: float,
     nk: float,
@@ -983,7 +994,7 @@ fn microfacet_mask_v_cavities(
     math.min__float_float(1.0f, 2.0f * nh * nk / kh)
 }
 
-fn roughness_to_exponent(
+fn @roughness_to_exponent(
     roughness_u: float,
     roughness_v: float
 ) -> float2
@@ -994,11 +1005,11 @@ fn roughness_to_exponent(
     ]
 }
 
-fn clamp_roughness(r: float, math: mdl_math) -> float{
-    math.min__float_float(math.max__float_float(r, 0.0f), 1.0f)
+fn @clamp_roughness(r: float, math: mdl_math) -> float{
+    math.min__float_float(math.max__float_float(r, 0.00001f), 1.0f)
 }
 
-fn hvd_phong_sample(samples: float2, exponent: float2, math: mdl_math) -> float3{
+fn @hvd_phong_sample(samples: float2, exponent: float2, math: mdl_math) -> float3{
     let sy4 = samples(0) * 4.0f;
     let cosupper = math.cos__float(math.PI * math.frac__float(sy4));
 
@@ -1024,7 +1035,7 @@ fn hvd_phong_sample(samples: float2, exponent: float2, math: mdl_math) -> float3
     )
 }
 
-fn hvd_phong_eval(
+fn @hvd_phong_eval(
     exponent: float2,
     nh: float,
     ht: float,
@@ -1036,7 +1047,7 @@ fn hvd_phong_eval(
     math.sqrt__float((exponent(0) + 1.0f) * (exponent(0) + 1.0f)) * (0.5f/math.PI) as float * p
 }
 
-fn flip(h: float3, k: float3, xi: float, math: mdl_math) -> float3{
+fn @flip(h: float3, k: float3, xi: float, math: mdl_math) -> float3{
     let a = h(1) * k(1);
     let b = h(0) * k(0) + h(2) * k(2);
     let kh = math.max__float_float(a+b, 0.0f);
@@ -1055,7 +1066,7 @@ fn flip(h: float3, k: float3, xi: float, math: mdl_math) -> float3{
 
 
 
-fn simple_glossy_bsdf_sample(
+fn @simple_glossy_bsdf_sample(
     data: &mut BSDF_sample_data,
     state: State,
     inherited_normal: float3,
@@ -1069,14 +1080,14 @@ fn simple_glossy_bsdf_sample(
 {
     let m_exponent = roughness_to_exponent(clamp_roughness(roughness_u, math), clamp_roughness(roughness_v, math));
     let ph = Distribution{
-        sample: |xi: float3, k: float3|{
+        sample: @|xi: float3, k: float3|{
             flip(hvd_phong_sample([xi(0), xi(1)], m_exponent, math), k, xi(2), math)
         },
-        eval: |h: float3|{
+        eval: @|h: float3|{
             hvd_phong_eval(m_exponent, h(1), h(0), h(2), math)
         },
         shadow_mask: 
-            |
+            @|
                 G1: &mut float,
                 G2: &mut float,
                 nh: float,
@@ -1094,7 +1105,7 @@ fn simple_glossy_bsdf_sample(
     };
 }
 
-fn simple_glossy_bsdf_evaluate(
+fn @simple_glossy_bsdf_evaluate(
     data: &mut BSDF_evaluate_data,
     state: State,
     inherited_normal: float3,
@@ -1110,14 +1121,14 @@ fn simple_glossy_bsdf_evaluate(
 {
     let m_exponent = roughness_to_exponent(clamp_roughness(roughness_u, math), clamp_roughness(roughness_v, math));
     let ph = Distribution{
-        sample: |xi: float3, k: float3|{
+        sample: @|xi: float3, k: float3|{
             flip(hvd_phong_sample([xi(0), xi(1)], m_exponent, math), k, xi(2), math)
         },
-        eval: |h: float3|{
+        eval: @|h: float3|{
             hvd_phong_eval(m_exponent, h(1), h(0), h(2), math)
         },
         shadow_mask: 
-            |
+            @|
                 G1: &mut float,
                 G2: &mut float,
                 nh: float,
@@ -1133,10 +1144,10 @@ fn simple_glossy_bsdf_evaluate(
             }
 
     };
-    microfacet_evaluate_evaluate(ph, data, state, inherited_normal, tangent_u, thin_walled, mat_ior, mode, math);
+    data.bsdf = mul__float3_float(math.saturate__color(tint), microfacet_evaluate_evaluate(ph, data, state, inherited_normal, tangent_u, thin_walled, mat_ior, mode, math));
 }
 
-fn simple_glossy_bsdf_pdf(
+fn @simple_glossy_bsdf_pdf(
     data: &mut BSDF_pdf_data,
     state: State,
     inherited_normal: float3,
@@ -1152,14 +1163,14 @@ fn simple_glossy_bsdf_pdf(
 {
     let m_exponent = roughness_to_exponent(clamp_roughness(roughness_u, math), clamp_roughness(roughness_v, math));
     let ph = Distribution{
-        sample: |xi: float3, k: float3|{
+        sample: @|xi: float3, k: float3|{
             flip(hvd_phong_sample([xi(0), xi(1)], m_exponent, math), k, xi(2), math)
         },
-        eval: |h: float3|{
+        eval: @|h: float3|{
             hvd_phong_eval(m_exponent, h(1), h(0), h(2), math)
         },
         shadow_mask: 
-            |
+            @|
                 G1: &mut float,
                 G2: &mut float,
                 nh: float,
@@ -1188,8 +1199,61 @@ fn @specular_bsdf__color_scatter_mode_State_mdl_math(tint : fn(State) -> color, 
 {}
 }
 */
-fn @simple_glossy_bsdf__float_float_color_float3_scatter_mode_State_mdl_math(roughness_u : fn(State) -> float, roughness_v : fn(State) -> float, tint : fn(State) -> color, tangent_u : fn(State) -> float3, mode : fn(State) -> fn(State) -> scatter_mode,  state : State, math : mdl_math) -> bsdf{
-{}
+fn @simple_glossy_bsdf__float_float_color_float3_scatter_mode_mdl_math(
+    roughness_u : fn(State) -> float,
+    roughness_v : fn(State) -> float, 
+    tint : fn(State) -> color, 
+    tangent_u : fn(State) -> float3, 
+    mode : fn(State) -> scatter_mode,
+    math : mdl_math) -> bsdf
+{
+    
+    bsdf{
+        sample: @|data:&mut BSDF_sample_data, state:State, params: material_parameters|{
+            simple_glossy_bsdf_sample(
+                data,
+                state,
+                state.normal(),
+                roughness_u(state),
+                roughness_v(state),
+                tint(state),
+                tangent_u(state),
+                mode(state),
+                math
+            );
+        },
+        pdf: @|data:&mut BSDF_pdf_data, state:State, params: material_parameters|{
+            simple_glossy_bsdf_pdf(
+                data,
+                state,
+                state.normal(),
+                roughness_u(state),
+                roughness_v(state),
+                tint(state),
+                tangent_u(state),
+                mode(state),
+                params.thin_walled,
+                params.ior,
+                math
+            );
+        },
+        evaluate: @|data:&mut BSDF_evaluate_data, state:State, params: material_parameters|{
+            simple_glossy_bsdf_evaluate(
+                data,
+                state,
+                state.normal(),
+                roughness_u(state),
+                roughness_v(state),
+                tint(state),
+                tangent_u(state),
+                mode(state),
+                params.thin_walled,
+                params.ior,
+                math
+            );
+        },
+        is_default: false
+    }
 }
 /*
 fn @backscattering_glossy_reflection_bsdf__float_float_color_float3_State_mdl_math(roughness_u : fn(State) -> float, roughness_v : fn(State) -> float, tint : fn(State) -> color, tangent_u : fn(State) -> float3,  state : State, math : mdl_math) -> bsdf{

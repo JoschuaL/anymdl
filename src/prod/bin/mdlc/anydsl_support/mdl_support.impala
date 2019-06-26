@@ -67,10 +67,127 @@ struct material {
     thin_walled: bool,
     surface: material_surface,
     backface: material_surface,
-    ior: color,
+    ior: fn(State) -> color,
     volume: material_volume,
     geometry: material_geometry,
 }
+
+struct material_parameters{
+    thin_walled: bool,
+    ior: color
+}
+
+fn @sample_material_bsdf(mat: material, data: &mut BSDF_sample_data, state: State, math: mdl_math) -> (){
+    let pos = mat.geometry.displacement(state);
+    let normal = mat.geometry.normal(state);
+    let surface = if(mat.backface.scattering.is_default || !mat.thin_walled || math.dot__float3_float3(data.k1, state.normal()) >= 0.0f) {mat.surface} else {mat.backface};
+    let params = material_parameters{
+        thin_walled: mat.thin_walled,
+        ior: mat.ior(state)
+    };
+    let adj_state = adjust_state(state, pos, normal);
+    surface.scattering.sample(data, adj_state, params);
+}
+
+fn @evaluate_material_bsdf(mat: material, data: &mut BSDF_evaluate_data, state: State, math: mdl_math) -> (){
+    let pos = mat.geometry.displacement(state);
+    let normal = mat.geometry.normal(state);
+    let surface = if(mat.backface.scattering.is_default || !mat.thin_walled || math.dot__float3_float3(data.k1, state.normal()) >= 0.0f) {mat.surface} else {mat.backface};
+    let params = material_parameters{
+        thin_walled: mat.thin_walled,
+        ior: mat.ior(state)
+    };
+    let adj_state = adjust_state(state, pos, normal);
+    surface.scattering.evaluate(data, adj_state, params);
+}
+
+fn @pdf_material_bsdf(mat: material, data: &mut BSDF_pdf_data, state: State, math: mdl_math) -> (){
+    let pos = mat.geometry.displacement(state);
+    let normal = mat.geometry.normal(state);
+    let surface = if(mat.backface.scattering.is_default || !mat.thin_walled || math.dot__float3_float3(data.k1, state.normal()) >= 0.0f) {mat.surface} else {mat.backface};
+    let params = material_parameters{
+        thin_walled: mat.thin_walled,
+        ior: mat.ior(state)
+    };
+    let adj_state = adjust_state(state, pos, normal);
+    surface.scattering.pdf(data, adj_state, params);
+}
+
+fn @sample_material_edf(mat: material, data: &mut EDF_sample_data, state: State, math: mdl_math) -> (){
+    let pos = mat.geometry.displacement(state);
+    let normal = mat.geometry.normal(state);
+    let surface = if(mat.backface.scattering.is_default || !mat.thin_walled || math.dot__float3_float3(data.k1, state.normal()) >= 0.0f) {mat.surface} else {mat.backface};
+    let params = material_parameters{
+        thin_walled: mat.thin_walled,
+        ior: mat.ior(state)
+    };
+    let adj_state = adjust_state(state, pos, normal);
+    surface.emission.emission.sample(data, adj_state, params);
+}
+
+fn @evaluate_material_edf(mat: material, data: &mut EDF_evaluate_data, state: State, math: mdl_math) -> (){
+    let pos = mat.geometry.displacement(state);
+    let normal = mat.geometry.normal(state);
+    let surface = if(mat.backface.scattering.is_default || !mat.thin_walled || math.dot__float3_float3(data.k1, state.normal()) >= 0.0f) {mat.surface} else {mat.backface};
+    let params = material_parameters{
+        thin_walled: mat.thin_walled,
+        ior: mat.ior(state)
+    };
+        let adj_state = adjust_state(state, pos, normal);
+
+    surface.emission.emission.evaluate(data, adj_state, params);
+}
+
+fn @pdf_material_edf(mat: material, data: &mut EDF_pdf_data, state: State, math: mdl_math) -> (){
+    let pos = mat.geometry.displacement(state);
+    let normal = mat.geometry.normal(state);
+    let surface = if(mat.backface.scattering.is_default || !mat.thin_walled || math.dot__float3_float3(data.k1, state.normal()) >= 0.0f) {mat.surface} else {mat.backface};
+    let params = material_parameters{
+        thin_walled: mat.thin_walled,
+        ior: mat.ior(state)
+    };
+        let adj_state = adjust_state(state, pos, normal);
+
+    surface.emission.emission.pdf(data, adj_state, params);
+}
+
+fn @sample_material_vdf(mat: material, data: &mut VDF_sample_data, state: State, math: mdl_math) -> (){
+    let pos = mat.geometry.displacement(state);
+    let normal = mat.geometry.normal(state);
+    let params = material_parameters{
+        thin_walled: mat.thin_walled,
+        ior: mat.ior(state)
+    };
+        let adj_state = adjust_state(state, pos, normal);
+
+    mat.volume.scattering.sample(data, adj_state, params);
+}
+
+fn @evaluate_material_vdf(mat: material, data: &mut VDF_evaluate_data, state: State, math: mdl_math) -> (){
+    let pos = mat.geometry.displacement(state);
+    let normal = mat.geometry.normal(state);
+    let params = material_parameters{
+        thin_walled: mat.thin_walled,
+        ior: mat.ior(state)
+    };
+        let adj_state = adjust_state(state, pos, normal);
+
+    mat.volume.scattering.evaluate(data, adj_state, params);
+}
+
+fn @pdf_material_vdf(mat: material, data: &mut VDF_pdf_data, state: State, math: mdl_math) -> (){
+    let pos = mat.geometry.displacement(state);
+    let normal = mat.geometry.normal(state);
+    let params = material_parameters{
+        thin_walled: mat.thin_walled,
+        ior: mat.ior(state)
+    };
+        let adj_state = adjust_state(state, pos, normal);
+
+    mat.volume.scattering.pdf(data, adj_state, params);
+}
+
+
 
 
 fn @material__bool_material_surface_material_surface_color_material_volume_material_geometry_mdl_math(
@@ -87,7 +204,7 @@ fn @material__bool_material_surface_material_surface_color_material_volume_mater
         thin_walled: thin_walled(dummy_state),
         surface: surface(dummy_state),
         backface: backface(dummy_state),
-        ior: ior(dummy_state),
+        ior: ior,
         volume: volume(dummy_state),
         geometry: geometry(dummy_state),
     }
@@ -323,24 +440,24 @@ struct VDF_evaluate_data{}
 
 
 struct bsdf{
-    sample: fn(&mut BSDF_sample_data, State) -> (),
-    pdf: fn(&mut BSDF_pdf_data, State) -> (),
-    evaluate: fn(&mut BSDF_evaluate_data, State) -> (),
+    sample: fn(&mut BSDF_sample_data, State, material_parameters) -> (),
+    pdf: fn(&mut BSDF_pdf_data, State, material_parameters) -> (),
+    evaluate: fn(&mut BSDF_evaluate_data, State, material_parameters) -> (),
     is_default: bool
 }
 
 
 struct edf{
-    sample: fn(&mut EDF_sample_data, State) -> (),
-    pdf: fn(&mut EDF_pdf_data, State) -> (),
-    evaluate: fn(&mut EDF_evaluate_data, State) -> (),
+    sample: fn(&mut EDF_sample_data, State, material_parameters) -> (),
+    pdf: fn(&mut EDF_pdf_data, State, material_parameters) -> (),
+    evaluate: fn(&mut EDF_evaluate_data, State, material_parameters) -> (),
     is_default: bool
 }
 
 struct vdf{
-    sample: fn(&mut VDF_sample_data, State) -> (),
-    pdf: fn(&mut VDF_pdf_data, State) -> (),
-    evaluate: fn(&mut VDF_evaluate_data, State) -> (),
+    sample: fn(&mut VDF_sample_data, State, material_parameters) -> (),
+    pdf: fn(&mut VDF_pdf_data, State, material_parameters) -> (),
+    evaluate: fn(&mut VDF_evaluate_data, State, material_parameters) -> (),
     is_default: bool
 }
 
@@ -348,13 +465,13 @@ fn @bsdf__mdl_math(math: mdl_math) -> bsdf
 {
     
     bsdf{
-        sample: @|data:&mut BSDF_sample_data, state:State|{
+        sample: @|data:&mut BSDF_sample_data, state:State, params: material_parameters|{
             absorb_sample(data);
         },
-        pdf: @|data:&mut BSDF_pdf_data, state:State|{
+        pdf: @|data:&mut BSDF_pdf_data, state:State, params: material_parameters|{
             absorb_pdf(data);
         },
-        evaluate: @|data:&mut BSDF_evaluate_data, state:State|{
+        evaluate: @|data:&mut BSDF_evaluate_data, state:State,params: material_parameters|{
             absorb_evaluate(data);
         },
         is_default: true
@@ -366,13 +483,13 @@ fn @vdf__mdl_math(math: mdl_math) -> vdf
 {
     
     vdf{
-        sample: @|data:&mut VDF_sample_data, state:State|{
+        sample: @|data:&mut VDF_sample_data, state:State, params: material_parameters|{
             
         },
-        pdf: @|data:&mut VDF_pdf_data, state:State|{
+        pdf: @|data:&mut VDF_pdf_data, state:State, params: material_parameters|{
             
         },
-        evaluate: @|data:&mut VDF_evaluate_data, state:State|{
+        evaluate: @|data:&mut VDF_evaluate_data, state:State, params: material_parameters|{
             
         },
         is_default: true
@@ -384,13 +501,13 @@ fn @edf__mdl_math(math: mdl_math) -> edf
 {
     
     edf{
-        sample: @|data:&mut EDF_sample_data, state:State|{
+        sample: @|data:&mut EDF_sample_data, state:State, params: material_parameters|{
             no_emission_sample(data)
         },
-        pdf: @|data:&mut EDF_pdf_data, state:State|{
+        pdf: @|data:&mut EDF_pdf_data, state:State, params: material_parameters|{
             no_emission_pdf(data)
         },
-        evaluate: @|data:&mut EDF_evaluate_data, state:State|{
+        evaluate: @|data:&mut EDF_evaluate_data, state:State, params: material_parameters|{
             no_emission_evaluate(data)
         },
         is_default: true
