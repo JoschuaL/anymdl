@@ -416,7 +416,7 @@ export struct anisotropy_return
 // Functions
 
 
-float4x4 compute_cylindric_transform(
+export float4x4 compute_cylindric_transform(
     uniform float4x4 projection_transform,
     float3 t_normal_3,
     float3 pos,
@@ -472,7 +472,7 @@ float4x4 compute_cylindric_transform(
 
 }
 
-float3 compute_spheric_projection(
+export float3 compute_spheric_projection(
     float4 dir,
     uniform bool normalized = false) uniform
 {
@@ -492,7 +492,7 @@ float3 compute_spheric_projection(
     return uv_coord;
 }
 
-float4x4 compute_spheric_transform(
+export float4x4 compute_spheric_transform(
     uniform float4x4 projection_transform,
     float3 pos,
     uniform bool normalized = false
@@ -528,7 +528,7 @@ float4x4 compute_spheric_transform(
     return uv_offset2*base*uv_offset; //transform so that current pos is at 0, last add projected coordinate
 }
 
-uniform float4x4 compute_cubic_transform(
+export uniform float4x4 compute_cubic_transform(
     uniform float4x4 projection_transform, float3 t_normal_3, float3 pos
 )
 [[
@@ -562,7 +562,7 @@ uniform float4x4 compute_cubic_transform(
     return projection_transform;
 }
 
-texture_coordinate_info compute_tangents(state::coordinate_space space)
+export texture_coordinate_info compute_tangents(state::coordinate_space space)
 {
         texture_coordinate_info tangents;
         float3 u_dir = math::normalize(state::transform_vector(space,state::coordinate_internal,float3(1.,0.,0)));
@@ -590,7 +590,7 @@ texture_coordinate_info compute_tangents(state::coordinate_space space)
         return tangents;
 }
 
-texture_coordinate_info compute_tangents(uniform texture_coordinate_system coordinate_system, float3x3 transform)
+export texture_coordinate_info compute_tangents(uniform texture_coordinate_system coordinate_system, float3x3 transform)
 {
         texture_coordinate_info tangents;
         float3 u_dir,v_dir;
@@ -1012,7 +1012,7 @@ float3 xyz2dir(
     return  x * u + y * v + z * in_main;
 }
 
-float2 mi_lib_square_to_disk(
+export float2 mi_lib_square_to_disk(
     float inout_r,
     float inout_phi,
     float in_x,
@@ -1047,7 +1047,7 @@ float2 mi_lib_square_to_disk(
     return float2(inout_r,inout_phi);
 }
 
-float3 mi_reflection_dir_diffuse_x(
+export float3 mi_reflection_dir_diffuse_x(
     float3 in_normal,
     float2 in_sample)
 {
@@ -1068,7 +1068,7 @@ float3 mi_reflection_dir_diffuse_x(
     return xyz2dir(in_normal, x, y, z);
 }
 
-color calc_sun_color(float3 sun_dir, float turbidity)
+export color calc_sun_color(float3 sun_dir, float turbidity)
 {
     color sun_color = color(0.0);
     color ko = color(12.0, 8.5, 0.9);
@@ -1095,7 +1095,7 @@ color calc_sun_color(float3 sun_dir, float turbidity)
     return sun_color;
 }
 
-float3 sky_color_xyz(
+export float3 sky_color_xyz(
     float3 in_dir,
     float3 in_sun_pos,
     float in_turbidity, float in_luminance)
@@ -1157,7 +1157,7 @@ float3 sky_color_xyz(
     return xyz;
 }
 
-float sky_luminance(
+export float sky_luminance(
     float3 in_dir,
     float3 in_sun_pos,
     float in_turbidity)
@@ -1187,7 +1187,7 @@ float sky_luminance(
     return Y;
 }
 
-color calc_env_color(
+export color calc_env_color(
     float3 in_sun_dir,
     float3 in_dir,
     float in_turbidity)
@@ -1208,7 +1208,7 @@ color calc_env_color(
     return env_color;
 }
 
-color calc_irrad(
+export color calc_irrad(
    float3 in_data_sun_dir,
    float in_data_sun_dir_haze)
 {
@@ -1232,7 +1232,7 @@ color calc_irrad(
     return colaccu;
 }
 
-float tweak_saturation(float inout_saturation, float in_haze)
+export float tweak_saturation(float inout_saturation, float in_haze)
 {
     float lowsat = math::pow(inout_saturation, 3.0);
     if (inout_saturation <= 1.0) {
@@ -1248,7 +1248,7 @@ float tweak_saturation(float inout_saturation, float in_haze)
     return 1.;
 }
 
-float3 arch_vectortweak(
+export float3 arch_vectortweak(
     float3 dir,
     bool y_is_up,
     float horiz_height)
@@ -1264,7 +1264,7 @@ float3 arch_vectortweak(
     return out_dir;
 }
 
-color arch_colortweak(
+export color arch_colortweak(
     color tint,
     float saturation,
     float redness)
@@ -1291,7 +1291,7 @@ color arch_colortweak(
     return out_tint;
 }
 
-float2 calc_physical_scale(
+export float2 calc_physical_scale(
     float sun_disk_scale,
     float sun_glow_intensity,
     float sun_disk_intensity)
@@ -1390,7 +1390,7 @@ float2 calc_physical_scale(
         sky_sunglow_scale);
 }
 
-float night_brightness_adjustment(
+export float night_brightness_adjustment(
     float3 sun_dir)
 {
     float lmt = 0.30901699437494742410229341718282;
@@ -1551,7 +1551,7 @@ export texture_return sun_and_sky(
     return texture_return(result, 1.);
 }
 
-float compute_perez_clearness(
+export float compute_perez_clearness(
     float diffuse_irradiance,
     float direct_irradiance,
     float theta_sun)
@@ -1564,7 +1564,7 @@ float compute_perez_clearness(
         (1.0f + 1.041f * zenith_angle3);
 }
 
-float compute_perez_brightness(
+export float compute_perez_brightness(
     float diffuse_irradiance,
     float air_mass,
     float eccentricity)
@@ -1575,7 +1575,7 @@ float compute_perez_brightness(
         (solar_constant_irrad * eccentricity);
 }
 
-float compute_eccentricity(float julian_date)
+export float compute_eccentricity(float julian_date)
 {
     float day_angle = (2.0 * math::PI / 365.0) * (julian_date - 1.0f);
 
@@ -1585,7 +1585,7 @@ float compute_eccentricity(float julian_date)
 }
 
 // approximation for air mass on ground level by Kasten & Young
-float compute_air_mass(float theta_sun)
+export float compute_air_mass(float theta_sun)
 {
      float theta_sun_deg = theta_sun * (180.0 / math::PI);
      return 1.0f / (math::cos(theta_sun) + 0.15f * math::pow(93.885f - theta_sun_deg, -1.253f));
@@ -1595,7 +1595,7 @@ float compute_air_mass(float theta_sun)
 // Perez clearness categories
 // (clearness between 1.0 and 12.0)
 //#define NUM_CLEARNESS_CATEGORIES 8
-int get_clearness_category(
+export int get_clearness_category(
     float clearness)
 {
     //float[8] s_clearness_categories( 1.065f, 1.230f, 1.5f, 1.95f, 2.80f, 4.5f, 6.2f, 12.0f);
@@ -1610,11 +1610,11 @@ int get_clearness_category(
     return 7;
 }
 
-struct perez_coefficients {
+export struct perez_coefficients {
     float [5]c;
 };
 
-perez_coefficients compute_perez_params(
+export perez_coefficients compute_perez_params(
     float z,
     float epsilon, // clearness
     float delta) // brightness
@@ -1704,7 +1704,7 @@ perez_coefficients compute_perez_params(
 
 // diffuse and direct efficacy coefficients ([1] table 7)
 
-float compute_diffuse_illuminance(
+export float compute_diffuse_illuminance(
     float diffuse_irradiance,
     float clearness,
     float brightness,
@@ -1726,7 +1726,7 @@ float compute_diffuse_illuminance(
          s_perez_diffuse_d[idx] * math::log(brightness));
 }
 
-float compute_direct_illuminance(
+export float compute_direct_illuminance(
     float direct_irradiance,
     float clearness,
     float brightness,
@@ -1762,7 +1762,7 @@ float compute_direct_illuminance(
 
 
 
-const float[128] randxi(0.0,0.5,0.25,0.75,0.125,0.625,0.375,0.875,0.0625,0.5625,0.3125,0.8125,0.1875,0.6875,0.4375,0.9375,
+export const float[128] randxi(0.0,0.5,0.25,0.75,0.125,0.625,0.375,0.875,0.0625,0.5625,0.3125,0.8125,0.1875,0.6875,0.4375,0.9375,
 0.03125,0.53125,0.28125,0.78125,0.15625,0.65625,0.40625,0.90625,0.09375,0.59375,0.34375,0.84375,0.21875,0.71875,0.46875,0.96875,
 0.015625,0.515625,0.265625,0.765625,0.140625,0.640625,0.390625,0.890625,0.078125,0.578125,0.328125,0.828125,0.203125,0.703125,0.453125,0.953125,
 0.046875,0.546875,0.296875,0.796875,0.171875,0.671875,0.421875,0.921875,0.109375,0.609375,0.359375,0.859375,0.234375,0.734375,0.484375,0.984375,
@@ -1772,7 +1772,7 @@ const float[128] randxi(0.0,0.5,0.25,0.75,0.125,0.625,0.375,0.875,0.0625,0.5625,
 0.0546875,0.5546875,0.3046875,0.8046875,0.1796875,0.6796875,0.4296875,0.9296875,0.1171875,0.6171875,0.3671875,0.8671875,0.2421875,0.7421875,0.4921875,0.9921875
 );
 
-float eval_perez(
+export float eval_perez(
         float[5] perez_abcde,
         float cos_theta, float gamma, float cos_gamma)
 {
@@ -1781,7 +1781,7 @@ float eval_perez(
         (1.f + perez_abcde[2] * math::exp(perez_abcde[3] * gamma) + perez_abcde[4] * cos_gamma * cos_gamma);
 }
 
-struct perez_data_preetham
+export struct perez_data_preetham
 {
     float[5] x;
     float[5] y;
@@ -1790,7 +1790,7 @@ struct perez_data_preetham
     float perez_y_scale;
 };
 
-uniform perez_data_preetham compute_perez_coefficients_preetham(uniform float turbidity, uniform float cos_theta_sun)
+export uniform perez_data_preetham compute_perez_coefficients_preetham(uniform float turbidity, uniform float cos_theta_sun)
 {
     // chromaticity from Preetham et al: A Practical Analytic Model for Daylight
 
@@ -1832,7 +1832,7 @@ uniform perez_data_preetham compute_perez_coefficients_preetham(uniform float tu
     return data;
 }
 
-struct perez_data
+export struct perez_data
 {
     perez_coefficients abcde;
     float perez_lum_scale;
@@ -1841,7 +1841,7 @@ struct perez_data
     float3 sky_illuminance_rgb;
 };
 
-uniform perez_data compute_perez_all_weather(
+export uniform perez_data compute_perez_all_weather(
     uniform float cos_theta_sun,
     uniform float diffuse_irradiance,     // W / m^2
     uniform float direct_irradiance,      // W / m^2
@@ -1910,7 +1910,7 @@ uniform perez_data compute_perez_all_weather(
     return data;
 }
 
-float3 arch_skyvectortweak(bool y_is_up, float horizon_height, float3 dir)
+export float3 arch_skyvectortweak(bool y_is_up, float horizon_height, float3 dir)
 {
     float3 mydir = dir;
     if (y_is_up)
@@ -1929,7 +1929,7 @@ float3 arch_skyvectortweak(bool y_is_up, float horizon_height, float3 dir)
     return math::normalize(mydir);
 }
 
-float3 calc_sun_disk_color(
+export float3 calc_sun_disk_color(
     float3 sun_color,
     float turbidity,
     float3 dir,
@@ -1951,7 +1951,7 @@ float3 calc_sun_disk_color(
         math::smoothstep(8.5f, 9.5f + (turbidity * (1.0/50.0)), factor) * 100.0f * sun_disk_intensity_scale;
 }
 
-float3 compute_unscaled_sun_illuminance(float3 sun_dir, float turbidity)
+export float3 compute_unscaled_sun_illuminance(float3 sun_dir, float turbidity)
 {
     if (sun_dir.z <= 0.0f)
         return float3(0.);
@@ -1994,7 +1994,7 @@ float3 compute_unscaled_sun_illuminance(float3 sun_dir, float turbidity)
     return tr * ta * to * solar_illuminance;
 }
 
-struct perez_sun_and_sky_data
+export struct perez_sun_and_sky_data
 {
     // sun direction
     float3 clamped_sun_dir;
@@ -2019,7 +2019,7 @@ struct perez_sun_and_sky_data
     float factor;
 };
 
-uniform perez_sun_and_sky_data perez_sun_and_sky_init(
+export uniform perez_sun_and_sky_data perez_sun_and_sky_init(
     uniform float3 sun_direction,
     uniform bool y_is_up,
     uniform float haze,
@@ -2074,7 +2074,7 @@ uniform perez_sun_and_sky_data perez_sun_and_sky_init(
     return data;
 }
 
-float3 calc_env_color(
+export float3 calc_env_color(
     perez_sun_and_sky_data data,
     float3 dir)
 {
@@ -2206,7 +2206,7 @@ export color perez_sun_and_sky(
     return color(skycolor);
 }
 
-int texremapu( int texres, int crop_ofs, int texi_in, tex::wrap_mode wrap )
+export int texremapu( int texres, int crop_ofs, int texi_in, tex::wrap_mode wrap )
 {
     int texi = texi_in;
     // Wrap or Clamp
@@ -2235,30 +2235,30 @@ int texremapu( int texres, int crop_ofs, int texi_in, tex::wrap_mode wrap )
     return texi;
 }
 
-int2 texremapu( int2 texres, int2 crop_ofs, float2 tex, tex::wrap_mode wrap_u, tex::wrap_mode wrap_v )
+export int2 texremapu( int2 texres, int2 crop_ofs, float2 tex, tex::wrap_mode wrap_u, tex::wrap_mode wrap_v )
 {
     return int2( texremapu(texres.x, crop_ofs.x, int(tex.x), wrap_u),
                  texremapu(texres.y, crop_ofs.y, int(tex.y), wrap_v));
 }
 
-float texel_average(uniform texture_2d texture, int2 coord)
+export float texel_average(uniform texture_2d texture, int2 coord)
 {
     return math::average(tex::texel_color(texture, coord));
 }
 
-float texel_alpha(uniform texture_2d texture, int2 coord)
+export float texel_alpha(uniform texture_2d texture, int2 coord)
 {
     return tex::texel_float4(texture, coord).w;
 }
-float texel_luminance(uniform texture_2d texture, int2 coord)
+export float texel_luminance(uniform texture_2d texture, int2 coord)
 {
     return math::luminance(tex::texel_color(texture, coord));
 }
-float texel_maximum(uniform texture_2d texture, int2 coord)
+export float texel_maximum(uniform texture_2d texture, int2 coord)
 {
     return math::max_value(tex::texel_color(texture, coord));
 }
-float texel_lookup(uniform texture_2d texture, int2 coord,uniform mono_mode bump_source = mono_average)
+export float texel_lookup(uniform texture_2d texture, int2 coord,uniform mono_mode bump_source = mono_average)
 {
     switch (bump_source){
     case mono_average:
@@ -2272,7 +2272,7 @@ float texel_lookup(uniform texture_2d texture, int2 coord,uniform mono_mode bump
     }
 }
 
-float interpolate_texspace_l( uniform texture_2d texture, float4 st, int4 texi, uniform mono_mode bump_source=mono_average)
+export float interpolate_texspace_l( uniform texture_2d texture, float4 st, int4 texi, uniform mono_mode bump_source=mono_average)
 {
     return
         texel_lookup(texture, int2(texi.x, texi.y),bump_source) * st.z +
@@ -2454,13 +2454,13 @@ export float3 tangent_space_normal_texture(
         state::normal() * (tangent_space_normal.z + (1.0 - factor)));
 }
 
-float saturation(color rgb)
+export float saturation(color rgb)
 {
     float max = math::max_value(rgb);
     return (max != 0.0f) ? (1.0f - math::min_value(rgb)/max) : 0.0f;
 }
 
-float hue(float3 rgb)
+export float hue(float3 rgb)
 {
     float max = math::max_value(rgb);
     float min = math::min_value(rgb);
@@ -2479,7 +2479,7 @@ float hue(float3 rgb)
     return (hue >= 0.0f) ? hue : (hue + 1.0f);
 }
 
-float3 hsv_to_rgb(float3 hsv)
+export float3 hsv_to_rgb(float3 hsv)
 {
     // from "Color Imaging, Fundamentals and Applications", Reinhard et al., p. 442
 
@@ -2512,7 +2512,7 @@ float3 hsv_to_rgb(float3 hsv)
     }
 }
 
-color blend_colors(
+export color blend_colors(
     color top,
     color bottom,
     float weight,
@@ -2743,11 +2743,11 @@ export texture_return blend_color_layers(
     return texture_return(result,mono);
 }
 
-float sqr_cbrtf(float x)
+export float sqr_cbrtf(float x)
 {
     return math::pow(x,2./3.);
 }
-float gradient_interpolate(gradient_interpolation_mode type, float value)
+export float gradient_interpolate(gradient_interpolation_mode type, float value)
 {
     switch(type)
     {
@@ -2779,7 +2779,7 @@ float gradient_interpolate(gradient_interpolation_mode type, float value)
     }
 }
 
-float gradient_get_position(gradient_mode type, float2 tex_in)
+export float gradient_get_position(gradient_mode type, float2 tex_in)
 {
     // Get the fractional UV
     float2 tex = float2(
@@ -2835,7 +2835,7 @@ float gradient_get_position(gradient_mode type, float2 tex_in)
 }
 
 // Returns the color at the given position in the gradient
-color gradient_get_color(
+export color gradient_get_color(
     float    position,
     gradient_interpolation_mode[3] interpolation_modes,
     color[3]   grad_color,
@@ -3026,7 +3026,7 @@ export texture_return gradient3_recolor(
     return texture_return(result,math::luminance(result));
 }
 
-float eval_checker(float3 position, float checker_position,float blur )
+export float eval_checker(float3 position, float checker_position,float blur )
 {
     position.z +=math::min(checker_position, 1.0f-checker_position)*0.5f;
 
@@ -3132,13 +3132,13 @@ export float3 checker_bump_texture(
         uvw.tangent_v * (results[2]-results[0])        * factor);
 }
 
-struct noise_return
+export struct noise_return
 {
     float3 grad;
     float val = 0.0;
 };
 
-const int[256] rnd1(151,160,137,91,90,15,
+export const int[256] rnd1(151,160,137,91,90,15,
     131,13,201,95,96,53,194,233,7,225,140,36,103,30,69,142,8,99,37,240,21,10,23,
     190, 6,148,247,120,234,75,0,26,197,62,94,252,219,203,117,35,11,32,57,177,33,
     88,237,149,56,87,174,20,125,136,171,168, 68,175,74,165,71,134,139,48,27,166,
@@ -3152,7 +3152,7 @@ const int[256] rnd1(151,160,137,91,90,15,
     49,192,214, 31,181,199,106,157,184, 84,204,176,115,121,50,45,127, 4,150,254,
     138,236,205,93,222,114,67,29,24,72,243,141,128,195,78,66,215,61,156,180);
 
-const int[256] rnd2(120,73,105,71,106,25,159,92,184,93,179,181,
+export const int[256] rnd2(120,73,105,71,106,25,159,92,184,93,179,181,
     51,168,252,235,114,143,108,82,4,72,9,192,214,112,12,200,188,8,187,117,157,88,70,87,
     56,38,115,96,59,24,215,231,123,44,144,119,243,245,212,249,197,109,76,66,183,58,232,
     113,86,234,203,80,163,254,140,62,174,118,167,18,55,99,126,170,52,149,156,142,89,189,
@@ -3165,7 +3165,7 @@ const int[256] rnd2(120,73,105,71,106,25,159,92,184,93,179,181,
     204,206,65,5,194,91,67,198,48,111,211,227,229,237,244,43,146,139,222,137,201,22,103,
     210,34,213,31,0,33,185,161,78,121,171,3);
 
-const int[256] rnd3(
+export const int[256] rnd3(
     88,147,251,140,206,77,107,169,5,222,84,97,116,234,24,90,201,133,40,216,229,34,37,
     158,186,49,98,61,47,9,124,123,65,249,2,66,76,172,198,179,218,210,78,170,132,32,60,
     110,213,223,151,225,115,83,180,161,42,41,164,250,233,70,231,27,217,244,114,96,183,
@@ -3178,7 +3178,7 @@ const int[256] rnd3(
     79,106,235,75,0,230,160,126,138,227,247,91,17,173,29,51,71,22,36,118,149,189,155,156,
     197,54,202,99,174,137,105,184,205,108,10,193,165,127,56,212,104,190,185,48,86,15);
 
-const int[256] rnd4(
+export const int[256] rnd4(
     249,199,162,114,17,55,64,57,29,137,194,247,45,70,210,106,184,178,219,122,156,193,
     214,126,138,28,148,121,19,37,135,132,173,225,221,161,180,220,36,84,224,10,185,209,
     238,119,89,253,165,248,120,235,198,52,3,190,125,226,20,6,168,2,170,167,94,54,201,
@@ -3192,7 +3192,7 @@ const int[256] rnd4(
     228,109,23,16,171,115,7,131,192,183,105,251,5,139,40,200,30,254,227,76,151,50,8,104,
     118,233,25);
 
-const int[256] rnd5(
+export const int[256] rnd5(
     39,244,56,240,73,135,254,227,196,35,166,195,65,132,173,225,177,41,158,245,22,199,
     214,126,138,28,200,148,121,19,37,221,161,180,220,36,84,224,10,143,185,209,249,
     248,120,235,198,52,3,190,125,226,20,6,168,2,170,167,94,54,201,5,139,40,30,76,
@@ -3206,7 +3206,7 @@ const int[256] rnd5(
     60,0,67,211,87,16,171,241,136,103,116,140,205,237,9,72,63,204,38,238,119,
     118,1,233,25,141,208,242,33,146,152,83,86,34,74,188,44);
 
-noise_return mi_noise( float3 xyz )
+export noise_return mi_noise( float3 xyz )
 {
 
     // compute b-spline blending as functions of input point
@@ -3283,7 +3283,7 @@ noise_return mi_noise( float3 xyz )
     return noise_return(grad,val);
 }
 
-noise_return mi_noise(int3 xyz)
+export noise_return mi_noise(int3 xyz)
 {
     float3 grad;
     int ix0 = (xyz.x-1)&255;
@@ -3360,35 +3360,35 @@ noise_return mi_noise(int3 xyz)
     return noise_return(grad,val);
 }
 
-float fade(float t) { return t * t * t * (t * (t * 6.0f - 15.0f) + 10.0f); }
+export float fade(float t) { return t * t * t * (t * (t * 6.0f - 15.0f) + 10.0f); }
 
-const float4[128] grad4(
+export const float4[128] grad4(
         float4(0,1,1,1), float4(0,-1,1,0), float4(1,1,0,-1), float4(0,-1,1,-1), float4(0,1,1,0), float4(1,0,-1,1), float4(0,-1,-1,0), float4(-1,0,-1,-1), float4(0,1,-1,1),  float4(1,1,0,1), float4(1,0,-1,-1), float4(0,1,1,-1), float4(0,1,-1,0), float4(-1,1,0,1), float4(0,-1,-1,1), float4(-1,0,1,-1), float4(0,-1,-1,-1), float4(1,0,1,1), float4(-1,-1,0,-1), float4(0,-1,1,1), float4(-1,1,0,-1), float4(0,1,-1,-1), float4(1,-1,0,1), float4(0,-1,-1,0), float4(-1,0,-1,1), float4(1,-1,0,-1), float4(0,-1,1,0), float4(-1,-1,0,1), float4(0,1,-1,0), float4(1,1,0,-1), float4(-1,0,1,1), float4(0,1,1,0),
         float4(1,1,0,-1), float4(0,1,1,-1), float4(-1,0,1,1), float4(0,1,1,0), float4(0,-1,1,-1), float4(0,-1,-1,0), float4(1,0,-1,1), float4(0,1,-1,1), float4(-1,0,-1,-1), float4(1,0,-1,-1), float4(1,1,0,1), float4(0,1,-1,0), float4(0,1,1,1), float4(0,-1,1,0), float4(-1,1,0,1), float4(0,1,-1,0), float4(1,1,0,-1), float4(0,-1,-1,1), float4(-1,0,1,-1), float4(0,-1,-1,-1), float4(1,0,1,1), float4(-1,-1,0,-1), float4(0,-1,1,1), float4(-1,1,0,-1), float4(0,1,-1,-1), float4(1,-1,0,1), float4(0,-1,-1,0), float4(-1,0,-1,1), float4(1,-1,0,-1), float4(0,1,1,0), float4(0,-1,1,0), float4(-1,-1,0,1),
         float4(1,0,1,1), float4(-1,-1,0,-1), float4(0,1,1,0), float4(-1,0,1,-1), float4(1,1,0,1), float4(-1,0,-1,-1), float4(0,-1,-1,0), float4(1,0,-1,-1), float4(-1,0,-1,1), float4(1,-1,0,-1), float4(0,1,1,-1), float4(0,1,-1,0), float4(-1,1,0,1), float4(0,-1,-1,1), float4(1,1,0,-1), float4(-1,0,1,1), float4(0,-1,-1,-1), float4(1,0,-1,1), float4(0,1,1,1), float4(0,-1,1,0), float4(-1,1,0,-1), float4(0,-1,1,1), float4(0,1,-1,-1), float4(1,-1,0,1), float4(0,-1,1,0), float4(-1,-1,0,1), float4(0,1,-1,0), float4(0,-1,1,-1), float4(0,1,1,0), float4(1,1,0,-1), float4(0,-1,-1,0), float4(0,1,-1,1),
          float4(0,1,-1,1), float4(1,1,0,1), float4(1,0,-1,-1), float4(0,1,-1,0), float4(0,1,1,1), float4(0,-1,1,0), float4(-1,1,0,1), float4(0,1,-1,0), float4(1,1,0,-1), float4(0,-1,-1,1), float4(-1,0,1,-1), float4(0,-1,-1,-1), float4(1,0,1,1), float4(-1,-1,0,-1), float4(0,-1,1,1), float4(-1,1,0,-1), float4(0,1,-1,-1), float4(1,-1,0,1), float4(0,-1,-1,0), float4(-1,0,-1,1), float4(1,-1,0,-1), float4(0,1,1,0), float4(0,-1,1,0), float4(-1,-1,0,1), float4(1,1,0,-1), float4(0,1,1,-1), float4(-1,0,1,1), float4(0,1,1,0), float4(0,-1,1,-1), float4(1,0,-1,1), float4(0,-1,-1,0), float4(-1,0,-1,-1));
 
-float grad128(int hash, float x, float y, float z, float w)
+export float grad128(int hash, float x, float y, float z, float w)
 {
     return x*grad4[hash].x + y*grad4[hash].y + z*grad4[hash].z + w*grad4[hash].w;
 }
 
-float grad128(int hash, float x, float y, float z)[[anno::unused()]]
+export float grad128(int hash, float x, float y, float z)[[anno::unused()]]
 {
     return x*grad4[hash].x + y*grad4[hash].y + z*grad4[hash].z;
 }
 
-float grad128(int hash, float x, float y)
+export float grad128(int hash, float x, float y)
 {
     return x*grad4[hash].x + y*grad4[hash].y;
 }
 
-float grad128(int hash, float x)
+export float grad128(int hash, float x)
 {
     return x*grad4[hash].x;
 }
 
-float perlin_noise(float4 pos)
+export float perlin_noise(float4 pos)
 {
     int X = math::floor(pos.x),
         Y = math::floor(pos.y),
@@ -3434,7 +3434,7 @@ float perlin_noise(float4 pos)
     return math::lerp(result[0], result[1], x);
 }
 
-float perlin_noise(float2 pos)
+export float perlin_noise(float2 pos)
 {
     int X = int(math::floor(pos.x)),
                Y = int(math::floor(pos.y));
@@ -3455,7 +3455,7 @@ float perlin_noise(float2 pos)
             fade(pos.y));
 }
 
-float perlin_noise(float pos)
+export float perlin_noise(float pos)
 {
     int X = int(math::floor(pos));
     pos -= math::floor(pos);
@@ -3466,13 +3466,13 @@ float perlin_noise(float pos)
 }
 
 
-float ridge(float h, float offset)
+export float ridge(float h, float offset)
 {
     h = offset - math::abs(h);
     return h*h;
 }
 
-float summed_perlin_noise(float3 pos, float time,  int terms, float3 turbulence_weight, bool abs_noise, bool ridged)
+export float summed_perlin_noise(float3 pos, float time,  int terms, float3 turbulence_weight, bool abs_noise, bool ridged)
 {
     float sum = 0.0f;
     float weight = ridged ? 0.625f : 1.0f;
@@ -3498,7 +3498,7 @@ float summed_perlin_noise(float3 pos, float time,  int terms, float3 turbulence_
     }
     return sn;
 }
-float apply_noise_modifications(
+export float apply_noise_modifications(
     float value,
     float position,
     uniform bool apply_marble = false
@@ -3775,19 +3775,19 @@ export float3 perlin_noise_bump_texture(
         uvw.tangent_v * (results[2]-results[0])        * bump_factor);
 }
 
-float  sqrlength(float3 a)                   { return a.x * a.x + a.y * a.y + a.z * a.z; }
-float  length_chebyshev(float3 a)            { return math::max(math::max(math::abs(a.x), math::abs(a.y)), math::abs(a.z)); }
-float  length_chebyshev( float3 a, float3 b) { return math::max(math::max(math::abs(b.x-a.x), math::abs(b.y-a.y)), math::abs(b.z-a.z)); }
-float  length_manhattan(float3 a)            { return math::abs(a.x) + math::abs(a.y) + math::abs(a.z); }
-float  length_manhattan(float3 a, float3 b)  { return math::abs(b.x-a.x) + math::abs(b.y-a.y) + math::abs(b.z-a.z); }
+export float  sqrlength(float3 a)                   { return a.x * a.x + a.y * a.y + a.z * a.z; }
+export float  length_chebyshev(float3 a)            { return math::max(math::max(math::abs(a.x), math::abs(a.y)), math::abs(a.z)); }
+export float  length_chebyshev( float3 a, float3 b) { return math::max(math::max(math::abs(b.x-a.x), math::abs(b.y-a.y)), math::abs(b.z-a.z)); }
+export float  length_manhattan(float3 a)            { return math::abs(a.x) + math::abs(a.y) + math::abs(a.z); }
+export float  length_manhattan(float3 a, float3 b)  { return math::abs(b.x-a.x) + math::abs(b.y-a.y) + math::abs(b.z-a.z); }
 
-struct worley_return {
+export struct worley_return {
     float3 nearest_pos_0;
     float3 nearest_pos_1;
     float2 val;
 };
 
-worley_return worley_noise(float3 pos, float jitter, int metric)
+export worley_return worley_noise(float3 pos, float jitter, int metric)
 {
     worley_return ret;
     float3 cell = float3(math::floor(pos.x),math::floor(pos.y),math::floor(pos.z));
@@ -3826,7 +3826,7 @@ worley_return worley_noise(float3 pos, float jitter, int metric)
     return ret;
 }
 
-float worley_noise(float3 pos, float3 turbulence_weight, float step_threshold, int mode, int metric, float jitter = 1.0f)
+export float worley_noise(float3 pos, float3 turbulence_weight, float step_threshold, int mode, int metric, float jitter = 1.0f)
 {
     worley_return worley = worley_noise(pos, jitter, metric);
     float2 f1f2 = worley.val;
@@ -4080,14 +4080,14 @@ export float3 worley_noise_bump_texture(
         uvw.tangent_v * (results[2]-results[0])        * bump_factor);
 }
 
-int permute_flow2(int x)
+export int permute_flow2(int x)
 {
     //x %= 289; // correct, but doesn't matter in practice
     return (x*x*34 + x) % 289;
 }
 
 // gradient mapping + extra rotation
-float2 grad_flow2(int p, float rot)
+export float2 grad_flow2(int p, float rot)
 {
     float u = float(p)*(1.0/41.0) + rot; // [0..7] + rot //!! (a bit) magic
     // map from line to diamond -> shift maps to rotation
@@ -4095,7 +4095,7 @@ float2 grad_flow2(int p, float rot)
     return float2(math::abs(u)-1.0f, math::abs(math::abs(u+1.0f)-2.0f)-1.0f);
 }
 
-float flow_noise(float2 p, float rot)
+export float flow_noise(float2 p, float rot)
 {
     float  SQRT3 = 1.7320508075688772935274463415059;
 
@@ -4131,7 +4131,7 @@ float flow_noise(float2 p, float rot)
     return result;
 }
 
-float summed_flow_noise2(
+export float summed_flow_noise2(
     float2 pos,
     float time,
     int iterations,
@@ -4470,13 +4470,13 @@ export float3 flake_noise_bump_texture(
         uvw.tangent_v * ret2.grad.y);
 }
 
-struct Tiledata
+export struct Tiledata
 {
     bool is_in_tile;
     color color_result;
 };
 
-Tiledata eval_tile_function(
+export Tiledata eval_tile_function(
     float2 tex,
     color tile_color,
     color grout_color,

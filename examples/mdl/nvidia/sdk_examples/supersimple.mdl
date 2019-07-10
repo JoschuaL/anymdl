@@ -53,6 +53,10 @@ export material gloss(color tt = color(1.0), float ru = 0.0, float rv = 0.0) =
         surface: material_surface(scattering: df::simple_glossy_bsdf(roughness_u: ru, roughness_v: rv, tint: tt))
     );
 
+export float mulmat(float4x3 a, float3 b){
+    return (b*a)[0];
+}
+
 
 
 

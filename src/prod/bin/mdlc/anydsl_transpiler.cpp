@@ -34,10 +34,19 @@ namespace mi {
 
             }
 
+            for (int j = 0; j < module->get_builtin_definition_count(); ++j) {
+                IDefinition const *def = module->get_builtin_definition(j);
+                dispatch_transpile_definition(def);
+            }
+
             for (int i = 0, n = module->get_exported_definition_count(); i < n; ++i) {
                 IDefinition const *def = module->get_exported_definition(i);
                 dispatch_transpile_definition(def);
             }
+
+
+
+
 
             /*for (int i = 0; i < module->get_declaration_count(); i++) {
                 const IDeclaration *decl = module->get_declaration(i);
@@ -317,8 +326,9 @@ namespace mi {
                 }
                 case IType::TK_MATRIX: {
                     const IType_matrix *t = as<IType_matrix>(type);
-                    ts = type_to_string_for_mangling(t->get_element_type(), no_special_characters) + "x" +
-                         std::to_string(t->get_columns());
+                    const IType_vector *v = as<IType_vector>(t->get_element_type());
+                    ts = type_to_string_for_mangling(v->get_element_type(), no_special_characters) + std::to_string(t->get_columns()) + "x" +
+                         std::to_string(v->get_compound_size());
                     break;
                 }
 
@@ -603,8 +613,11 @@ namespace mi {
 
                 add_to_code(type_to_string_for_mangling(v->get_type_name()->get_type(), false));
 
-                add_to_code(" = ");
-                dispatch_transpile_expression(v->get_variable_init(i), false);
+                if (v->get_variable_init(i) != nullptr) {
+                    add_to_code(" = ");
+                    dispatch_transpile_expression(v->get_variable_init(i), false);
+                }
+
 
             }
         }
@@ -709,7 +722,7 @@ namespace mi {
             add_to_code("", true);
             dispatch_transpile_expression(e->get_expression(), false);
 
-                add_to_code(";\n");
+            add_to_code(";\n");
 
 
         }
@@ -718,9 +731,10 @@ namespace mi {
             const IStatement_switch *sw = as<IStatement_switch>(stat);
             add_to_code("while(true) {\n", true);
             indent_level++;
-            add_to_code("let swich_condition = ", true);
+            add_to_code("let switch_condition = ", true);
             dispatch_transpile_expression(sw->get_condition(), false);
             add_to_code(";\n");
+            add_to_code("let mut fallthrough: bool = false;\n", true);
             for (int i = 0; i < sw->get_case_count(); ++i) {
                 dispatch_transpile_statement(sw->get_case(i));
             }
@@ -771,10 +785,11 @@ namespace mi {
             const IStatement_case *c = as<IStatement_case>(stat);
 
             if (c->get_label() != nullptr) {
-                add_to_code("if(switch_condition == ", true);
+                add_to_code("if(fallthrough || switch_condition == ", true);
                 dispatch_transpile_expression(c->get_label(), false);
                 add_to_code("){\n");
                 indent_level++;
+                add_to_code("fallthrough = true;\n", true);
                 for (int i = 0; i < c->get_statement_count(); ++i) {
                     dispatch_transpile_statement(c->get_statement(i));
                 }
@@ -862,7 +877,8 @@ namespace mi {
                     const ISymbol *sym = nullptr;
                     int code = 0;
                     en->get_value(ve->get_index(), sym, code);
-                    s = std::string(en->get_symbol()->get_name()) + "ENUM+DELIMITER+STRING" + std::string(sym->get_name());
+                    s = std::string(en->get_symbol()->get_name()) + "ENUM+DELIMITER+STRING" +
+                        std::string(sym->get_name());
                 }
                     break;
                 case IValue::VK_FLOAT:
@@ -1131,8 +1147,6 @@ namespace mi {
                 add_to_code("(");
 
 
-
-
                 for (int i = 0; i < c->get_argument_count(); ++i) {
                     const IArgument *arg = c->get_argument(i);
                     const IExpression *exp = arg->get_argument_expr();
@@ -1335,7 +1349,7 @@ namespace mi {
                 case IExpression_unary::OK_BITWISE_COMPLEMENT:
                     return "bit_comp";
                 case IExpression_unary::OK_LOGICAL_NOT:
-                    return "log_not";
+                    return "not";
                 case IExpression_unary::OK_POSITIVE:
                     return "pos";
                 case IExpression_unary::OK_NEGATIVE:
