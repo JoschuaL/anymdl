@@ -7,7 +7,7 @@
             "request": "launch",
             // Resolved by CMake Tools:
             "program": "${command:cmake.launchTargetPath}",
-            "args": ["-t", "AnyDSL", "-O", "0","-p", "/Users/noisyedge/Projects/mdl-source/MDL-SDK/examples/mdl/nvidia/sdk_examples/", "supersimple"],
+            "args": ["-t", "AnyDSL", "-O", "3","-p", "/Users/noisyedge/Projects/mdl-source/MDL-SDK/examples/mdl/nvidia/sdk_examples/", "supersimple"],
             "stopAtEntry": false,
             "cwd": "${workspaceFolder}",
             "environment": [
@@ -16,7 +16,7 @@
                     "value": "~/Projects/mdl-source/MDL-SDK/build/src/prod/lib/mdl_sdk:~/Projects/mdl-source/MDL-SDK/build/src/prod/lib/mdl_core:~/Projects/mdl-source/MDL-SDK/build/src/shaders/plugin/freeimage:~/Qt/5.12.1/clang_64/lib:~/Qt/5.12.1/clang_64/plugins/imageformats:${DYLD_LIBRARY_PATH}:+:${DYLD_LIBRARY_PATH}}"
                 }
             ],
-            "externalConsole": true,
+            "externalConsole": false,
             "MIMode": "lldb",
             "setupCommands": [
                 {

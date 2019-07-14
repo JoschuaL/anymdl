@@ -327,7 +327,8 @@ namespace mi {
                 case IType::TK_MATRIX: {
                     const IType_matrix *t = as<IType_matrix>(type);
                     const IType_vector *v = as<IType_vector>(t->get_element_type());
-                    ts = type_to_string_for_mangling(v->get_element_type(), no_special_characters) + std::to_string(t->get_columns()) + "x" +
+                    ts = type_to_string_for_mangling(v->get_element_type(), no_special_characters) +
+                         std::to_string(t->get_columns()) + "x" +
                          std::to_string(v->get_compound_size());
                     break;
                 }
@@ -891,14 +892,16 @@ namespace mi {
                     s = "\"" + std::string((as<IValue_string>(l)->get_value())) + "\"";
                     break;
                 case IValue::VK_VECTOR: {
-                    s = "[";
-                    const auto *v = as<IValue_vector>(l);
+                    const IValue_vector *v = as<IValue_vector>(l);
+                    s = "make_";
+                    s += type_to_string_for_mangling(v->get_type(), true);
+                    s += "(";
                     for (int i = 0; i < v->get_component_count(); i++) {
                         auto saba = v->get_value(i);
                         s += value_to_string(saba);
                         s += ", ";
                     }
-                    s += "]";
+                    s += ")";
                     break;
                 }
                 case IValue::VK_MATRIX: {
@@ -1086,43 +1089,93 @@ namespace mi {
 
         void AnyDSL_Transpiler::transpile_expression_binary(const IExpression *pExpression, bool closure) {
             auto bin = as<IExpression_binary>(pExpression);
-            switch (bin->get_operator()) {
-                case IExpression_binary::OK_SELECT:
-                    dispatch_transpile_expression(bin->get_left_argument(), closure);
-                    add_to_code(".");
-                    dispatch_transpile_expression(bin->get_right_argument(), false);
-                    break;
-                case IExpression_binary::OK_ARRAY_INDEX:
-                    dispatch_transpile_expression(bin->get_left_argument(), closure);
-                    add_to_code("(");
-                    dispatch_transpile_expression(bin->get_right_argument(), closure);
-                    add_to_code(")");
-                    break;
+            if (is_shorthand_assign_operator(bin->get_operator())) {
+                dispatch_transpile_expression(bin->get_left_argument(), closure);
+                add_to_code(" = ");
+                add_to_code(binary_operator_to_string(get_shorthand_operator(bin->get_operator())));
+                add_to_code("__");
+                add_to_code(type_to_string_for_mangling(bin->get_left_argument()->get_type(), true));
+                add_to_code("_");
+                add_to_code(type_to_string_for_mangling(bin->get_right_argument()->get_type(), true));
+                add_to_code("(\n");
+                indent_level++;
+                add_to_code("", true);
 
-                default:
-                    add_to_code(binary_operator_to_string(bin->get_operator()));
-                    add_to_code("__");
-                    add_to_code(type_to_string_for_mangling(bin->get_left_argument()->get_type(), true));
-                    add_to_code("_");
-                    add_to_code(type_to_string_for_mangling(bin->get_right_argument()->get_type(), true));
-                    add_to_code("(\n");
-                    indent_level++;
-                    add_to_code("", true);
+                dispatch_transpile_expression(bin->get_left_argument(), closure);
 
-                    if (is_assign_operator(bin->get_operator())) {
-                        add_to_code("&mut ");
+
+                add_to_code(",\n");
+                add_to_code("", true);
+                dispatch_transpile_expression(bin->get_right_argument(), closure);
+                add_to_code("\n");
+                indent_level--;
+                add_to_code(")", true);
+
+
+            } else {
+                switch (bin->get_operator()) {
+                    case IExpression_binary::OK_SELECT:
+                        dispatch_transpile_expression(bin->get_left_argument(), closure);
+                        add_to_code(".");
+                        dispatch_transpile_expression(bin->get_right_argument(), false);
+                        break;
+                    case IExpression_binary::OK_ARRAY_INDEX:
+                        if (bin->get_left_argument()->get_type()->get_kind() == IType::Kind::TK_VECTOR ||
+                            bin->get_left_argument()->get_type()->get_kind() == IType::Kind::TK_MATRIX) {
+                            add_to_code(
+                                    type_to_string_for_mangling(bin->get_left_argument()->get_type(), true) + "_get(");
+                            dispatch_transpile_expression(bin->get_left_argument(), closure);
+                            add_to_code(", ");
+                            dispatch_transpile_expression(bin->get_right_argument(), closure);
+                            add_to_code(")");
+                        } else {
+                            dispatch_transpile_expression(bin->get_left_argument(), closure);
+                            add_to_code("(");
+                            dispatch_transpile_expression(bin->get_right_argument(), closure);
+                            add_to_code(")");
+                        }
+                        break;
+                    case IExpression_binary::OK_ASSIGN: {
+                        dispatch_transpile_expression(bin->get_left_argument(), closure);
+                        add_to_code(" = ");
+                        if (bin->get_left_argument()->get_type()->skip_type_alias()->get_kind() ==
+                            IType::Kind::TK_VECTOR &&
+                            bin->get_right_argument()->get_type()->skip_type_alias()->get_kind() !=
+                            IType::Kind::TK_VECTOR) {
+                            add_to_code(type_to_string_for_mangling(bin->get_left_argument()->get_type(), true));
+                            add_to_code("__");
+                            add_to_code(type_to_string_for_mangling(bin->get_right_argument()->get_type(), true));
+                            add_to_code("(");
+                            dispatch_transpile_expression(bin->get_right_argument(), closure);
+                            add_to_code(")");
+
+                        } else {
+                            dispatch_transpile_expression(bin->get_right_argument(), closure);
+                        }
                     }
+                        break;
+                    default:
+                        add_to_code(binary_operator_to_string(bin->get_operator()));
+                        add_to_code("__");
+                        add_to_code(type_to_string_for_mangling(bin->get_left_argument()->get_type(), true));
+                        add_to_code("_");
+                        add_to_code(type_to_string_for_mangling(bin->get_right_argument()->get_type(), true));
+                        add_to_code("(\n");
+                        indent_level++;
+                        add_to_code("", true);
 
-                    dispatch_transpile_expression(bin->get_left_argument(), closure);
+                        dispatch_transpile_expression(bin->get_left_argument(), closure);
 
 
-                    add_to_code(",\n");
-                    add_to_code("", true);
-                    dispatch_transpile_expression(bin->get_right_argument(), closure);
-                    add_to_code("\n");
-                    indent_level--;
-                    add_to_code(")", true);
+                        add_to_code(",\n");
+                        add_to_code("", true);
+                        dispatch_transpile_expression(bin->get_right_argument(), closure);
+                        add_to_code("\n");
+                        indent_level--;
+                        add_to_code(")", true);
+                }
             }
+
         }
 
         void AnyDSL_Transpiler::transpile_expression_call(const IExpression *pExpression, bool closure) {
@@ -1413,9 +1466,58 @@ namespace mi {
             }
         }
 
+
         bool AnyDSL_Transpiler::is_stateless_return_type(const IType *type) {
             std::string t = type_to_string_for_mangling(type, false);
             return stateless_return_types.find(t) != stateless_return_types.end();
+        }
+
+        bool AnyDSL_Transpiler::is_shorthand_assign_operator(IExpression_binary::Operator op) {
+            switch (op) {
+                case IExpression_binary::OK_MULTIPLY_ASSIGN:
+                case IExpression_binary::OK_DIVIDE_ASSIGN:
+                case IExpression_binary::OK_MODULO_ASSIGN:
+                case IExpression_binary::OK_PLUS_ASSIGN:
+                case IExpression_binary::OK_MINUS_ASSIGN:
+                case IExpression_binary::OK_SHIFT_LEFT_ASSIGN:
+                case IExpression_binary::OK_SHIFT_RIGHT_ASSIGN:
+                case IExpression_binary::OK_UNSIGNED_SHIFT_RIGHT_ASSIGN:
+                case IExpression_binary::OK_BITWISE_AND_ASSIGN:
+                case IExpression_binary::OK_BITWISE_XOR_ASSIGN:
+                case IExpression_binary::OK_BITWISE_OR_ASSIGN:
+                    return true;
+                default:
+                    return false;
+            }
+        }
+
+        IExpression_binary::Operator AnyDSL_Transpiler::get_shorthand_operator(IExpression_binary::Operator op) {
+            switch (op) {
+                case IExpression_binary::OK_MULTIPLY_ASSIGN:
+                    return IExpression_binary::OK_MULTIPLY;
+                case IExpression_binary::OK_DIVIDE_ASSIGN:
+                    return IExpression_binary::OK_DIVIDE;
+                case IExpression_binary::OK_MODULO_ASSIGN:
+                    return IExpression_binary::OK_MODULO;
+                case IExpression_binary::OK_PLUS_ASSIGN:
+                    return IExpression_binary::OK_PLUS;
+                case IExpression_binary::OK_MINUS_ASSIGN:
+                    return IExpression_binary::OK_MINUS;
+                case IExpression_binary::OK_SHIFT_LEFT_ASSIGN:
+                    return IExpression_binary::OK_SHIFT_LEFT;
+                case IExpression_binary::OK_SHIFT_RIGHT_ASSIGN:
+                    return IExpression_binary::OK_SHIFT_RIGHT;
+                case IExpression_binary::OK_UNSIGNED_SHIFT_RIGHT_ASSIGN:
+                    return IExpression_binary::OK_UNSIGNED_SHIFT_RIGHT;
+                case IExpression_binary::OK_BITWISE_AND_ASSIGN:
+                    return IExpression_binary::OK_BITWISE_AND;
+                case IExpression_binary::OK_BITWISE_XOR_ASSIGN:
+                    return IExpression_binary::OK_BITWISE_XOR;
+                case IExpression_binary::OK_BITWISE_OR_ASSIGN:
+                    return IExpression_binary::OK_BITWISE_OR;
+                default:
+                    return IExpression_binary::OK_ASSIGN;
+            }
         }
 
 

@@ -34,6 +34,10 @@ namespace mi {
 
             bool is_assign_operator(IExpression_binary::Operator op);
 
+            bool is_shorthand_assign_operator(IExpression_binary::Operator op);
+
+            IExpression_binary::Operator get_shorthand_operator(IExpression_binary::Operator op);
+
             bool is_assign_operator(IExpression_unary::Operator op);
 
             bool is_stateless_return_type(const IType *type);
