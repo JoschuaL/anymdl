@@ -6,8 +6,8 @@ import math::*;
 import limits::*;
 import tex::*;
 
-
-/*export material glossy_material(float2 roughness = float2(0.0), color tint = color(1.0))
+/*
+export material glossy_material(float2 roughness = float2(0.0), color tint = color(1.0))
 = let bsdf tmp = df::simple_glossy_bsdf(roughness[0], roughness[1], color(state::normal()) * tint);
 in material(
     surface: material_surface(scattering: tmp),
@@ -24,16 +24,6 @@ export material simple_glossy_material()
 
 
 
-// A material used for instance compilation vs class compilation.
-export material example_compilation(color tint = color(1.0f))
-= material(
-    surface: material_surface(
-        scattering: df::diffuse_reflection_bsdf(tint: tint * color(state::normal()))
-    ),
-    backface: material_surface(
-        scattering: df::diffuse_reflection_bsdf(tint: tint * color(state::normal()) * math::sin(3))
-    )
-);
 
 
 
@@ -46,17 +36,46 @@ let {
 
 
 
-*/
+
 
 export material gloss(color tt = color(1.0), float ru = 0.0, float rv = 0.0) =
     material(
         surface: material_surface(scattering: df::simple_glossy_bsdf(roughness_u: ru, roughness_v: rv, tint: tt))
     );
 
-export float mulmat(float4x3 a, float3 b){
-    return (b*a)[0];
+
+
+
+
+export float lerpf(float a, float b, float l){
+    return a * (1.0f - l) + b * l;
+}
+
+export float2 lerp2f(float2 a, float2 b, float2 l){
+    return float2(
+        lerpf(a[0], b[0], l[0]),
+        lerpf(a[1], b[1], l[1])
+    );
 }
 
 
+
+
+// A material used for instance compilation vs class compilation.
+export material example_compilation(color tint = color(1.0f))
+= material(
+    surface: material_surface(
+        scattering: df::diffuse_reflection_bsdf(tint: tint * color(state::normal()))
+    )
+);
+
+*/
+
+export float3 tester(){
+    float3 a = float3(10.0f);
+    float b = 5.0f;
+    a *= b;
+    return a;
+}
 
 

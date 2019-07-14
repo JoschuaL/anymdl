@@ -3373,7 +3373,7 @@ export float grad128(int hash, float x, float y, float z, float w)
     return x*grad4[hash].x + y*grad4[hash].y + z*grad4[hash].z + w*grad4[hash].w;
 }
 
-export float grad128(int hash, float x, float y, float z)[[anno::unused()]]
+export float grad128(int hash, float x, float y, float z)
 {
     return x*grad4[hash].x + y*grad4[hash].y + z*grad4[hash].z;
 }
