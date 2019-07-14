@@ -17,7 +17,7 @@ fn @absorb_sample(data: &mut BSDF_sample_data) -> (){
 
 fn @absorb_evaluate(data: &mut BSDF_evaluate_data) -> (){
     data.pdf = 0.0f;
-    data.bsdf = [0.0f, 0.0f, 0.0f];
+    data.bsdf = make_float3(0.0f, 0.0f, 0.0f);
 }
 
 fn @absorb_pdf(data: &mut BSDF_pdf_data) -> (){
@@ -26,16 +26,16 @@ fn @absorb_pdf(data: &mut BSDF_pdf_data) -> (){
 
 fn @no_emission_sample(data: &mut EDF_sample_data) -> ()
 {
-    data.k1 = [0.0f, 0.0f, 0.0f];
+    data.k1 = make_float3(0.0f, 0.0f, 0.0f);
     data.pdf = 0.0f;
-    data.edf_over_pdf = [0.0f, 0.0f, 0.0f];
+    data.edf_over_pdf = make_float3(0.0f, 0.0f, 0.0f);
     data.event_type = EDF_EVENT_NONE;
 }
 
 fn @no_emission_evaluate(data: &mut EDF_evaluate_data) -> ()
 {
     data.pdf = 0.0f;
-    data.edf = [0.0f,0.0f,0.0f];
+    data.edf = make_float3(0.0f,0.0f,0.0f);
 }
 
 fn @no_emission_pdf(data: &mut EDF_pdf_data) -> ()
@@ -55,7 +55,7 @@ fn @get_bumped_basis(
     if(l < 1e-8f){
         return(false)
     }
-    div_assign__float3_float(z_axis, math.sqrt__float(l));
+    *z_axis = div__float3_float_State_mdl_math(*z_axis, math.sqrt__float(l), dummy_state, math);
     *x_axis = math.cross__float3_float3(shading_normal_bumped, *z_axis);
     return(true)    
 }
@@ -76,8 +76,8 @@ fn @get_oriented_normals(
     k1: float3,
     math: mdl_math
 ) -> () {
-    *geometry_normal = mul__float3_float(geometry_normal0, copysignf(1.0f, math.dot__float3_float3(k1, geometry_normal0), math));
-    *shading_normal = mul__float3_float(shading_normal0, copysignf(1.0f, math.dot__float3_float3(shading_normal0, *geometry_normal), math));
+    *geometry_normal = mul__float3_float_State_mdl_math(geometry_normal0, copysignf(1.0f, math.dot__float3_float3(k1, geometry_normal0), math), dummy_state, math);
+    *shading_normal = mul__float3_float_State_mdl_math(shading_normal0, copysignf(1.0f, math.dot__float3_float3(shading_normal0, *geometry_normal), math), dummy_state, math);
 }
 
 struct Normals {
@@ -105,37 +105,37 @@ fn @get_geometry(
 }
 
 fn @cosine_hemisphere_sample(v: float2, math: mdl_math) -> float3{
-    if((v(0) == 0.0f) && (v(1) == 0.0f)){
-        return([0.0f, 1.0f, 0.0f])
+    if((v.x == 0.0f) && (v.y == 0.0f)){
+        return(make_float3(0.0f, 1.0f, 0.0f))
     }
 
-    let mut u = [v(0)+v(0), v(1)*v(1)];
-    if(u(0) >= 1.0f){
-        u(0) -= 2.0f;
+    let mut u = make_float2(v.x+v.x, v.y*v.y);
+    if(u.x >= 1.0f){
+        u.x -= 2.0f;
     }
-    if(u(1) >= 1.0f){
-        u(1) -= 2.0f;
+    if(u.y >= 1.0f){
+        u.y -= 2.0f;
     }
     let mut r: float;
     let mut phi: float;
     let mut y = 1.0f;
-    if(u(0) * u(0) > u(1) * u(1)){
-        r = u(0);
-        y -= u(0) * u(0);
-        phi = (-math.PI / 4.0f) * (u(1) / u(0)) as float;
+    if(u.x * u.x > u.y * u.y){
+        r = u.x;
+        y -= u.x * u.x;
+        phi = (-math.PI / 4.0f) * (u.y / u.x) as float;
     } else {
-        r = u(1);
-        y -= u(1) * u(1);
-        phi = (-math.PI / 2.0f) + (math.PI / 4.0f)  * (u(0) / u(1));
+        r = u.y;
+        y -= u.y * u.y;
+        phi = (-math.PI / 2.0f) + (math.PI / 4.0f)  * (u.x / u.y);
     }
 
     if(y <= 0.0f){
-        return ([0.0f, 1.0f, 0.0f])
+        return (make_float3(0.0f, 1.0f, 0.0f))
     }
     let temp = math.sincos__float(phi);
-    let si = temp(0);
-    let co = temp(1);
-    [r * si, math.sqrt__float(y), r*co]
+    let si = temp.x;
+    let co = temp.y;
+    make_float3(r * si, math.sqrt__float(y), r*co)
 }
 
 fn @eval_oren_nayar(
@@ -148,8 +148,8 @@ fn @eval_oren_nayar(
     let nk1 = math.dot__float3_float3(k1, normal);
     let nk2 = math.dot__float3_float3(k2, normal);
     
-    let kp1 = sub__float3_float3(k1, mul__float3_float(normal, nk1));
-    let kp2 = sub__float3_float3(k2, mul__float3_float(normal, nk2));
+    let kp1 = sub__float3_float3_State_mdl_math(k1, mul__float3_float_State_mdl_math(normal, nk1, dummy_state, math), dummy_state, math);
+    let kp2 = sub__float3_float3_State_mdl_math(k2, mul__float3_float_State_mdl_math(normal, nk2, dummy_state, math), dummy_state, math);
 
     let sigma2 = roughness * roughness;
     let A = 1.0f - (sigma2 / (sigma2 * 2.0f + 0.66f));
@@ -174,38 +174,48 @@ fn @diffuse_sample(
     transmit: bool,
     math: mdl_math
 ) -> (){
-    let cosh = cosine_hemisphere_sample([data.xi(0), data.xi(1)], math);
+    let cosh = cosine_hemisphere_sample(make_float2(data.xi.x, data.xi.y), math);
     let sign = if (transmit) {-1.0f} else {1.0f};
     data.k2 = math.normalize__float3(
-        add__float3_float3(
-            add__float3_float3(
-                mul__float3_float(
+        add__float3_float3_State_mdl_math(
+            add__float3_float3_State_mdl_math(
+                mul__float3_float_State_mdl_math(
                     g.x_axis, 
-                    cosh(0)
+                    cosh.x,
+                    dummy_state,
+                    math
                 ), 
-                mul__float3_float(
+                mul__float3_float_State_mdl_math(
                     g.n.shading_normal, 
-                    sign * cosh(1)
-                )
+                    sign * cosh.y,
+                    dummy_state,
+                    math
+                ),
+                dummy_state, 
+                math
             ), 
-            mul__float3_float(
+            mul__float3_float_State_mdl_math(
                 g.z_axis,
-                cosh(2)
-            )
+                cosh.z,
+                dummy_state,
+                math
+            ),
+            dummy_state,
+            math
         )
     );
     
 
-    if(cosh(1) <= 0.0f || sign * math.dot__float3_float3(data.k2, g.n.geometry_normal) <= 0.0f){
+    if(cosh.y <= 0.0f || sign * math.dot__float3_float3(data.k2, g.n.geometry_normal) <= 0.0f){
         absorb_sample(data);
         return()
     }
 
     data.bsdf_over_pdf = tint;
     if(roughness > 0.0f){
-        mul_assign__float3_float(&mut data.bsdf_over_pdf, eval_oren_nayar(data.k2, data.k1, g.n.shading_normal, roughness, math));
+        data.bsdf_over_pdf = mul__float3_float_State_mdl_math(data.bsdf_over_pdf, eval_oren_nayar(data.k2, data.k1, g.n.shading_normal, roughness, math), dummy_state, math);
     }
-    data.pdf = cosh(1) * (1.0f / math.PI);
+    data.pdf = cosh.y * (1.0f / math.PI);
     data.event_type = if(transmit) {BSDF_EVENT_DIFFUSE_TRANSMISSION} else {BSDF_EVENT_DIFFUSE_REFLECTION};
 }
 
@@ -223,7 +233,7 @@ fn @diffuse_reflection_bsdf_sample(
         return()
     }
 
-    diffuse_sample(data, state, g, math.saturate__color(tint), roughness, false, math);
+    diffuse_sample(data, state, g, math.saturate__float3(tint), roughness, false, math);
 }
 
 fn @diffuse_pdf(
@@ -281,9 +291,9 @@ fn @diffuse_evaluate(
     let nk2 = math.max__float_float(sign * math.dot__float3_float3(data.k2, shading_normal), 0.0f);
     let pdf = nk2 * (1.0f / math.PI);
 
-    data.bsdf = mul__float3_float(tint, pdf);
+    data.bsdf = mul__float3_float_State_mdl_math(tint, pdf, dummy_state, math);
     if(nk2 > 0.0f && roughness > 0.0f){
-        mul_assign__float3_float(&mut data.bsdf, eval_oren_nayar(data.k2, data.k1, shading_normal, roughness, math));
+        data.bsdf = mul__float3_float_State_mdl_math(data.bsdf, eval_oren_nayar(data.k2, data.k1, shading_normal, roughness, math), dummy_state, math);
     }
 
     data.pdf = pdf;
@@ -299,7 +309,7 @@ fn @diffuse_reflection_bsdf_evaluate(
     roughness: float,
     math: mdl_math
 ) -> (){
-    diffuse_evaluate(data, state, inherited_normal, math.saturate__color(tint), roughness, false, math);
+    diffuse_evaluate(data, state, inherited_normal, math.saturate__float3(tint), roughness, false, math);
 }
 
 
@@ -316,7 +326,7 @@ fn @diffuse_reflection_bsdf__color_float_mdl_math(
                 data,
                 state,
                 state.normal(),
-                tint(state),
+                as_float3(tint(state)),
                 roughness(state),
                 math
             );
@@ -326,7 +336,7 @@ fn @diffuse_reflection_bsdf__color_float_mdl_math(
                 data,
                 state,
                 state.normal(),
-                tint(state),
+                as_float3(tint(state)),
                 roughness(state),
                 math
             );
@@ -336,7 +346,7 @@ fn @diffuse_reflection_bsdf__color_float_mdl_math(
                 data,
                 state,
                 state.normal(),
-                tint(state),
+                as_float3(tint(state)),
                 roughness(state),
                 math
             );
@@ -372,9 +382,28 @@ fn @refract(
     let refract = b * b * (1.0f - nk * nk);
     *total_reflection = (refract > 1.0f);
     if(*total_reflection) 
-        {sub__float3_float3(mul__float3_float(n, nk + nk), k)} 
+        {sub__float3_float3_State_mdl_math(mul__float3_float_State_mdl_math(n, nk + nk, dummy_state, math), k, dummy_state, math)} 
     else 
-        {math.normalize__float3(add__float3_float3(mul__float3_float(neg__float3(k),b), mul__float3_float(n, (b * nk - math.sqrt__float(1.0f - refract)))))}
+        {
+            math.normalize__float3(
+                add__float3_float3_State_mdl_math(
+                    mul__float3_float_State_mdl_math(
+                        neg__float3_State_mdl_math(k, dummy_state, math),
+                        b,
+                        dummy_state,
+                        math
+                    ), 
+                    mul__float3_float_State_mdl_math(
+                        n, 
+                        (b * nk - math.sqrt__float(1.0f - refract)),
+                        dummy_state,
+                        math
+                    ),
+                    dummy_state,
+                    math
+                )
+            )
+        }
 }
 
 fn @ior_fresnel(
@@ -406,22 +435,22 @@ fn @process_ior_sample(
     math: mdl_math
 ) -> float2
 {
-    if(data.ior1(0) == BSDF_USE_MATERIAL_IOR){
+    if(data.ior1.x == BSDF_USE_MATERIAL_IOR){
         data.ior1 = mat_ior;
     }
-    if(data.ior2(0) == BSDF_USE_MATERIAL_IOR){
+    if(data.ior2.x == BSDF_USE_MATERIAL_IOR){
         data.ior2 = mat_ior;
     }
 
-    let mut ior = [
-        (data.ior1(0) + data.ior1(1) + data.ior1(2)) * (1.0 / 3.0) as float,
-        (data.ior2(0) + data.ior2(1) + data.ior2(2)) * (1.0 / 3.0) as float
-    ];
+    let mut ior = make_float2(
+        (data.ior1.x + data.ior1.y + data.ior1.z) * (1.0 / 3.0) as float,
+        (data.ior2.x + data.ior2.y + data.ior2.z) * (1.0 / 3.0) as float
+    );
 
     let IOR_THRESHOLD = 1e-4f;
-    let ior_diff = ior(1) - ior(0);
+    let ior_diff = ior.y - ior.x;
     if(math.abs__float(ior_diff) < IOR_THRESHOLD){
-        ior(1) = ior(0) + copysignf(IOR_THRESHOLD, ior_diff, math);
+        ior.y = ior.x + copysignf(IOR_THRESHOLD, ior_diff, math);
     }
 
     ior
@@ -433,22 +462,22 @@ fn @process_ior_evaluate(
     math: mdl_math
 ) -> float2
 {
-    if(data.ior1(0) == BSDF_USE_MATERIAL_IOR){
+    if(data.ior1.x == BSDF_USE_MATERIAL_IOR){
         data.ior1 = mat_ior;
     }
-    if(data.ior2(0) == BSDF_USE_MATERIAL_IOR){
+    if(data.ior2.x == BSDF_USE_MATERIAL_IOR){
         data.ior2 = mat_ior;
     }
 
-    let mut ior = [
-        (data.ior1(0) + data.ior1(1) + data.ior1(2)) * (1.0 / 3.0) as float,
-        (data.ior2(0) + data.ior2(1) + data.ior2(2)) * (1.0 / 3.0) as float
-    ];
+    let mut ior = make_float2(
+        (data.ior1.x + data.ior1.y + data.ior1.z) * (1.0 / 3.0) as float,
+        (data.ior2.x + data.ior2.y + data.ior2.z) * (1.0 / 3.0) as float
+    );
 
     let IOR_THRESHOLD = 1e-4f;
-    let ior_diff = ior(1) - ior(0);
+    let ior_diff = ior.y - ior.x;
     if(math.abs__float(ior_diff) < IOR_THRESHOLD){
-        ior(1) = ior(0) + copysignf(IOR_THRESHOLD, ior_diff, math);
+        ior.y = ior.x + copysignf(IOR_THRESHOLD, ior_diff, math);
     }
 
     ior
@@ -460,22 +489,22 @@ fn @process_ior_pdf(
     math: mdl_math
 ) -> float2
 {
-    if(data.ior1(0) == BSDF_USE_MATERIAL_IOR){
+    if(data.ior1.x == BSDF_USE_MATERIAL_IOR){
         data.ior1 = mat_ior;
     }
-    if(data.ior2(0) == BSDF_USE_MATERIAL_IOR){
+    if(data.ior2.x == BSDF_USE_MATERIAL_IOR){
         data.ior2 = mat_ior;
     }
 
-    let mut ior = [
-        (data.ior1(0) + data.ior1(1) + data.ior1(2)) * (1.0 / 3.0) as float,
-        (data.ior2(0) + data.ior2(1) + data.ior2(2)) * (1.0 / 3.0) as float
-    ];
+    let mut ior = make_float2(
+        (data.ior1.x + data.ior1.y + data.ior1.z) * (1.0 / 3.0) as float,
+        (data.ior2.x + data.ior2.y + data.ior2.z) * (1.0 / 3.0) as float
+    );
 
     let IOR_THRESHOLD = 1e-4f;
-    let ior_diff = ior(1) - ior(0);
+    let ior_diff = ior.y - ior.x;
     if(math.abs__float(ior_diff) < IOR_THRESHOLD){
-        ior(1) = ior(0) + copysignf(IOR_THRESHOLD, ior_diff, math);
+        ior.y = ior.x + copysignf(IOR_THRESHOLD, ior_diff, math);
     }
 
     ior
@@ -496,20 +525,39 @@ fn @microfacet_sample_geometry(
 {
     let nk1 = math.abs__float(math.dot__float3_float3(data.k1, g.n.shading_normal));
 
-    let k10 = [
+    let k10 = make_float3(
         math.dot__float3_float3(data.k1, g.x_axis),
         nk1,
         math.dot__float3_float3(data.k1, g.z_axis)
-    ];
+    );
 
     let h0 = ph.sample(data.xi, k10);
 
-    let h = add__float3_float3(
-        mul__float3_float(g.n.shading_normal,h0(1)),
-        add__float3_float3(
-            mul__float3_float(g.x_axis, h0(0)), 
-            mul__float3_float(g.z_axis, h0(2))
-        )
+    let h = add__float3_float3_State_mdl_math(
+        mul__float3_float_State_mdl_math(
+            g.n.shading_normal,
+            h0.y,
+            dummy_state,
+            math
+        ),
+        add__float3_float3_State_mdl_math(
+            mul__float3_float_State_mdl_math(
+                g.x_axis, 
+                h0.x,
+                dummy_state,
+                math
+            ), 
+            mul__float3_float_State_mdl_math(
+                g.z_axis, 
+                h0.z,
+                dummy_state,
+                math
+            ),
+            dummy_state,
+            math
+        ),
+        dummy_state,
+        math
     );
 
     let kh = math.dot__float3_float3(data.k1, h);
@@ -525,22 +573,22 @@ fn @microfacet_sample_geometry(
     match(mode){
         scatter_mode::scatter_reflect => f_refl = 1.0f,
         scatter_mode::scatter_transmit => f_refl = 0.0f,
-        scatter_mode::scatter_reflect_transmit => f_refl = ior_fresnel(ior(1) / ior(0), kh, math)
+        scatter_mode::scatter_reflect_transmit => f_refl = ior_fresnel(ior.y / ior.x, kh, math)
     }
 
-    if(data.xi(2) < f_refl){
-        data.k2 = sub__float3_float3(mul__float3_float(h , (2.0f * kh)), data.k1);
+    if(data.xi.z < f_refl){
+        data.k2 = sub__float3_float3_State_mdl_math(mul__float3_float_State_mdl_math(h , (2.0f * kh), dummy_state, math), data.k1, dummy_state, math);
         data.event_type = BSDF_EVENT_GLOSSY_REFLECTION;
     } else {
         let mut tir = false;
         if(thin_walled){
-            data.k2 = sub__float3_float3(mul__float3_float(h , (2.0f * kh)), data.k1);
+            data.k2 = sub__float3_float3_State_mdl_math(mul__float3_float_State_mdl_math(h , (2.0f * kh), dummy_state, math), data.k1, dummy_state, math);
             data.k2 = math.normalize__float3(
-                sub__float3_float3(data.k2, mul__float3_float(g.n.shading_normal, 2.0f * math.dot__float3_float3(data.k2, g.n.shading_normal)))
+                sub__float3_float3_State_mdl_math(data.k2, mul__float3_float_State_mdl_math(g.n.shading_normal, 2.0f * math.dot__float3_float3(data.k2, g.n.shading_normal), dummy_state, math), dummy_state, math)
             );
 
         } else {
-            data.k2 = refract(data.k1, h, ior(0) / ior(1), kh, &mut tir, math);
+            data.k2 = refract(data.k1, h, ior.x / ior.y, kh, &mut tir, math);
         }
 
         data.event_type = if(tir) {BSDF_EVENT_GLOSSY_REFLECTION} else {BSDF_EVENT_GLOSSY_TRANSMISSION};
@@ -574,13 +622,13 @@ fn @microfacet_sample_geometry(
     let mut G2: float;
 
     let G12 = ph.shadow_mask(
-        &mut G1, &mut G2, h0(1),
+        &mut G1, &mut G2, h0.y,
         k10, kh,
-        [
+        make_float3(
             math.dot__float3_float3(data.k2, g.x_axis),
             nk2,
             math.dot__float3_float3(data.k1, g.z_axis)
-        ], k2h, refraction
+        ), k2h, refraction
     );
 
     if(G12 <= 0.0f){
@@ -588,16 +636,16 @@ fn @microfacet_sample_geometry(
         return()
     }
 
-    data.bsdf_over_pdf = mul__float3_float(data.bsdf_over_pdf, G12 / G1);
+    data.bsdf_over_pdf = mul__float3_float_State_mdl_math(data.bsdf_over_pdf, G12 / G1, dummy_state, math);
 
     {
         data.pdf = ph.eval(h0) * G1;
 
         if(refraction){
-            let tmp = kh * ior(0) - k2h * ior(1);
-            data.pdf *= kh * k2h / (nk1 * h0(1) * tmp * tmp);
+            let tmp = kh * ior.x - k2h * ior.y;
+            data.pdf *= kh * k2h / (nk1 * h0.y * tmp * tmp);
         } else {
-            data.pdf *= 0.25f / (nk1 * h0(1));
+            data.pdf *= 0.25f / (nk1 * h0.y);
         }
     }
 }
@@ -639,15 +687,15 @@ fn @compute_half_vector(
     let mut h : float3;
     if(transmission){
         if(thin_walled){
-            h = add__float3_float3(k1, add__float3_float3(mul__float3_float(shading_normal,nk2 + nk2), k2));
+            h = add__float3_float3_State_mdl_math(k1, add__float3_float3_State_mdl_math(mul__float3_float_State_mdl_math(shading_normal,nk2 + nk2, dummy_state, math), k2, dummy_state, math), dummy_state, math);
         } else {
-            h = add__float3_float3(mul__float3_float(k2, ior(1)), mul__float3_float(k1, ior(0)));
-            if(ior(1) > ior(2)){
-                h = mul__float3_float(h, -1.0f);
+            h = add__float3_float3_State_mdl_math(mul__float3_float_State_mdl_math(k2, ior.y, dummy_state, math), mul__float3_float_State_mdl_math(k1, ior.x, dummy_state, math), dummy_state, math);
+            if(ior.y > ior.x){
+                h = mul__float3_float_State_mdl_math(h, -1.0f, dummy_state, math);
             }
         }
     } else {
-        h = add__float3_float3(k1, k2);
+        h = add__float3_float3_State_mdl_math(k1, k2, dummy_state, math);
     }
 
     math.normalize__float3(h)
@@ -700,16 +748,16 @@ fn @microfacet_evaluate_geometry_evaluate(
         return(0.0f)
     }
 
-    let fresnnel_refl = ior_fresnel(ior(1) / ior(0), k1h, math);
+    let fresnnel_refl = ior_fresnel(ior.y / ior.x, k1h, math);
 
     let weight = if(mmode == 3){if(backside_eval){1.0f - fresnnel_refl} else {fresnnel_refl}} else {1.0f};
 
     data.pdf = ph.eval(
-        [
+        make_float3(
             math.dot__float3_float3(g.x_axis, h),
             nh,
             math.dot__float3_float3(g.z_axis, h)
-        ]
+        )
     );
 
 
@@ -723,23 +771,23 @@ fn @microfacet_evaluate_geometry_evaluate(
         &mut G1,
         &mut G2,
         nh,
-        [
+        make_float3(
             math.dot__float3_float3(g.x_axis, data.k1),
             nk1, 
             math.dot__float3_float3(g.z_axis, data.k1)
-        ],
+        ),
         k1h,
-        [
+        make_float3(
             math.dot__float3_float3(g.x_axis, data.k2),
             nk2, 
             math.dot__float3_float3(g.z_axis, data.k2)
-        ],
+        ),
         k2h,
         refraction
     );
 
     if(refraction){
-        let tmp = k1h * ior(0) - k2h * ior(1);
+        let tmp = k1h * ior.x - k2h * ior.y;
         data.pdf *= k1h * k2h / (nk1 * nh * tmp * tmp);
     } else {
         data.pdf *= 0.25f / (nk1 * nh);
@@ -798,7 +846,7 @@ fn @microfacet_evaluate_geometry_pdf(
         return(0.0f)
     }
 
-    let fresnnel_refl = ior_fresnel(ior(1) / ior(0), k1h, math);
+    let fresnnel_refl = ior_fresnel(ior.y / ior.x, k1h, math);
 
     let weight = if(mmode == 3){if(backside_eval){1.0f - fresnnel_refl} else {fresnnel_refl}} else {1.0f};
 
@@ -811,23 +859,23 @@ fn @microfacet_evaluate_geometry_pdf(
         &mut G1,
         &mut G2,
         nh,
-        [
+        make_float3(
             math.dot__float3_float3(g.x_axis, data.k1),
             nk1, 
             math.dot__float3_float3(g.z_axis, data.k1)
-        ],
+        ),
         k1h,
-        [
+        make_float3(
             math.dot__float3_float3(g.x_axis, data.k2),
             nk2, 
             math.dot__float3_float3(g.z_axis, data.k2)
-        ],
+        ),
         k2h,
         refraction
     );
 
     if(refraction){
-        let tmp = k1h * ior(0) - k2h * ior(1);
+        let tmp = k1h * ior.x - k2h * ior.y;
         data.pdf *= k1h * k2h / (nk1 * nh * tmp * tmp);
     } else {
         data.pdf *= 0.25f / (nk1 * nh);
@@ -885,7 +933,7 @@ fn @microfacet_evaluate_geometry_sample(
         return(0.0f)
     }
 
-    let fresnnel_refl = ior_fresnel(ior(1) / ior(0), k1h, math);
+    let fresnnel_refl = ior_fresnel(ior.y / ior.x, k1h, math);
 
     let weight = if(mmode == 3){if(backside_eval){1.0f - fresnnel_refl} else {fresnnel_refl}} else {1.0f};
 
@@ -898,23 +946,23 @@ fn @microfacet_evaluate_geometry_sample(
         &mut G1,
         &mut G2,
         nh,
-        [
+        make_float3(
             math.dot__float3_float3(g.x_axis, data.k1),
             nk1, 
             math.dot__float3_float3(g.z_axis, data.k1)
-        ],
+        ),
         k1h,
-        [
+        make_float3(
             math.dot__float3_float3(g.x_axis, data.k2),
             nk2, 
             math.dot__float3_float3(g.z_axis, data.k2)
-        ],
+        ),
         k2h,
         refraction
     );
 
     if(refraction){
-        let tmp = k1h * ior(0) - k2h * ior(1);
+        let tmp = k1h * ior.x - k2h * ior.y;
         data.pdf *= k1h * k2h / (nk1 * nh * tmp * tmp);
     } else {
         data.pdf *= 0.25f / (nk1 * nh);
@@ -999,10 +1047,10 @@ fn @roughness_to_exponent(
     roughness_v: float
 ) -> float2
 {
-    [
+    make_float2(
         2.0f / (roughness_u * roughness_u),
         2.0f / (roughness_v * roughness_v)
-    ]
+    )
 }
 
 fn @clamp_roughness(r: float, math: mdl_math) -> float{
@@ -1010,28 +1058,28 @@ fn @clamp_roughness(r: float, math: mdl_math) -> float{
 }
 
 fn @hvd_phong_sample(samples: float2, exponent: float2, math: mdl_math) -> float3{
-    let sy4 = samples(0) * 4.0f;
+    let sy4 = samples.x * 4.0f;
     let cosupper = math.cos__float(math.PI * math.frac__float(sy4));
 
-    let e = [
-        exponent(0) + 1.0f,
-        exponent(1) + 1.0f
-    ];
+    let e = make_float2(
+        exponent.x + 1.0f,
+        exponent.y + 1.0f
+    );
 
-    let eu1mcu = e(0) * (1.0f - cosupper);
-    let ev1pcu = e(1) * (1.0f + cosupper);
+    let eu1mcu = e.x * (1.0f - cosupper);
+    let ev1pcu = e.y * (1.0f + cosupper);
     let t = eu1mcu + ev1pcu;
 
-    let tt = (math.pow__float_float(1.0f - samples(0), -t/(e(0) * e(1))) - 1.0f) / t;
+    let tt = (math.pow__float_float(1.0f - samples.x, -t/(e.x * e.y)) - 1.0f) / t;
     let tttv = math.sqrt__float(ev1pcu * tt);
     let tttu = math.sqrt__float(eu1mcu * tt);
 
     math.normalize__float3(
-        [
-            if((samples(0) < 0.75f) && (samples(0) >= 0.25f)) {-tttv} else {tttv},
+        make_float3(
+            if((samples.x < 0.75f) && (samples.x >= 0.25f)) {-tttv} else {tttv},
             1.0f,
-            if(samples(0) >= 0.5f) {-tttu} else {tttu}
-        ]
+            if(samples.x >= 0.5f) {-tttu} else {tttu}
+        )
     )
 }
 
@@ -1043,22 +1091,22 @@ fn @hvd_phong_eval(
     math: mdl_math
 ) -> float
 {
-    let p = if(nh > 0.99999f) {1.0f} else {math.pow__float_float(nh, (exponent(0) * ht * ht + exponent(1) * hb * hb) / (1.0f - nh * nh))};
-    math.sqrt__float((exponent(0) + 1.0f) * (exponent(0) + 1.0f)) * (0.5f/math.PI) as float * p
+    let p = if(nh > 0.99999f) {1.0f} else {math.pow__float_float(nh, (exponent.x * ht * ht + exponent.y * hb * hb) / (1.0f - nh * nh))};
+    math.sqrt__float((exponent.x + 1.0f) * (exponent.x + 1.0f)) * (0.5f/math.PI) as float * p
 }
 
 fn @flip(h: float3, k: float3, xi: float, math: mdl_math) -> float3{
-    let a = h(1) * k(1);
-    let b = h(0) * k(0) + h(2) * k(2);
+    let a = h.y * k.y;
+    let b = h.x * k.x + h.z * k.z;
     let kh = math.max__float_float(a+b, 0.0f);
     let kh_f = math.max__float_float(1.0f-b, 0.0f);
 
     if(xi < kh_f / (kh + kh_f)){
-        [
-            -h(0),
-            h(1),
-            -h(2)
-        ]
+        make_float3(
+            -h.x,
+            h.y,
+            -h.z
+        )
     } else {
         h
     }
@@ -1081,10 +1129,10 @@ fn @simple_glossy_bsdf_sample(
     let m_exponent = roughness_to_exponent(clamp_roughness(roughness_u, math), clamp_roughness(roughness_v, math));
     let ph = Distribution{
         sample: @|xi: float3, k: float3|{
-            flip(hvd_phong_sample([xi(0), xi(1)], m_exponent, math), k, xi(2), math)
+            flip(hvd_phong_sample(make_float2(xi.x, xi.y), m_exponent, math), k, xi.z, math)
         },
         eval: @|h: float3|{
-            hvd_phong_eval(m_exponent, h(1), h(0), h(2), math)
+            hvd_phong_eval(m_exponent, h.y, h.x, h.z, math)
         },
         shadow_mask: 
             @|
@@ -1097,8 +1145,8 @@ fn @simple_glossy_bsdf_sample(
                 k2h: float,
                 refraction: bool
             |{
-                *G1 = microfacet_mask_v_cavities(nh, k1h, k1(1), math);
-                *G2 = microfacet_mask_v_cavities(nh, k2h, k2(1), math);
+                *G1 = microfacet_mask_v_cavities(nh, k1h, k1.y, math);
+                *G2 = microfacet_mask_v_cavities(nh, k2h, k2.y, math);
                 if(refraction){math.max__float_float(*G1 + *G2 - 1.0f, 0.0f)} else {math.min__float_float(*G1, *G2)}
             }
 
@@ -1122,10 +1170,10 @@ fn @simple_glossy_bsdf_evaluate(
     let m_exponent = roughness_to_exponent(clamp_roughness(roughness_u, math), clamp_roughness(roughness_v, math));
     let ph = Distribution{
         sample: @|xi: float3, k: float3|{
-            flip(hvd_phong_sample([xi(0), xi(1)], m_exponent, math), k, xi(2), math)
+            flip(hvd_phong_sample(make_float2(xi.x, xi.y), m_exponent, math), k, xi.z, math)
         },
         eval: @|h: float3|{
-            hvd_phong_eval(m_exponent, h(1), h(0), h(2), math)
+            hvd_phong_eval(m_exponent, h.y, h.x, h.z, math)
         },
         shadow_mask: 
             @|
@@ -1138,13 +1186,13 @@ fn @simple_glossy_bsdf_evaluate(
                 k2h: float,
                 refraction: bool
             |{
-                *G1 = microfacet_mask_v_cavities(nh, k1h, k1(1), math);
-                *G2 = microfacet_mask_v_cavities(nh, k2h, k2(1), math);
+                *G1 = microfacet_mask_v_cavities(nh, k1h, k1.y, math);
+                *G2 = microfacet_mask_v_cavities(nh, k2h, k2.y, math);
                 if(refraction){math.max__float_float(*G1 + *G2 - 1.0f, 0.0f)} else {math.min__float_float(*G1, *G2)}
             }
 
     };
-    data.bsdf = mul__float3_float(math.saturate__color(tint), microfacet_evaluate_evaluate(ph, data, state, inherited_normal, tangent_u, thin_walled, mat_ior, mode, math));
+    data.bsdf = mul__float3_float_State_mdl_math(math.saturate__float3(tint), microfacet_evaluate_evaluate(ph, data, state, inherited_normal, tangent_u, thin_walled, mat_ior, mode, math), dummy_state, math);
 }
 
 fn @simple_glossy_bsdf_pdf(
@@ -1164,10 +1212,10 @@ fn @simple_glossy_bsdf_pdf(
     let m_exponent = roughness_to_exponent(clamp_roughness(roughness_u, math), clamp_roughness(roughness_v, math));
     let ph = Distribution{
         sample: @|xi: float3, k: float3|{
-            flip(hvd_phong_sample([xi(0), xi(1)], m_exponent, math), k, xi(2), math)
+            flip(hvd_phong_sample(make_float2(xi.x, xi.y), m_exponent, math), k, xi.z, math)
         },
         eval: @|h: float3|{
-            hvd_phong_eval(m_exponent, h(1), h(0), h(2), math)
+            hvd_phong_eval(m_exponent, h.y, h.x, h.z, math)
         },
         shadow_mask: 
             @|
@@ -1180,8 +1228,8 @@ fn @simple_glossy_bsdf_pdf(
                 k2h: float,
                 refraction: bool
             |{
-                *G1 = microfacet_mask_v_cavities(nh, k1h, k1(1), math);
-                *G2 = microfacet_mask_v_cavities(nh, k2h, k2(1), math);
+                *G1 = microfacet_mask_v_cavities(nh, k1h, k1.y, math);
+                *G2 = microfacet_mask_v_cavities(nh, k2h, k2.y, math);
                 if(refraction){math.max__float_float(*G1 + *G2 - 1.0f, 0.0f)} else {math.min__float_float(*G1, *G2)}
             }
 
@@ -1216,7 +1264,7 @@ fn @simple_glossy_bsdf__float_float_color_float3_scatter_mode_mdl_math(
                 state.normal(),
                 roughness_u(state),
                 roughness_v(state),
-                tint(state),
+                as_float3(tint(state)),
                 tangent_u(state),
                 mode(state),
                 math
@@ -1229,11 +1277,11 @@ fn @simple_glossy_bsdf__float_float_color_float3_scatter_mode_mdl_math(
                 state.normal(),
                 roughness_u(state),
                 roughness_v(state),
-                tint(state),
+                as_float3(tint(state)),
                 tangent_u(state),
                 mode(state),
                 params.thin_walled,
-                params.ior,
+                as_float3(params.ior),
                 math
             );
         },
@@ -1244,11 +1292,11 @@ fn @simple_glossy_bsdf__float_float_color_float3_scatter_mode_mdl_math(
                 state.normal(),
                 roughness_u(state),
                 roughness_v(state),
-                tint(state),
+                as_float3(tint(state)),
                 tangent_u(state),
                 mode(state),
                 params.thin_walled,
-                params.ior,
+                as_float3(params.ior),
                 math
             );
         },
