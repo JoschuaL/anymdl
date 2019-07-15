@@ -129,8 +129,13 @@ namespace mi {
             auto t = definition->get_type()->get_kind();
             switch (t) {
                 case IType::TK_ENUM:
-                    add_to_code("enum ", true);
-                    break;
+                    add_to_code("type ", true);
+                    add_to_code(definition->get_symbol()->get_name());
+                    add_to_code(" = int;\n");
+                    if (definition->get_declaration() != nullptr) {
+                        dispatch_transpile_declaration(definition->get_declaration());
+                    }
+                    return;
                 case IType::TK_STRUCT:
                     add_to_code("struct ", true);
                     break;
@@ -590,14 +595,23 @@ namespace mi {
 
         void AnyDSL_Transpiler::transpile_enum_declaration(const IDeclaration *decl) {
             const IDeclaration_type_enum *e = as<IDeclaration_type_enum>(decl);
-            add_to_code("{\n");
-            indent_level++;
+
             for (int i = 0; i < e->get_value_count(); i++) {
-                add_to_code(e->get_value_name(i)->get_symbol()->get_name(), true);
-                add_to_code(",\n");
+                add_to_code("static ", true);
+                add_to_code(e->get_definition()->get_symbol()->get_name());
+                add_to_code("_");
+                add_to_code(e->get_value_name(i)->get_symbol()->get_name());
+                add_to_code(" : int = ");
+                if(e->get_value_init(i) != nullptr){
+                    dispatch_transpile_expression(e->get_value_init(i), false);
+                } else {
+                   add_to_code(std::to_string(i));
+                }
+
+                add_to_code(";\n");
             }
-            indent_level--;
-            add_to_code("}\n", true);
+
+
         }
 
         void AnyDSL_Transpiler::transpile_variable_declaration(const IDeclaration *decl) {
@@ -702,7 +716,7 @@ namespace mi {
         }
 
         void AnyDSL_Transpiler::transpile_break_statement(const IStatement *stat) {
-            add_to_code("break;\n", true);
+            add_to_code("break()\n", true);
         }
 
         void AnyDSL_Transpiler::transpile_do_while_statement(const IStatement *stat) {
@@ -739,6 +753,7 @@ namespace mi {
             for (int i = 0; i < sw->get_case_count(); ++i) {
                 dispatch_transpile_statement(sw->get_case(i));
             }
+            add_to_code("break()\n", true);
             indent_level--;
             add_to_code("}\n", true);
         }
@@ -800,7 +815,6 @@ namespace mi {
                 for (int i = 0; i < c->get_statement_count(); ++i) {
                     dispatch_transpile_statement(c->get_statement(i));
                 }
-                add_to_code("break;\n", true);
             }
 
 
@@ -878,7 +892,7 @@ namespace mi {
                     const ISymbol *sym = nullptr;
                     int code = 0;
                     en->get_value(ve->get_index(), sym, code);
-                    s = std::string(en->get_symbol()->get_name()) + "ENUM+DELIMITER+STRING" +
+                    s = std::string(en->get_symbol()->get_name()) + "_" +
                         std::string(sym->get_name());
                 }
                     break;
@@ -1162,6 +1176,13 @@ namespace mi {
                         }
                     }
                         break;
+                    case IExpression_binary::OK_SEQUENCE:{
+                        dispatch_transpile_expression(bin->get_left_argument(), closure);
+                        add_to_code(";\n");
+                        add_to_code("", true);
+                        dispatch_transpile_expression(bin->get_right_argument(), closure);
+                        break;
+                    }
                     default:
                         add_to_code(binary_operator_to_string(bin->get_operator()));
                         add_to_code("__");

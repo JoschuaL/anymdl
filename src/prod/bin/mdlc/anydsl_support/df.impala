@@ -1,8 +1,8 @@
-enum scatter_mode{
-    scatter_reflect,
-    scatter_transmit,
-    scatter_reflect_transmit,
-}
+type scatter_mode = int;
+static scatter_mode_scatter_reflect : int = 0;
+static scatter_mode_scatter_transmit : int = 1;
+static scatter_mode_scatter_reflect_transmit = 2;
+
 
 
 
@@ -568,13 +568,7 @@ fn @microfacet_sample_geometry(
     }
 
     let ior = process_ior_sample(data, mat_ior, math);
-    let mut f_refl;
-
-    match(mode){
-        scatter_mode::scatter_reflect => f_refl = 1.0f,
-        scatter_mode::scatter_transmit => f_refl = 0.0f,
-        scatter_mode::scatter_reflect_transmit => f_refl = ior_fresnel(ior.y / ior.x, kh, math)
-    }
+    let f_refl = if(mode == scatter_mode_scatter_reflect) {1.0f} else {if(mode == scatter_mode_scatter_transmit){0.0f} else {ior_fresnel(ior.y / ior.x, kh, math)}};
 
     if(data.xi.z < f_refl){
         data.k2 = sub__float3_float3_mdl_math(mul__float3_float_mdl_math(h , (2.0f * kh), math), data.k1, math);
@@ -592,11 +586,7 @@ fn @microfacet_sample_geometry(
         }
 
         data.event_type = if(tir) {BSDF_EVENT_GLOSSY_REFLECTION} else {BSDF_EVENT_GLOSSY_TRANSMISSION};
-        let ttmp = match(mode){
-            scatter_mode::scatter_transmit => true,
-            _ => false
-        };
-        if(tir && ttmp){
+        if(tir && mode == scatter_mode_scatter_transmit){
             absorb_sample(data);
             return()
         }
@@ -713,13 +703,8 @@ fn @microfacet_evaluate_geometry_evaluate(
 ) -> float
 {
     let backside_eval = math.dot__float3_float3(data.k2, g.n.geometry_normal) < 0.0f;
-    let mmode = match(mode){
-        scatter_mode::scatter_reflect => 1,
-        scatter_mode::scatter_transmit => 2,
-        scatter_mode::scatter_reflect_transmit => 3,
-        _ => 0
-    };
-    if((backside_eval && (mmode == 1)) || (!backside_eval && (mmode == 2))){
+    
+    if((backside_eval && (mode == scatter_mode_scatter_reflect)) || (!backside_eval && (mode == scatter_mode_scatter_transmit))){
         absorb_evaluate(data);
         return(0.0f)
     }
@@ -750,7 +735,7 @@ fn @microfacet_evaluate_geometry_evaluate(
 
     let fresnnel_refl = ior_fresnel(ior.y / ior.x, k1h, math);
 
-    let weight = if(mmode == 3){if(backside_eval){1.0f - fresnnel_refl} else {fresnnel_refl}} else {1.0f};
+    let weight = if(mode == scatter_mode_scatter_reflect_transmit){if(backside_eval){1.0f - fresnnel_refl} else {fresnnel_refl}} else {1.0f};
 
     data.pdf = ph.eval(
         make_float3(
@@ -811,13 +796,8 @@ fn @microfacet_evaluate_geometry_pdf(
 ) -> float
 {
     let backside_eval = math.dot__float3_float3(data.k2, g.n.geometry_normal) < 0.0f;
-    let mmode = match(mode){
-        scatter_mode::scatter_reflect => 1,
-        scatter_mode::scatter_transmit => 2,
-        scatter_mode::scatter_reflect_transmit => 3,
-        _ => 0
-    };
-    if((backside_eval && (mmode == 1)) || (!backside_eval && (mmode == 2))){
+    
+    if((backside_eval && (mode == scatter_mode_scatter_reflect)) || (!backside_eval && (mode == scatter_mode_scatter_transmit))){
         absorb_pdf(data);
         return(0.0f)
     }
@@ -848,7 +828,7 @@ fn @microfacet_evaluate_geometry_pdf(
 
     let fresnnel_refl = ior_fresnel(ior.y / ior.x, k1h, math);
 
-    let weight = if(mmode == 3){if(backside_eval){1.0f - fresnnel_refl} else {fresnnel_refl}} else {1.0f};
+    let weight = if(mode == scatter_mode_scatter_reflect_transmit){if(backside_eval){1.0f - fresnnel_refl} else {fresnnel_refl}} else {1.0f};
 
     let mut G1: float;
     let mut G2: float;
@@ -898,13 +878,7 @@ fn @microfacet_evaluate_geometry_sample(
 ) -> float
 {
     let backside_eval = math.dot__float3_float3(data.k2, g.n.geometry_normal) < 0.0f;
-    let mmode = match(mode){
-        scatter_mode::scatter_reflect => 1,
-        scatter_mode::scatter_transmit => 2,
-        scatter_mode::scatter_reflect_transmit => 3,
-        _ => 0
-    };
-    if((backside_eval && (mmode == 1)) || (!backside_eval && (mmode == 2))){
+    if((backside_eval && (mode == scatter_mode_scatter_reflect)) || (!backside_eval && (mode == scatter_mode_scatter_transmit))){
         absorb_sample(data);
         return(0.0f)
     }
@@ -935,7 +909,7 @@ fn @microfacet_evaluate_geometry_sample(
 
     let fresnnel_refl = ior_fresnel(ior.y / ior.x, k1h, math);
 
-    let weight = if(mmode == 3){if(backside_eval){1.0f - fresnnel_refl} else {fresnnel_refl}} else {1.0f};
+    let weight = if(mode == scatter_mode_scatter_reflect_transmit){if(backside_eval){1.0f - fresnnel_refl} else {fresnnel_refl}} else {1.0f};
 
     let mut G1: float;
     let mut G2: float;

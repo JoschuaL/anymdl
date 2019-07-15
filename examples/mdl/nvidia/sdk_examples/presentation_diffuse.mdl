@@ -1,0 +1,13 @@
+mdl 1.4;
+
+import df::*;
+import state::*;
+import math::*;
+import limits::*;
+import tex::*;
+
+export material uv_as_color_material(color tt = color(1.0)) =
+let {
+    bsdf diffuse_bsdf = df::diffuse_reflection_bsdf(tint: tt);
+} in material(
+   surface: material_surface(scattering: diffuse_bsdf));

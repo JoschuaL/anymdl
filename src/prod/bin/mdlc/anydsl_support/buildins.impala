@@ -3672,6 +3672,15 @@ fn @float3__int3_mdl_math(v : int3, math : mdl_math) -> float3{
         v.z as float,
     )
 }
+
+fn @float3__color_mdl_math(c: color, math: mdl_math) -> float3{
+    make_float3(
+        c.r,
+        c.g,
+        c.b
+    )
+}
+
 fn @float3__double3_mdl_math(v : double3, math : mdl_math) -> float3{
     make_float3(
         v.x as float,

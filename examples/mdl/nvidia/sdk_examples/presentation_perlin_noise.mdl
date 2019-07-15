@@ -1,0 +1,204 @@
+mdl 1.4;
+
+import df::*;
+import state::*;
+import math::*;
+import limits::*;
+import tex::*;
+
+export enum mapping_mode {
+   uvw,
+   object,
+   world
+};
+
+export float3 object_position() {
+   return state::transform_point(
+        state::coordinate_internal,
+        state::coordinate_object,
+        state::position()
+    );
+}
+
+export float3 uvw_position() {
+   return state::texture_coordinate(0);
+}
+
+export float3 world_position() {
+   return state::transform_point(
+        state::coordinate_internal,
+        state::coordinate_world,
+        state::position()
+    );
+}
+
+export float3 position(mapping_mode mode) {
+   float3 result;
+   switch (mode) {
+      case uvw:
+         result = uvw_position();
+         break;
+      case world:
+         result = world_position();
+         break;
+      case object:
+         result = object_position();
+         break;
+   }
+   return result;
+}
+
+export double plerp(double t, double a, double b) {
+   return a + t * (b - a);
+}
+
+export double fade(double t) {
+   return t * t * t * (t * (t * 6.0 - 15.0) + 10.0);
+}
+
+export double grad(int hash, double x, double y, double z) {
+   int h = hash & 15;
+   double u, v;
+   if (h < 8)
+      u = x;
+   else
+      u = y;
+   if (h < 4)
+      v = y;
+   else {
+      if (h == 12 || h == 14)
+         v = x;
+      else
+         v = z;
+   }
+   return (((h & 1) == 0) ? u : -u) + (((h & 2) == 0) ? v : -v);
+}
+
+
+export double perlin_noise(double3 pt) {
+// The first 256 values of the table are duplicated explicitly here,
+// but done at run-time in the Java implementation:
+   int[512] p(
+      151,160,137,91,90,15,
+      131,13,201,95,96,53,194,233,7,225,140,36,103,30,69,142,8,99,37,240,21,10,23,
+      190, 6,148,247,120,234,75,0,26,197,62,94,252,219,203,117,35,11,32,57,177,33,
+      88,237,149,56,87,174,20,125,136,171,168, 68,175,74,165,71,134,139,48,27,166,
+      77,146,158,231,83,111,229,122,60,211,133,230,220,105,92,41,55,46,245,40,244,
+      102,143,54, 65,25,63,161, 1,216,80,73,209,76,132,187,208, 89,18,169,200,196,
+      135,130,116,188,159,86,164,100,109,198,173,186, 3,64,52,217,226,250,124,123,
+      5,202,38,147,118,126,255,82,85,212,207,206,59,227,47,16,58,17,182,189,28,42,
+      223,183,170,213,119,248,152, 2,44,154,163, 70,221,153,101,155,167, 43,172,9,
+      129,22,39,253, 19,98,108,110,79,113,224,232,178,185, 112,104,218,246,97,228,
+      251,34,242,193,238,210,144,12,191,179,162,241, 81,51,145,235,249,14,239,107,
+      49,192,214, 31,181,199,106,157,184, 84,204,176,115,121,50,45,127, 4,150,254,
+      138,236,205,93,222,114,67,29,24,72,243,141,128,195,78,66,215,61,156,180,
+      151,160,137,91,90,15,
+      131,13,201,95,96,53,194,233,7,225,140,36,103,30,69,142,8,99,37,240,21,10,23,
+      190, 6,148,247,120,234,75,0,26,197,62,94,252,219,203,117,35,11,32,57,177,33,
+      88,237,149,56,87,174,20,125,136,171,168, 68,175,74,165,71,134,139,48,27,166,
+      77,146,158,231,83,111,229,122,60,211,133,230,220,105,92,41,55,46,245,40,244,
+      102,143,54, 65,25,63,161, 1,216,80,73,209,76,132,187,208, 89,18,169,200,196,
+      135,130,116,188,159,86,164,100,109,198,173,186, 3,64,52,217,226,250,124,123,
+      5,202,38,147,118,126,255,82,85,212,207,206,59,227,47,16,58,17,182,189,28,42,
+      223,183,170,213,119,248,152, 2,44,154,163, 70,221,153,101,155,167, 43,172,9,
+      129,22,39,253, 19,98,108,110,79,113,224,232,178,185, 112,104,218,246,97,228,
+      251,34,242,193,238,210,144,12,191,179,162,241, 81,51,145,235,249,14,239,107,
+      49,192,214, 31,181,199,106,157,184, 84,204,176,115,121,50,45,127, 4,150,254,
+      138,236,205,93,222,114,67,29,24,72,243,141,128,195,78,66,215,61,156,180);
+
+   // Find unit cube that contains point:
+   int
+      X = int(math::floor(pt.x)) & 255,
+      Y = int(math::floor(pt.y)) & 255,
+      Z = int(math::floor(pt.z)) & 255;
+
+   // Find relative x,y,z of point in cube and compute fade curves:
+   double
+      x = pt.x - math::floor(pt.x),
+      y = pt.y - math::floor(pt.y),
+      z = pt.z - math::floor(pt.z),
+      u = fade(x),
+      v = fade(y),
+      w = fade(z);
+
+   // The hash coordinates of the eight cube corners:
+   int
+      A = p[X]+Y,   AA = p[A]+Z, AB = p[A+1]+Z,
+      B = p[X+1]+Y, BA = p[B]+Z, BB = p[B+1]+Z;
+
+   // Add blended results from eight corners of the cube:
+   return
+      plerp(w,
+            plerp(v,
+                  plerp(u,
+                        grad(p[AA], x, y, z),
+                        grad(p[BA], x-1.0, y, z)),
+                  plerp(u,
+                        grad(p[AB], x, y-1.0, z),
+                        grad(p[BB], x-1.0, y-1.0, z))),
+            plerp(v,
+                  plerp(u,
+                        grad(p[AA+1], x, y, z-1.0),
+                        grad(p[BA+1], x-1.0, y, z-1.0)),
+                  plerp(u,
+                        grad(p[AB+1], x, y-1.0, z-1),
+                        grad(p[BB+1], x-1.0, y-1.0, z-1.0))));
+}
+
+
+
+export material perlin_noise_material(
+   color color_1 = color(0.0),
+   color color_2 = color(1.0),
+   double scale = 1.0,
+   mapping_mode space = object) =
+let {
+    double3 scaled_point = scale * position(space);
+    double noise_value = 0.5 + 0.5 * perlin_noise(scaled_point);
+    color noise_color = math::lerp(color_1, color_2, float(noise_value));
+} in
+material(
+   surface: material_surface(
+      scattering: df::diffuse_reflection_bsdf(
+         tint: noise_color)));
+
+
+export double summed_perlin_noise (
+   double3 point,
+   int level_count=4,
+   double level_scale=0.5,
+   double point_scale=2.0,
+   bool turbulence=false)
+{
+   double scale = 1.0, noise_sum = 0.0;
+   double3 level_point = point;
+   for (int i = 0; i < level_count; ++i) {
+      double noise_value = perlin_noise(level_point);
+      noise_sum += noise_value * scale;
+      scale *= level_scale;
+      level_point *= point_scale;
+   }
+   if (turbulence)
+      noise_sum = math::abs(noise_sum);
+   else
+      noise_sum =  0.5 + 0.5 * noise_sum;
+
+   return noise_sum;
+}
+
+export material summed_noise_material (
+   color color_1 = color(0.0),
+   color color_2 = color(1.0),
+   double scale = 1.0,
+   int level_count = 4,
+   bool turbulence = false,
+   mapping_mode space = object) =
+let {
+   double3 scaled_point = scale * position(space);
+   double noise_value = summed_perlin_noise(scaled_point, level_count, turbulence: turbulence);
+   color noise_color = math::lerp(color_1, color_2, float(noise_value));
+} in
+material(
+   surface: material_surface(
+      scattering: df::diffuse_reflection_bsdf(
+         tint: noise_color)));

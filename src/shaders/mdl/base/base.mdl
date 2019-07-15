@@ -1265,11 +1265,11 @@ export float3 arch_vectortweak(
 }
 
 export color arch_colortweak(
-    color tint,
+    color t,
     float saturation,
     float redness)
 {
-
+    color tint = t;
     float intensity = math::luminance(tint);
     color out_tint;
     // clamp down negatives (should never happen, but ...)
@@ -1617,8 +1617,9 @@ export struct perez_coefficients {
 export perez_coefficients compute_perez_params(
     float z,
     float epsilon, // clearness
-    float delta) // brightness
+    float d) // brightness
 {
+    float delta = d;
     float[32] s_perez_a( //NUM_CLEARNESS_CATEGORIES * 4
      1.3525f, -0.2576f, -0.2690f, -1.4366f,
     -1.2219f, -0.7730f,  1.4148f,  1.1016f,
@@ -2747,9 +2748,9 @@ export float sqr_cbrtf(float x)
 {
     return math::pow(x,2./3.);
 }
-export float gradient_interpolate(gradient_interpolation_mode type, float value)
+export float gradient_interpolate(gradient_interpolation_mode grad_type, float value)
 {
-    switch(type)
+    switch(grad_type)
     {
     case gradient_interpolation_linear:
         return value;
@@ -2779,14 +2780,14 @@ export float gradient_interpolate(gradient_interpolation_mode type, float value)
     }
 }
 
-export float gradient_get_position(gradient_mode type, float2 tex_in)
+export float gradient_get_position(gradient_mode grad_type, float2 tex_in)
 {
     // Get the fractional UV
     float2 tex = float2(
         tex_in.x - math::floor(tex_in.x),
         tex_in.y - math::floor(tex_in.y));
 
-    switch(type)
+    switch(grad_type)
     {
     case gradient_linear:
         return tex.x;
@@ -3388,8 +3389,9 @@ export float grad128(int hash, float x)
     return x*grad4[hash].x;
 }
 
-export float perlin_noise(float4 pos)
+export float perlin_noise(float4 p)
 {
+    float4 pos = p;
     int X = math::floor(pos.x),
         Y = math::floor(pos.y),
         Z = math::floor(pos.z),
