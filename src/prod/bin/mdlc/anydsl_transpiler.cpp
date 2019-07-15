@@ -1045,16 +1045,14 @@ namespace mi {
                         }
                         add_to_code("let ");
                         add_to_code(var_decl->get_variable_name(j)->get_symbol()->get_name());
-                        add_to_code(": ");
-                        add_to_code(var_type);
                         add_to_code(" = ");
-                        if (!is_stateless) {
+
                             add_to_code("|state:State|{");
-                        }
+
                         dispatch_transpile_expression(var_decl->get_variable_init(j), true);
-                        if (!is_stateless) {
+
                             add_to_code("}");
-                        }
+
                         add_to_code(";\n");
 
                     }
@@ -1101,7 +1099,7 @@ namespace mi {
         void AnyDSL_Transpiler::transpile_expression_reference(const IExpression *pExpression, bool closure) {
             const IExpression_reference *ref = as<IExpression_reference>(pExpression);
             add_to_code(ref->get_definition()->get_symbol()->get_name());
-            if (closure && !is_stateless_return_type(ref->get_type())) {
+            if (closure) {
                 add_to_code("(state)");
             }
         }
@@ -1142,8 +1140,8 @@ namespace mi {
                         dispatch_transpile_expression(bin->get_right_argument(), false);
                         break;
                     case IExpression_binary::OK_ARRAY_INDEX:
-                        if (bin->get_left_argument()->get_type()->get_kind() == IType::Kind::TK_VECTOR ||
-                            bin->get_left_argument()->get_type()->get_kind() == IType::Kind::TK_MATRIX) {
+                        if (bin->get_left_argument()->get_type()->skip_type_alias()->get_kind() == IType::Kind::TK_VECTOR ||
+                            bin->get_left_argument()->get_type()->skip_type_alias()->get_kind() == IType::Kind::TK_MATRIX) {
                             add_to_code(
                                     type_to_string_for_mangling(bin->get_left_argument()->get_type(), true) + "_get(");
                             dispatch_transpile_expression(bin->get_left_argument(), closure);
@@ -1258,12 +1256,12 @@ namespace mi {
                 add_to_code("(\n");
 
                 indent_level++;
-                add_to_code("", true);
+
 
                 for (int i = 0; i < c->get_argument_count(); ++i) {
                     const IArgument *arg = c->get_argument(i);
                     const IExpression *exp = arg->get_argument_expr();
-
+                    add_to_code("", true);
                     dispatch_transpile_expression(exp, closure);
 
                     add_to_code(",\n");
