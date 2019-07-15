@@ -1,0 +1,12 @@
+mdl 1.4;
+
+import df::*;
+import state::*;
+import math::*;
+import limits::*;
+import tex::*;
+
+export material gloss(color tt = color(1.0), float ru = 0.0, float rv = 0.0) =
+    material(
+        surface: material_surface(scattering: df::simple_glossy_bsdf(roughness_u: ru, roughness_v: rv, tint: tt))
+    );

@@ -16,7 +16,7 @@ struct material_parameters{
 }
 
 fn @sample_material_bsdf(mat: material, data: &mut BSDF_sample_data, state: State, math: mdl_math) -> (){
-    let pos = mat.geometry.displacement(state);
+    let pos = add__float3_float3_mdl_math(state.position(),mat.geometry.displacement(state), math);
     let normal = mat.geometry.normal(state);
     let surface = if(mat.backface.scattering.is_default || !mat.thin_walled || math.dot__float3_float3(data.k1, state.normal()) >= 0.0f) {mat.surface} else {mat.backface};
     let params = material_parameters{
@@ -28,7 +28,7 @@ fn @sample_material_bsdf(mat: material, data: &mut BSDF_sample_data, state: Stat
 }
 
 fn @evaluate_material_bsdf(mat: material, data: &mut BSDF_evaluate_data, state: State, math: mdl_math) -> (){
-    let pos = mat.geometry.displacement(state);
+    let pos = add__float3_float3_mdl_math(state.position(),mat.geometry.displacement(state), math);
     let normal = mat.geometry.normal(state);
     let surface = if(mat.backface.scattering.is_default || !mat.thin_walled || math.dot__float3_float3(data.k1, state.normal()) >= 0.0f) {mat.surface} else {mat.backface};
     let params = material_parameters{
@@ -40,7 +40,7 @@ fn @evaluate_material_bsdf(mat: material, data: &mut BSDF_evaluate_data, state: 
 }
 
 fn @pdf_material_bsdf(mat: material, data: &mut BSDF_pdf_data, state: State, math: mdl_math) -> (){
-    let pos = mat.geometry.displacement(state);
+    let pos = add__float3_float3_mdl_math(state.position(),mat.geometry.displacement(state), math);
     let normal = mat.geometry.normal(state);
     let surface = if(mat.backface.scattering.is_default || !mat.thin_walled || math.dot__float3_float3(data.k1, state.normal()) >= 0.0f) {mat.surface} else {mat.backface};
     let params = material_parameters{
@@ -52,7 +52,7 @@ fn @pdf_material_bsdf(mat: material, data: &mut BSDF_pdf_data, state: State, mat
 }
 
 fn @sample_material_edf(mat: material, data: &mut EDF_sample_data, state: State, math: mdl_math) -> (){
-    let pos = mat.geometry.displacement(state);
+    let pos = add__float3_float3_mdl_math(state.position(),mat.geometry.displacement(state), math);
     let normal = mat.geometry.normal(state);
     let surface = if(mat.backface.scattering.is_default || !mat.thin_walled || math.dot__float3_float3(data.k1, state.normal()) >= 0.0f) {mat.surface} else {mat.backface};
     let params = material_parameters{
@@ -64,7 +64,7 @@ fn @sample_material_edf(mat: material, data: &mut EDF_sample_data, state: State,
 }
 
 fn @evaluate_material_edf(mat: material, data: &mut EDF_evaluate_data, state: State, math: mdl_math) -> (){
-    let pos = mat.geometry.displacement(state);
+    let pos = add__float3_float3_mdl_math(state.position(),mat.geometry.displacement(state), math);
     let normal = mat.geometry.normal(state);
     let surface = if(mat.backface.scattering.is_default || !mat.thin_walled || math.dot__float3_float3(data.k1, state.normal()) >= 0.0f) {mat.surface} else {mat.backface};
     let params = material_parameters{
@@ -77,7 +77,7 @@ fn @evaluate_material_edf(mat: material, data: &mut EDF_evaluate_data, state: St
 }
 
 fn @pdf_material_edf(mat: material, data: &mut EDF_pdf_data, state: State, math: mdl_math) -> (){
-    let pos = mat.geometry.displacement(state);
+    let pos = add__float3_float3_mdl_math(state.position(),mat.geometry.displacement(state), math);
     let normal = mat.geometry.normal(state);
     let surface = if(mat.backface.scattering.is_default || !mat.thin_walled || math.dot__float3_float3(data.k1, state.normal()) >= 0.0f) {mat.surface} else {mat.backface};
     let params = material_parameters{
@@ -90,7 +90,7 @@ fn @pdf_material_edf(mat: material, data: &mut EDF_pdf_data, state: State, math:
 }
 
 fn @sample_material_vdf(mat: material, data: &mut VDF_sample_data, state: State, math: mdl_math) -> (){
-    let pos = mat.geometry.displacement(state);
+    let pos = add__float3_float3_mdl_math(state.position(),mat.geometry.displacement(state), math);
     let normal = mat.geometry.normal(state);
     let params = material_parameters{
         thin_walled: mat.thin_walled,
@@ -102,7 +102,7 @@ fn @sample_material_vdf(mat: material, data: &mut VDF_sample_data, state: State,
 }
 
 fn @evaluate_material_vdf(mat: material, data: &mut VDF_evaluate_data, state: State, math: mdl_math) -> (){
-    let pos = mat.geometry.displacement(state);
+    let pos = add__float3_float3_mdl_math(state.position(),mat.geometry.displacement(state), math);
     let normal = mat.geometry.normal(state);
     let params = material_parameters{
         thin_walled: mat.thin_walled,
@@ -114,7 +114,7 @@ fn @evaluate_material_vdf(mat: material, data: &mut VDF_evaluate_data, state: St
 }
 
 fn @pdf_material_vdf(mat: material, data: &mut VDF_pdf_data, state: State, math: mdl_math) -> (){
-    let pos = mat.geometry.displacement(state);
+    let pos = add__float3_float3_mdl_math(state.position(),mat.geometry.displacement(state), math);
     let normal = mat.geometry.normal(state);
     let params = material_parameters{
         thin_walled: mat.thin_walled,
@@ -199,10 +199,10 @@ fn @material_emission__edf_color_intensity_mode_mdl_math(
     
 }
 
-enum intensity_mode {
-    intensity_radiant_exitance,
-    intensity_power
-}
+type intensity_mode = int;
+static intensity_mode_intensity_radiant_exitance : int = 0;
+static intensity_mode_intensity_power : int = 1;
+
 
 
 

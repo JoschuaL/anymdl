@@ -70,11 +70,18 @@ fn @make_state(
         direction: @||{direction},
         animation_time: @||{animation_time},
         wavelength_base: @||{[wavelength_base]},
-        transform_coordinate_space_coordinate_space : @|from_space:coordinate_space, to_space:coordinate_space,|{ make_float4x4(make_float4(0.0f,0.0f,0.0f,0.0f),make_float4(0.0f,0.0f,0.0f,0.0f),make_float4(0.0f,0.0f,0.0f,0.0f),make_float4(0.0f,0.0f,0.0f,0.0f))},
-        transform_point_coordinate_space_coordinate_space_float3 : @|from_space:coordinate_space, to_space:coordinate_space,coord:float3,|{make_float3(0.0f,0.0f,0.0f)},
-        transform_vector_coordinate_space_coordinate_space_float3 : @|from_space:coordinate_space, to_space:coordinate_space,coord:float3,|{make_float3(0.0f,0.0f,0.0f)},
-        transform_normal_coordinate_space_coordinate_space_float3 : @|from_space:coordinate_space, to_space:coordinate_space,coord:float3,|{make_float3(0.0f,0.0f,0.0f)},
-        transform_scale_coordinate_space_coordinate_space_float : @|from_space:coordinate_space, to_space:coordinate_space,scale:float,|{ 0.0f},
+        transform_coordinate_space_coordinate_space : @|from_space:coordinate_space, to_space:coordinate_space,|{ 
+            make_float4x4(
+                make_float4(1.0f,0.0f,0.0f,0.0f),
+                make_float4(0.0f,1.0f,0.0f,0.0f),
+                make_float4(0.0f,0.0f,1.0f,0.0f),
+                make_float4(0.0f,0.0f,0.0f,1.0f),
+            )
+        },
+        transform_point_coordinate_space_coordinate_space_float3 : @|from_space:coordinate_space, to_space:coordinate_space,coord:float3,|{coord},
+        transform_vector_coordinate_space_coordinate_space_float3 : @|from_space:coordinate_space, to_space:coordinate_space,coord:float3,|{coord},
+        transform_normal_coordinate_space_coordinate_space_float3 : @|from_space:coordinate_space, to_space:coordinate_space,coord:float3,|{coord},
+        transform_scale_coordinate_space_coordinate_space_float : @|from_space:coordinate_space, to_space:coordinate_space,scale:float,|{scale},
         rounded_corner_normal_float_bool : @|factor:float,is:bool,|{make_float3(0.0f,0.0f,0.0f)},
         rounded_corner_normal_float_bool_float : @|factor:float,is:bool,factor2:float,|{make_float3(0.0f,0.0f,0.0f)},
         meters_per_scene_unit: @||{meters_per_scene_unit},
@@ -303,9 +310,9 @@ wavelength_max: fn() -> float
 
 }
 
-enum coordinate_space{
-    coordinate_internal,
-    coordinate_object,
-    coordinate_world
-}   
+type coordinate_space = int;
+static coordinate_space_coordinate_internal: int = 0;
+static coordinate_space_coordinate_object: int = 1;
+static coordinate_space_coordinate_world: int = 2;
+
 

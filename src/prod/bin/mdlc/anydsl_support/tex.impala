@@ -1,14 +1,14 @@
-enum gamma_mode{
-    gamma_default,
-    gamma_linear,
-    gamma_srgb,
-}
-enum wrap_mode{
-    wrap_clamp,
-    wrap_repeat,
-    wrap_mirrored_repeat,
-    wrap_clip,
-}
+type gamma_mode = int;
+static gamma_mode_gamma_default: int = 0;
+static gamma_mode_gamma_linear: int = 1;
+static gamma_mode_gamma_srgb: int = 2;
+
+type wrap_mode = int;
+static wrap_mode_wrap_clamp = 0;
+static wrap_mode_wrap_repeat = 1;
+static wrap_mode_wrap_mirrored_repeat = 2;
+static wrap_mode_wrap_clip = 3;
+
 /*
 fn @width__texture_2d_State_mdl_math(tex : fn(State) -> texture_2d,  state : State, math : mdl_math) -> fn(State) -> int{
 {}
