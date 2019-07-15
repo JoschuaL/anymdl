@@ -7,7 +7,7 @@
             "request": "launch",
             // Resolved by CMake Tools:
             "program": "${command:cmake.launchTargetPath}",
-            "args": ["-t", "AnyDSL", "-O", "3","-p", "/Users/noisyedge/Projects/mdl-source/MDL-SDK/examples/mdl/nvidia/sdk_examples/", "supersimple"],
+            "args": ["-t", "AnyDSL", "-O", "3","-p", "/Users/noisyedge/Projects/mdl-source/MDL-SDK/examples/mdl/nvidia/sdk_examples/", "presentation_diffuse", "presentation_glossy", "presentation_perlin_noise", "presentation_bump"],
             "stopAtEntry": false,
             "cwd": "${workspaceFolder}",
             "environment": [

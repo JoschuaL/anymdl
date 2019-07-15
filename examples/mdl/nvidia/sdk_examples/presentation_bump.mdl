@@ -5,3 +5,73 @@ import state::*;
 import math::*;
 import limits::*;
 import tex::*;
+
+export float2 fractional_uv(float u_scale, float v_scale) {
+    float3 uvw = state::texture_coordinate(0);
+    return float2(
+        math::frac(uvw.x * u_scale),
+        math::frac(uvw.y * v_scale)
+    );
+}
+
+
+export color scaled_uv_circle_color(float u_scale, float v_scale, color outside_color)
+{
+    float2 uv = fractional_uv(u_scale, v_scale);
+    float2 center = float2(0.5, 0.5);
+    if (math::distance(uv, center) < 0.5) {
+        return color(uv[0], uv[1], 0.0);
+    } else {
+      return outside_color;
+    }
+}
+
+
+export float3 round_bump_normal(float bump_scale, float u_scale, float v_scale) {
+    float2 uv = fractional_uv(u_scale, v_scale);
+    float2 center = float2(0.5, 0.5);
+    float3 result;
+    if (math::distance(uv, center) <= 0.5) {
+        float2 center_offset = uv - center;
+        float3 new_tangent_u = state::texture_tangent_u(0) * center_offset[0];
+        float3 new_tangent_v = state::texture_tangent_v(0) * center_offset[1];
+        float3 tangent_sum = new_tangent_u + new_tangent_v;
+        float3 scaled_tangent_sum = tangent_sum * bump_scale;
+        float3 bent_normal = state::normal() + scaled_tangent_sum;
+        float3 normalized = math::normalize(bent_normal);
+        result = normalized;
+    } else {
+        result = state::normal();
+    }
+    return result;
+}
+
+export material round_bumps(
+    material surface_material,
+    float bump_scale = 1.0,
+    float u_scale = 1.0,
+    float v_scale = 1.0) =
+let {
+    float3 modified_normal = round_bump_normal(
+        bump_scale, u_scale, v_scale);
+    } in
+material(
+    surface: surface_material.surface,
+    geometry: material_geometry (
+        normal: modified_normal
+    )
+);
+
+export material glossy(color tt = color(1.0)) =
+    material(
+        surface: material_surface(scattering: df::simple_glossy_bsdf(roughness_u: 0.5, roughness_v: 0.5, tint: tt))
+    );
+
+export material glossy_round_bumps(
+   float bump_scale = 1.0,
+   float u_scale = 1.0,
+   float v_scale = 1.0) =
+round_bumps(
+    glossy(color(0.6, 0.4, 0.0)),
+    bump_scale, u_scale, v_scale
+);
