@@ -927,6 +927,10 @@ fn @bsdf__mdl_math(math: mdl_math) -> bsdf
     
 }
 
+fn @bsdf__bsdf_mdl_math(b: fn(State) -> bsdf, math: mdl_math) -> bsdf{
+    b(dummy_state)
+}
+
 fn @vdf__mdl_math(math: mdl_math) -> vdf
 {
     
@@ -943,6 +947,14 @@ fn @vdf__mdl_math(math: mdl_math) -> vdf
         is_default: true
     }
     
+}
+
+fn vdf__vdf_mdl_math(v: fn(State) -> vdf, math: mdl_math) -> vdf{
+    v(dummy_state)
+}
+
+fn @edf__edf_mdl_math(e: fn(State) -> edf, math: mdl_math) -> edf{
+    e(dummy_state)
 }
 
 fn @edf__mdl_math(math: mdl_math) -> edf

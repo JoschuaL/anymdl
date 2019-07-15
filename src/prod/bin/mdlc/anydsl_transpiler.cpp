@@ -930,11 +930,17 @@ namespace mi {
                     s += "]";
                     break;
                 }
-                case IValue::VK_RGB_COLOR:
-                    s = "[" + std::to_string(as<IValue_rgb_color>(l)->get_value(0)->get_value()) +
-                        "f, " + std::to_string(as<IValue_rgb_color>(l)->get_value(1)->get_value()) +
-                        "f, " + std::to_string(as<IValue_rgb_color>(l)->get_value(2)->get_value()) + "f]";
+                case IValue::VK_RGB_COLOR: {
+                    const IValue_rgb_color *v = as<IValue_rgb_color>(l);
+                    s = "make_color(";
+                    for (int i = 0; i < v->get_component_count(); i++) {
+                        auto saba = v->get_value(i);
+                        s += value_to_string(saba);
+                        s += ", ";
+                    }
+                    s += ")";
                     break;
+                }
                 case IValue::VK_STRUCT: {
                     const IValue_struct *v = as<IValue_struct>(l);
                     const IType_struct *st = as<IType_struct>(v->get_type());
@@ -1070,13 +1076,12 @@ namespace mi {
             add_to_code(unary_operator_to_string(un->get_operator()));
             add_to_code("__");
             add_to_code(type_to_string_for_mangling(un->get_argument()->get_type(), true));
-
-            add_to_code("(");
+            add_to_code("_mdl_math(");
             if (is_assign_operator(un->get_operator())) {
                 add_to_code("&mut ");
             }
             dispatch_transpile_expression(un->get_argument(), closure);
-            add_to_code(")");
+            add_to_code(", math)");
         }
 
         void AnyDSL_Transpiler::transpile_expression_reference(const IExpression *pExpression, bool closure) {
@@ -1097,7 +1102,7 @@ namespace mi {
                 add_to_code(type_to_string_for_mangling(bin->get_left_argument()->get_type(), true));
                 add_to_code("_");
                 add_to_code(type_to_string_for_mangling(bin->get_right_argument()->get_type(), true));
-                add_to_code("(\n");
+                add_to_code("_mdl_math(\n");
                 indent_level++;
                 add_to_code("", true);
 
@@ -1107,6 +1112,9 @@ namespace mi {
                 add_to_code(",\n");
                 add_to_code("", true);
                 dispatch_transpile_expression(bin->get_right_argument(), closure);
+                add_to_code(",\n");
+                add_to_code("", true);
+                add_to_code("math");
                 add_to_code("\n");
                 indent_level--;
                 add_to_code(")", true);
@@ -1160,7 +1168,7 @@ namespace mi {
                         add_to_code(type_to_string_for_mangling(bin->get_left_argument()->get_type(), true));
                         add_to_code("_");
                         add_to_code(type_to_string_for_mangling(bin->get_right_argument()->get_type(), true));
-                        add_to_code("(\n");
+                        add_to_code("_mdl_math(\n");
                         indent_level++;
                         add_to_code("", true);
 
@@ -1170,6 +1178,9 @@ namespace mi {
                         add_to_code(",\n");
                         add_to_code("", true);
                         dispatch_transpile_expression(bin->get_right_argument(), closure);
+                        add_to_code(",\n");
+                        add_to_code("", true);
+                        add_to_code("math");
                         add_to_code("\n");
                         indent_level--;
                         add_to_code(")", true);

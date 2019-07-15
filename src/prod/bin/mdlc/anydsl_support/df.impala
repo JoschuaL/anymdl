@@ -55,7 +55,7 @@ fn @get_bumped_basis(
     if(l < 1e-8f){
         return(false)
     }
-    *z_axis = div__float3_float_State_mdl_math(*z_axis, math.sqrt__float(l), dummy_state, math);
+    *z_axis = div__float3_float_mdl_math(*z_axis, math.sqrt__float(l), math);
     *x_axis = math.cross__float3_float3(shading_normal_bumped, *z_axis);
     return(true)    
 }
@@ -76,8 +76,8 @@ fn @get_oriented_normals(
     k1: float3,
     math: mdl_math
 ) -> () {
-    *geometry_normal = mul__float3_float_State_mdl_math(geometry_normal0, copysignf(1.0f, math.dot__float3_float3(k1, geometry_normal0), math), dummy_state, math);
-    *shading_normal = mul__float3_float_State_mdl_math(shading_normal0, copysignf(1.0f, math.dot__float3_float3(shading_normal0, *geometry_normal), math), dummy_state, math);
+    *geometry_normal = mul__float3_float_mdl_math(geometry_normal0, copysignf(1.0f, math.dot__float3_float3(k1, geometry_normal0), math), math);
+    *shading_normal = mul__float3_float_mdl_math(shading_normal0, copysignf(1.0f, math.dot__float3_float3(shading_normal0, *geometry_normal), math), math);
 }
 
 struct Normals {
@@ -148,8 +148,8 @@ fn @eval_oren_nayar(
     let nk1 = math.dot__float3_float3(k1, normal);
     let nk2 = math.dot__float3_float3(k2, normal);
     
-    let kp1 = sub__float3_float3_State_mdl_math(k1, mul__float3_float_State_mdl_math(normal, nk1, dummy_state, math), dummy_state, math);
-    let kp2 = sub__float3_float3_State_mdl_math(k2, mul__float3_float_State_mdl_math(normal, nk2, dummy_state, math), dummy_state, math);
+    let kp1 = sub__float3_float3_mdl_math(k1, mul__float3_float_mdl_math(normal, nk1, math), math);
+    let kp2 = sub__float3_float3_mdl_math(k2, mul__float3_float_mdl_math(normal, nk2, math), math);
 
     let sigma2 = roughness * roughness;
     let A = 1.0f - (sigma2 / (sigma2 * 2.0f + 0.66f));
@@ -177,30 +177,30 @@ fn @diffuse_sample(
     let cosh = cosine_hemisphere_sample(make_float2(data.xi.x, data.xi.y), math);
     let sign = if (transmit) {-1.0f} else {1.0f};
     data.k2 = math.normalize__float3(
-        add__float3_float3_State_mdl_math(
-            add__float3_float3_State_mdl_math(
-                mul__float3_float_State_mdl_math(
+        add__float3_float3_mdl_math(
+            add__float3_float3_mdl_math(
+                mul__float3_float_mdl_math(
                     g.x_axis, 
                     cosh.x,
-                    dummy_state,
+                    
                     math
                 ), 
-                mul__float3_float_State_mdl_math(
+                mul__float3_float_mdl_math(
                     g.n.shading_normal, 
                     sign * cosh.y,
-                    dummy_state,
+                    
                     math
                 ),
-                dummy_state, 
+                
                 math
             ), 
-            mul__float3_float_State_mdl_math(
+            mul__float3_float_mdl_math(
                 g.z_axis,
                 cosh.z,
-                dummy_state,
+                
                 math
             ),
-            dummy_state,
+            
             math
         )
     );
@@ -213,7 +213,7 @@ fn @diffuse_sample(
 
     data.bsdf_over_pdf = tint;
     if(roughness > 0.0f){
-        data.bsdf_over_pdf = mul__float3_float_State_mdl_math(data.bsdf_over_pdf, eval_oren_nayar(data.k2, data.k1, g.n.shading_normal, roughness, math), dummy_state, math);
+        data.bsdf_over_pdf = mul__float3_float_mdl_math(data.bsdf_over_pdf, eval_oren_nayar(data.k2, data.k1, g.n.shading_normal, roughness, math), math);
     }
     data.pdf = cosh.y * (1.0f / math.PI);
     data.event_type = if(transmit) {BSDF_EVENT_DIFFUSE_TRANSMISSION} else {BSDF_EVENT_DIFFUSE_REFLECTION};
@@ -291,9 +291,9 @@ fn @diffuse_evaluate(
     let nk2 = math.max__float_float(sign * math.dot__float3_float3(data.k2, shading_normal), 0.0f);
     let pdf = nk2 * (1.0f / math.PI);
 
-    data.bsdf = mul__float3_float_State_mdl_math(tint, pdf, dummy_state, math);
+    data.bsdf = mul__float3_float_mdl_math(tint, pdf, math);
     if(nk2 > 0.0f && roughness > 0.0f){
-        data.bsdf = mul__float3_float_State_mdl_math(data.bsdf, eval_oren_nayar(data.k2, data.k1, shading_normal, roughness, math), dummy_state, math);
+        data.bsdf = mul__float3_float_mdl_math(data.bsdf, eval_oren_nayar(data.k2, data.k1, shading_normal, roughness, math), math);
     }
 
     data.pdf = pdf;
@@ -382,24 +382,24 @@ fn @refract(
     let refract = b * b * (1.0f - nk * nk);
     *total_reflection = (refract > 1.0f);
     if(*total_reflection) 
-        {sub__float3_float3_State_mdl_math(mul__float3_float_State_mdl_math(n, nk + nk, dummy_state, math), k, dummy_state, math)} 
+        {sub__float3_float3_mdl_math(mul__float3_float_mdl_math(n, nk + nk, math), k, math)} 
     else 
         {
             math.normalize__float3(
-                add__float3_float3_State_mdl_math(
-                    mul__float3_float_State_mdl_math(
-                        neg__float3_State_mdl_math(k, dummy_state, math),
+                add__float3_float3_mdl_math(
+                    mul__float3_float_mdl_math(
+                        neg__float3_mdl_math(k, math),
                         b,
-                        dummy_state,
+                        
                         math
                     ), 
-                    mul__float3_float_State_mdl_math(
+                    mul__float3_float_mdl_math(
                         n, 
                         (b * nk - math.sqrt__float(1.0f - refract)),
-                        dummy_state,
+                        
                         math
                     ),
-                    dummy_state,
+                    
                     math
                 )
             )
@@ -533,30 +533,30 @@ fn @microfacet_sample_geometry(
 
     let h0 = ph.sample(data.xi, k10);
 
-    let h = add__float3_float3_State_mdl_math(
-        mul__float3_float_State_mdl_math(
+    let h = add__float3_float3_mdl_math(
+        mul__float3_float_mdl_math(
             g.n.shading_normal,
             h0.y,
-            dummy_state,
+            
             math
         ),
-        add__float3_float3_State_mdl_math(
-            mul__float3_float_State_mdl_math(
+        add__float3_float3_mdl_math(
+            mul__float3_float_mdl_math(
                 g.x_axis, 
                 h0.x,
-                dummy_state,
+                
                 math
             ), 
-            mul__float3_float_State_mdl_math(
+            mul__float3_float_mdl_math(
                 g.z_axis, 
                 h0.z,
-                dummy_state,
+                
                 math
             ),
-            dummy_state,
+            
             math
         ),
-        dummy_state,
+        
         math
     );
 
@@ -577,14 +577,14 @@ fn @microfacet_sample_geometry(
     }
 
     if(data.xi.z < f_refl){
-        data.k2 = sub__float3_float3_State_mdl_math(mul__float3_float_State_mdl_math(h , (2.0f * kh), dummy_state, math), data.k1, dummy_state, math);
+        data.k2 = sub__float3_float3_mdl_math(mul__float3_float_mdl_math(h , (2.0f * kh), math), data.k1, math);
         data.event_type = BSDF_EVENT_GLOSSY_REFLECTION;
     } else {
         let mut tir = false;
         if(thin_walled){
-            data.k2 = sub__float3_float3_State_mdl_math(mul__float3_float_State_mdl_math(h , (2.0f * kh), dummy_state, math), data.k1, dummy_state, math);
+            data.k2 = sub__float3_float3_mdl_math(mul__float3_float_mdl_math(h , (2.0f * kh), math), data.k1, math);
             data.k2 = math.normalize__float3(
-                sub__float3_float3_State_mdl_math(data.k2, mul__float3_float_State_mdl_math(g.n.shading_normal, 2.0f * math.dot__float3_float3(data.k2, g.n.shading_normal), dummy_state, math), dummy_state, math)
+                sub__float3_float3_mdl_math(data.k2, mul__float3_float_mdl_math(g.n.shading_normal, 2.0f * math.dot__float3_float3(data.k2, g.n.shading_normal), math), math)
             );
 
         } else {
@@ -636,7 +636,7 @@ fn @microfacet_sample_geometry(
         return()
     }
 
-    data.bsdf_over_pdf = mul__float3_float_State_mdl_math(data.bsdf_over_pdf, G12 / G1, dummy_state, math);
+    data.bsdf_over_pdf = mul__float3_float_mdl_math(data.bsdf_over_pdf, G12 / G1, math);
 
     {
         data.pdf = ph.eval(h0) * G1;
@@ -687,15 +687,15 @@ fn @compute_half_vector(
     let mut h : float3;
     if(transmission){
         if(thin_walled){
-            h = add__float3_float3_State_mdl_math(k1, add__float3_float3_State_mdl_math(mul__float3_float_State_mdl_math(shading_normal,nk2 + nk2, dummy_state, math), k2, dummy_state, math), dummy_state, math);
+            h = add__float3_float3_mdl_math(k1, add__float3_float3_mdl_math(mul__float3_float_mdl_math(shading_normal,nk2 + nk2, math), k2, math), math);
         } else {
-            h = add__float3_float3_State_mdl_math(mul__float3_float_State_mdl_math(k2, ior.y, dummy_state, math), mul__float3_float_State_mdl_math(k1, ior.x, dummy_state, math), dummy_state, math);
+            h = add__float3_float3_mdl_math(mul__float3_float_mdl_math(k2, ior.y, math), mul__float3_float_mdl_math(k1, ior.x, math), math);
             if(ior.y > ior.x){
-                h = mul__float3_float_State_mdl_math(h, -1.0f, dummy_state, math);
+                h = mul__float3_float_mdl_math(h, -1.0f, math);
             }
         }
     } else {
-        h = add__float3_float3_State_mdl_math(k1, k2, dummy_state, math);
+        h = add__float3_float3_mdl_math(k1, k2, math);
     }
 
     math.normalize__float3(h)
@@ -1192,7 +1192,7 @@ fn @simple_glossy_bsdf_evaluate(
             }
 
     };
-    data.bsdf = mul__float3_float_State_mdl_math(math.saturate__float3(tint), microfacet_evaluate_evaluate(ph, data, state, inherited_normal, tangent_u, thin_walled, mat_ior, mode, math), dummy_state, math);
+    data.bsdf = mul__float3_float_mdl_math(math.saturate__float3(tint), microfacet_evaluate_evaluate(ph, data, state, inherited_normal, tangent_u, thin_walled, mat_ior, mode, math), math);
 }
 
 fn @simple_glossy_bsdf_pdf(
@@ -1239,11 +1239,11 @@ fn @simple_glossy_bsdf_pdf(
      
 
 /*
-fn @diffuse_transmission_bsdf__color_State_mdl_math(tint : fn(State) -> color,  state : State, math : mdl_math) -> bsdf{
+fn @diffuse_transmission_bsdf__color_mdl_math(tint : fn(State) -> color,  state : State, math : mdl_math) -> bsdf{
 {}
 }
 
-fn @specular_bsdf__color_scatter_mode_State_mdl_math(tint : fn(State) -> color, mode : fn(State) -> fn(State) -> scatter_mode,  state : State, math : mdl_math) -> bsdf{
+fn @specular_bsdf__color_scatter_mode_mdl_math(tint : fn(State) -> color, mode : fn(State) -> fn(State) -> scatter_mode,  state : State, math : mdl_math) -> bsdf{
 {}
 }
 */
@@ -1304,75 +1304,75 @@ fn @simple_glossy_bsdf__float_float_color_float3_scatter_mode_mdl_math(
     }
 }
 /*
-fn @backscattering_glossy_reflection_bsdf__float_float_color_float3_State_mdl_math(roughness_u : fn(State) -> float, roughness_v : fn(State) -> float, tint : fn(State) -> color, tangent_u : fn(State) -> float3,  state : State, math : mdl_math) -> bsdf{
+fn @backscattering_glossy_reflection_bsdf__float_float_color_float3_mdl_math(roughness_u : fn(State) -> float, roughness_v : fn(State) -> float, tint : fn(State) -> color, tangent_u : fn(State) -> float3,  state : State, math : mdl_math) -> bsdf{
 {}
 }
 
-fn @measured_bsdf__bsdf_measurement_float_scatter_mode_State_mdl_math(measurement : fn(State) -> fn(State) -> bsdf_measurement, multiplier : fn(State) -> fn(State) -> float, mode : fn(State) -> fn(State) -> scatter_mode,  state : State, math : mdl_math) -> bsdf{
+fn @measured_bsdf__bsdf_measurement_float_scatter_mode_mdl_math(measurement : fn(State) -> fn(State) -> bsdf_measurement, multiplier : fn(State) -> fn(State) -> float, mode : fn(State) -> fn(State) -> scatter_mode,  state : State, math : mdl_math) -> bsdf{
 {}
 }
 
-fn @microfacet_beckmann_smith_bsdf__float_float_color_float3_scatter_mode_State_mdl_math(roughness_u : fn(State) -> float, roughness_v : fn(State) -> float, tint : fn(State) -> color, tangent_u : fn(State) -> float3, mode : fn(State) -> fn(State) -> scatter_mode,  state : State, math : mdl_math) -> bsdf{
+fn @microfacet_beckmann_smith_bsdf__float_float_color_float3_scatter_mode_mdl_math(roughness_u : fn(State) -> float, roughness_v : fn(State) -> float, tint : fn(State) -> color, tangent_u : fn(State) -> float3, mode : fn(State) -> fn(State) -> scatter_mode,  state : State, math : mdl_math) -> bsdf{
 {}
 }
 
-fn @microfacet_ggx_smith_bsdf__float_float_color_float3_scatter_mode_State_mdl_math(roughness_u : fn(State) -> float, roughness_v : fn(State) -> float, tint : fn(State) -> color, tangent_u : fn(State) -> float3, mode : fn(State) -> fn(State) -> scatter_mode,  state : State, math : mdl_math) -> bsdf{
+fn @microfacet_ggx_smith_bsdf__float_float_color_float3_scatter_mode_mdl_math(roughness_u : fn(State) -> float, roughness_v : fn(State) -> float, tint : fn(State) -> color, tangent_u : fn(State) -> float3, mode : fn(State) -> fn(State) -> scatter_mode,  state : State, math : mdl_math) -> bsdf{
 {}
 }
 
-fn @microfacet_beckmann_vcavities_bsdf__float_float_color_float3_scatter_mode_State_mdl_math(roughness_u : fn(State) -> float, roughness_v : fn(State) -> float, tint : fn(State) -> color, tangent_u : fn(State) -> float3, mode : fn(State) -> fn(State) -> scatter_mode,  state : State, math : mdl_math) -> bsdf{
+fn @microfacet_beckmann_vcavities_bsdf__float_float_color_float3_scatter_mode_mdl_math(roughness_u : fn(State) -> float, roughness_v : fn(State) -> float, tint : fn(State) -> color, tangent_u : fn(State) -> float3, mode : fn(State) -> fn(State) -> scatter_mode,  state : State, math : mdl_math) -> bsdf{
 {}
 }
 
-fn @microfacet_ggx_vcavities_bsdf__float_float_color_float3_scatter_mode_State_mdl_math(roughness_u : fn(State) -> float, roughness_v : fn(State) -> float, tint : fn(State) -> color, tangent_u : fn(State) -> float3, mode : fn(State) -> fn(State) -> scatter_mode,  state : State, math : mdl_math) -> bsdf{
+fn @microfacet_ggx_vcavities_bsdf__float_float_color_float3_scatter_mode_mdl_math(roughness_u : fn(State) -> float, roughness_v : fn(State) -> float, tint : fn(State) -> color, tangent_u : fn(State) -> float3, mode : fn(State) -> fn(State) -> scatter_mode,  state : State, math : mdl_math) -> bsdf{
 {}
 }
 
-fn @ward_geisler_moroder_bsdf__float_float_color_float3_State_mdl_math(roughness_u : fn(State) -> float, roughness_v : fn(State) -> float, tint : fn(State) -> color, tangent_u : fn(State) -> float3,  state : State, math : mdl_math) -> bsdf{
+fn @ward_geisler_moroder_bsdf__float_float_color_float3_mdl_math(roughness_u : fn(State) -> float, roughness_v : fn(State) -> float, tint : fn(State) -> color, tangent_u : fn(State) -> float3,  state : State, math : mdl_math) -> bsdf{
 {}
 }
 
-fn @diffuse_edf__State_mdl_math(handle : fn(State) -> fn(State) -> string,  state : State, math : mdl_math) -> edf{
+fn @diffuse_edf__mdl_math(handle : fn(State) -> fn(State) -> string,  state : State, math : mdl_math) -> edf{
 {}
 }
 
-fn @spot_edf__float_bool_float3x3_State_mdl_math(exponent : fn(State) -> fn(State) -> float, global_distribution : fn(State) -> fn(State) -> bool, global_frame : fn(State) -> fn(State) -> fn(State) -> float3x3,  state : State, math : mdl_math) -> edf{
+fn @spot_edf__float_bool_float3x3_mdl_math(exponent : fn(State) -> fn(State) -> float, global_distribution : fn(State) -> fn(State) -> bool, global_frame : fn(State) -> fn(State) -> fn(State) -> float3x3,  state : State, math : mdl_math) -> edf{
 {}
 }
 
-fn @spot_edf__float_float_bool_float3x3_State_mdl_math(exponent : fn(State) -> fn(State) -> float, spread : fn(State) -> fn(State) -> float, global_distribution : fn(State) -> fn(State) -> bool, global_frame : fn(State) -> fn(State) -> fn(State) -> float3x3,  state : State, math : mdl_math) -> edf{
+fn @spot_edf__float_float_bool_float3x3_mdl_math(exponent : fn(State) -> fn(State) -> float, spread : fn(State) -> fn(State) -> float, global_distribution : fn(State) -> fn(State) -> bool, global_frame : fn(State) -> fn(State) -> fn(State) -> float3x3,  state : State, math : mdl_math) -> edf{
 {}
 }
 
-fn @measured_edf__light_profile_bool_float3x3_State_mdl_math(profile : fn(State) -> fn(State) -> light_profile, global_distribution : fn(State) -> fn(State) -> bool, global_frame : fn(State) -> fn(State) -> fn(State) -> float3x3,  state : State, math : mdl_math) -> edf{
+fn @measured_edf__light_profile_bool_float3x3_mdl_math(profile : fn(State) -> fn(State) -> light_profile, global_distribution : fn(State) -> fn(State) -> bool, global_frame : fn(State) -> fn(State) -> fn(State) -> float3x3,  state : State, math : mdl_math) -> edf{
 {}
 }
 
-fn @measured_edf__light_profile_float_bool_float3x3_State_mdl_math(profile : fn(State) -> fn(State) -> light_profile, multiplier : fn(State) -> fn(State) -> float, global_distribution : fn(State) -> fn(State) -> bool, global_frame : fn(State) -> fn(State) -> fn(State) -> float3x3,  state : State, math : mdl_math) -> edf{
+fn @measured_edf__light_profile_float_bool_float3x3_mdl_math(profile : fn(State) -> fn(State) -> light_profile, multiplier : fn(State) -> fn(State) -> float, global_distribution : fn(State) -> fn(State) -> bool, global_frame : fn(State) -> fn(State) -> fn(State) -> float3x3,  state : State, math : mdl_math) -> edf{
 {}
 }
 
-fn @measured_edf__light_profile_float_bool_float3x3_float3_State_mdl_math(profile : fn(State) -> fn(State) -> light_profile, multiplier : fn(State) -> fn(State) -> float, global_distribution : fn(State) -> fn(State) -> bool, global_frame : fn(State) -> fn(State) -> fn(State) -> float3x3, tangent_u : fn(State) -> float3,  state : State, math : mdl_math) -> edf{
+fn @measured_edf__light_profile_float_bool_float3x3_float3_mdl_math(profile : fn(State) -> fn(State) -> light_profile, multiplier : fn(State) -> fn(State) -> float, global_distribution : fn(State) -> fn(State) -> bool, global_frame : fn(State) -> fn(State) -> fn(State) -> float3x3, tangent_u : fn(State) -> float3,  state : State, math : mdl_math) -> edf{
 {}
 }
 
-fn @anisotropic_vdf__float_State_mdl_math(directional_bias : fn(State) -> float,  state : State, math : mdl_math) -> vdf{
+fn @anisotropic_vdf__float_mdl_math(directional_bias : fn(State) -> float,  state : State, math : mdl_math) -> vdf{
 {}
 }
 
-fn @tint__color_bsdf_State_mdl_math(tint : fn(State) -> color, base : fn(State) -> bsdf,  state : State, math : mdl_math) -> bsdf{
+fn @tint__color_bsdf_mdl_math(tint : fn(State) -> color, base : fn(State) -> bsdf,  state : State, math : mdl_math) -> bsdf{
 {}
 }
 
-fn @tint__color_edf_State_mdl_math(tint : fn(State) -> fn(State) -> color, base : fn(State) -> edf,  state : State, math : mdl_math) -> edf{
+fn @tint__color_edf_mdl_math(tint : fn(State) -> fn(State) -> color, base : fn(State) -> edf,  state : State, math : mdl_math) -> edf{
 {}
 }
 
-fn @thin_film__float_color_bsdf_State_mdl_math(thickness : fn(State) -> float, ior : fn(State) -> color, base : fn(State) -> bsdf,  state : State, math : mdl_math) -> bsdf{
+fn @thin_film__float_color_bsdf_mdl_math(thickness : fn(State) -> float, ior : fn(State) -> color, base : fn(State) -> bsdf,  state : State, math : mdl_math) -> bsdf{
 {}
 }
 
-fn @directional_factor__color_color_float_bsdf_State_mdl_math(normal_tint : fn(State) -> color, grazing_tint : fn(State) -> color, exponent : fn(State) -> float, base : fn(State) -> bsdf,  state : State, math : mdl_math) -> bsdf{
+fn @directional_factor__color_color_float_bsdf_mdl_math(normal_tint : fn(State) -> color, grazing_tint : fn(State) -> color, exponent : fn(State) -> float, base : fn(State) -> bsdf,  state : State, math : mdl_math) -> bsdf{
 {}
 }
 
@@ -1381,13 +1381,13 @@ struct bsdf_component {
     component: fn(State) -> bsdf,
 }
 
-fn @bsdf_component__float_bsdf_State_mdl_math(weight: fn(State) -> float, component: fn(State) -> bsdf, state: State, math: mdl_math) -> bsdf_component {
+fn @bsdf_component__float_bsdf_mdl_math(weight: fn(State) -> float, component: fn(State) -> bsdf, state: State, math: mdl_math) -> bsdf_component {
     bsdf_component{
         weight: |state:State|{weight(state)},
         component: |state:State|{component(state)},
     }
 }
-fn @bsdf_component__bsdf_component_State_mdl_math(copy: fn(State) -> bsdf_component, state: State, math: mdl_math) -> bsdf_component {
+fn @bsdf_component__bsdf_component_mdl_math(copy: fn(State) -> bsdf_component, state: State, math: mdl_math) -> bsdf_component {
     bsdf_component{
         weight: copy(state).weight,
         component: copy(state).component,
@@ -1398,13 +1398,13 @@ struct edf_component {
     component: fn(State) -> edf,
 }
 
-fn @edf_component__float_edf_State_mdl_math(weight: fn(State) -> fn(State) -> float, component: fn(State) -> edf, state: State, math: mdl_math) -> edf_component {
+fn @edf_component__float_edf_mdl_math(weight: fn(State) -> fn(State) -> float, component: fn(State) -> edf, state: State, math: mdl_math) -> edf_component {
     edf_component{
         weight: |state:State|{weight(state)},
         component: |state:State|{component(state)},
     }
 }
-fn @edf_component__edf_component_State_mdl_math(copy: fn(State) -> edf_component, state: State, math: mdl_math) -> edf_component {
+fn @edf_component__edf_component_mdl_math(copy: fn(State) -> edf_component, state: State, math: mdl_math) -> edf_component {
     edf_component{
         weight: copy(state).weight,
         component: copy(state).component,
@@ -1415,75 +1415,75 @@ struct vdf_component {
     component: fn(State) -> vdf,
 }
 
-fn @vdf_component__float_vdf_State_mdl_math(weight: fn(State) -> float, component: fn(State) -> vdf, state: State, math: mdl_math) -> vdf_component {
+fn @vdf_component__float_vdf_mdl_math(weight: fn(State) -> float, component: fn(State) -> vdf, state: State, math: mdl_math) -> vdf_component {
     vdf_component{
         weight: |state:State|{weight(state)},
         component: |state:State|{component(state)},
     }
 }
-fn @vdf_component__vdf_component_State_mdl_math(copy: fn(State) -> vdf_component, state: State, math: mdl_math) -> vdf_component {
+fn @vdf_component__vdf_component_mdl_math(copy: fn(State) -> vdf_component, state: State, math: mdl_math) -> vdf_component {
     vdf_component{
         weight: copy(state).weight,
         component: copy(state).component,
     }
 }
-fn @normalized_mix__fn(State) -> bsdf_component_arr_State_mdl_math(components : fn(State) -> [fn(State) -> bsdf_component*-1],  state : State, math : mdl_math) -> bsdf{
+fn @normalized_mix__fn(State) -> bsdf_component_arr_mdl_math(components : fn(State) -> [fn(State) -> bsdf_component*-1],  state : State, math : mdl_math) -> bsdf{
 {}
 }
 
-fn @normalized_mix__fn(State) -> vdf_component_arr_State_mdl_math(components : fn(State) -> [fn(State) -> vdf_component*-1],  state : State, math : mdl_math) -> vdf{
+fn @normalized_mix__fn(State) -> vdf_component_arr_mdl_math(components : fn(State) -> [fn(State) -> vdf_component*-1],  state : State, math : mdl_math) -> vdf{
 {}
 }
 
-fn @normalized_mix__fn(State) -> edf_component_arr_State_mdl_math(components : fn(State) -> [fn(State) -> edf_component*-1],  state : State, math : mdl_math) -> edf{
+fn @normalized_mix__fn(State) -> edf_component_arr_mdl_math(components : fn(State) -> [fn(State) -> edf_component*-1],  state : State, math : mdl_math) -> edf{
 {}
 }
 
-fn @clamped_mix__fn(State) -> bsdf_component_arr_State_mdl_math(components : fn(State) -> [fn(State) -> bsdf_component*-1],  state : State, math : mdl_math) -> bsdf{
+fn @clamped_mix__fn(State) -> bsdf_component_arr_mdl_math(components : fn(State) -> [fn(State) -> bsdf_component*-1],  state : State, math : mdl_math) -> bsdf{
 {}
 }
 
-fn @clamped_mix__fn(State) -> vdf_component_arr_State_mdl_math(components : fn(State) -> [fn(State) -> vdf_component*-1],  state : State, math : mdl_math) -> vdf{
+fn @clamped_mix__fn(State) -> vdf_component_arr_mdl_math(components : fn(State) -> [fn(State) -> vdf_component*-1],  state : State, math : mdl_math) -> vdf{
 {}
 }
 
-fn @clamped_mix__fn(State) -> edf_component_arr_State_mdl_math(components : fn(State) -> [fn(State) -> edf_component*-1],  state : State, math : mdl_math) -> edf{
+fn @clamped_mix__fn(State) -> edf_component_arr_mdl_math(components : fn(State) -> [fn(State) -> edf_component*-1],  state : State, math : mdl_math) -> edf{
 {}
 }
 
-fn @weighted_layer__float_bsdf_bsdf_float3_State_mdl_math(weight : fn(State) -> float, layer : fn(State) -> bsdf, base : fn(State) -> bsdf, normal : fn(State) -> float3,  state : State, math : mdl_math) -> bsdf{
+fn @weighted_layer__float_bsdf_bsdf_float3_mdl_math(weight : fn(State) -> float, layer : fn(State) -> bsdf, base : fn(State) -> bsdf, normal : fn(State) -> float3,  state : State, math : mdl_math) -> bsdf{
 {}
 }
 
-fn @fresnel_layer__color_float_bsdf_bsdf_float3_State_mdl_math(ior : fn(State) -> color, weight : fn(State) -> float, layer : fn(State) -> bsdf, base : fn(State) -> bsdf, normal : fn(State) -> float3,  state : State, math : mdl_math) -> bsdf{
+fn @fresnel_layer__color_float_bsdf_bsdf_float3_mdl_math(ior : fn(State) -> color, weight : fn(State) -> float, layer : fn(State) -> bsdf, base : fn(State) -> bsdf, normal : fn(State) -> float3,  state : State, math : mdl_math) -> bsdf{
 {}
 }
 
-fn @custom_curve_layer__float_float_float_float_bsdf_bsdf_float3_State_mdl_math(normal_reflectivity : fn(State) -> float, grazing_reflectivity : fn(State) -> float, exponent : fn(State) -> float, weight : fn(State) -> float, layer : fn(State) -> bsdf, base : fn(State) -> bsdf, normal : fn(State) -> float3,  state : State, math : mdl_math) -> bsdf{
+fn @custom_curve_layer__float_float_float_float_bsdf_bsdf_float3_mdl_math(normal_reflectivity : fn(State) -> float, grazing_reflectivity : fn(State) -> float, exponent : fn(State) -> float, weight : fn(State) -> float, layer : fn(State) -> bsdf, base : fn(State) -> bsdf, normal : fn(State) -> float3,  state : State, math : mdl_math) -> bsdf{
 {}
 }
 
-fn @measured_curve_layer__fn(State) -> color_arr_float_bsdf_bsdf_float3_State_mdl_math(curve_values : fn(State) -> [fn(State) -> color*-1], weight : fn(State) -> float, layer : fn(State) -> bsdf, base : fn(State) -> bsdf, normal : fn(State) -> float3,  state : State, math : mdl_math) -> bsdf{
+fn @measured_curve_layer__fn(State) -> color_arr_float_bsdf_bsdf_float3_mdl_math(curve_values : fn(State) -> [fn(State) -> color*-1], weight : fn(State) -> float, layer : fn(State) -> bsdf, base : fn(State) -> bsdf, normal : fn(State) -> float3,  state : State, math : mdl_math) -> bsdf{
 {}
 }
 
-fn @measured_curve_factor__fn(State) -> color_arr_bsdf_State_mdl_math(curve_values : fn(State) -> [fn(State) -> color*-1], base : fn(State) -> bsdf,  state : State, math : mdl_math) -> bsdf{
+fn @measured_curve_factor__fn(State) -> color_arr_bsdf_mdl_math(curve_values : fn(State) -> [fn(State) -> color*-1], base : fn(State) -> bsdf,  state : State, math : mdl_math) -> bsdf{
 {}
 }
 
-fn @light_profile_power__light_profile_State_mdl_math(profile : fn(State) -> fn(State) -> light_profile,  state : State, math : mdl_math) -> float{
+fn @light_profile_power__light_profile_mdl_math(profile : fn(State) -> fn(State) -> light_profile,  state : State, math : mdl_math) -> float{
 {}
 }
 
-fn @light_profile_maximum__light_profile_State_mdl_math(profile : fn(State) -> fn(State) -> light_profile,  state : State, math : mdl_math) -> float{
+fn @light_profile_maximum__light_profile_mdl_math(profile : fn(State) -> fn(State) -> light_profile,  state : State, math : mdl_math) -> float{
 {}
 }
 
-fn @light_profile_isvalid__light_profile_State_mdl_math(profile : fn(State) -> fn(State) -> light_profile,  state : State, math : mdl_math) -> bool{
+fn @light_profile_isvalid__light_profile_mdl_math(profile : fn(State) -> fn(State) -> light_profile,  state : State, math : mdl_math) -> bool{
 {}
 }
 
-fn @bsdf_measurement_isvalid__bsdf_measurement_State_mdl_math(measurement : fn(State) -> fn(State) -> bsdf_measurement,  state : State, math : mdl_math) -> bool{
+fn @bsdf_measurement_isvalid__bsdf_measurement_mdl_math(measurement : fn(State) -> fn(State) -> bsdf_measurement,  state : State, math : mdl_math) -> bool{
 {}
 }
 
@@ -1492,13 +1492,13 @@ struct color_bsdf_component {
     component: fn(State) -> bsdf,
 }
 
-fn @color_bsdf_component__color_bsdf_State_mdl_math(weight: fn(State) -> color, component: fn(State) -> bsdf, state: State, math: mdl_math) -> color_bsdf_component {
+fn @color_bsdf_component__color_bsdf_mdl_math(weight: fn(State) -> color, component: fn(State) -> bsdf, state: State, math: mdl_math) -> color_bsdf_component {
     color_bsdf_component{
         weight: |state:State|{weight(state)},
         component: |state:State|{component(state)},
     }
 }
-fn @color_bsdf_component__color_bsdf_component_State_mdl_math(copy: fn(State) -> color_bsdf_component, state: State, math: mdl_math) -> color_bsdf_component {
+fn @color_bsdf_component__color_bsdf_component_mdl_math(copy: fn(State) -> color_bsdf_component, state: State, math: mdl_math) -> color_bsdf_component {
     color_bsdf_component{
         weight: copy(state).weight,
         component: copy(state).component,
@@ -1509,55 +1509,55 @@ struct color_edf_component {
     component: fn(State) -> edf,
 }
 
-fn @color_edf_component__color_edf_State_mdl_math(weight: fn(State) -> fn(State) -> color, component: fn(State) -> edf, state: State, math: mdl_math) -> color_edf_component {
+fn @color_edf_component__color_edf_mdl_math(weight: fn(State) -> fn(State) -> color, component: fn(State) -> edf, state: State, math: mdl_math) -> color_edf_component {
     color_edf_component{
         weight: |state:State|{weight(state)},
         component: |state:State|{component(state)},
     }
 }
-fn @color_edf_component__color_edf_component_State_mdl_math(copy: fn(State) -> color_edf_component, state: State, math: mdl_math) -> color_edf_component {
+fn @color_edf_component__color_edf_component_mdl_math(copy: fn(State) -> color_edf_component, state: State, math: mdl_math) -> color_edf_component {
     color_edf_component{
         weight: copy(state).weight,
         component: copy(state).component,
     }
 }
-fn @color_normalized_mix__fn(State) -> color_bsdf_component_arr_State_mdl_math(components : fn(State) -> [fn(State) -> color_bsdf_component*-1],  state : State, math : mdl_math) -> bsdf{
+fn @color_normalized_mix__fn(State) -> color_bsdf_component_arr_mdl_math(components : fn(State) -> [fn(State) -> color_bsdf_component*-1],  state : State, math : mdl_math) -> bsdf{
 {}
 }
 
-fn @color_normalized_mix__fn(State) -> color_edf_component_arr_State_mdl_math(components : fn(State) -> [fn(State) -> color_edf_component*-1],  state : State, math : mdl_math) -> edf{
+fn @color_normalized_mix__fn(State) -> color_edf_component_arr_mdl_math(components : fn(State) -> [fn(State) -> color_edf_component*-1],  state : State, math : mdl_math) -> edf{
 {}
 }
 
-fn @color_clamped_mix__fn(State) -> color_bsdf_component_arr_State_mdl_math(components : fn(State) -> [fn(State) -> color_bsdf_component*-1],  state : State, math : mdl_math) -> bsdf{
+fn @color_clamped_mix__fn(State) -> color_bsdf_component_arr_mdl_math(components : fn(State) -> [fn(State) -> color_bsdf_component*-1],  state : State, math : mdl_math) -> bsdf{
 {}
 }
 
-fn @color_clamped_mix__fn(State) -> color_edf_component_arr_State_mdl_math(components : fn(State) -> [fn(State) -> color_edf_component*-1],  state : State, math : mdl_math) -> edf{
+fn @color_clamped_mix__fn(State) -> color_edf_component_arr_mdl_math(components : fn(State) -> [fn(State) -> color_edf_component*-1],  state : State, math : mdl_math) -> edf{
 {}
 }
 
-fn @color_weighted_layer__color_bsdf_bsdf_float3_State_mdl_math(weight : fn(State) -> color, layer : fn(State) -> bsdf, base : fn(State) -> bsdf, normal : fn(State) -> float3,  state : State, math : mdl_math) -> bsdf{
+fn @color_weighted_layer__color_bsdf_bsdf_float3_mdl_math(weight : fn(State) -> color, layer : fn(State) -> bsdf, base : fn(State) -> bsdf, normal : fn(State) -> float3,  state : State, math : mdl_math) -> bsdf{
 {}
 }
 
-fn @fresnel_layer__float_float_bsdf_bsdf_float3_State_mdl_math(ior : fn(State) -> float, weight : fn(State) -> float, layer : fn(State) -> bsdf, base : fn(State) -> bsdf, normal : fn(State) -> float3,  state : State, math : mdl_math) -> bsdf{
+fn @fresnel_layer__float_float_bsdf_bsdf_float3_mdl_math(ior : fn(State) -> float, weight : fn(State) -> float, layer : fn(State) -> bsdf, base : fn(State) -> bsdf, normal : fn(State) -> float3,  state : State, math : mdl_math) -> bsdf{
 {}
 }
 
-fn @color_fresnel_layer__color_color_bsdf_bsdf_float3_State_mdl_math(ior : fn(State) -> color, weight : fn(State) -> color, layer : fn(State) -> bsdf, base : fn(State) -> bsdf, normal : fn(State) -> float3,  state : State, math : mdl_math) -> bsdf{
+fn @color_fresnel_layer__color_color_bsdf_bsdf_float3_mdl_math(ior : fn(State) -> color, weight : fn(State) -> color, layer : fn(State) -> bsdf, base : fn(State) -> bsdf, normal : fn(State) -> float3,  state : State, math : mdl_math) -> bsdf{
 {}
 }
 
-fn @color_custom_curve_layer__color_color_float_color_bsdf_bsdf_float3_State_mdl_math(normal_reflectivity : fn(State) -> color, grazing_reflectivity : fn(State) -> color, exponent : fn(State) -> float, weight : fn(State) -> color, layer : fn(State) -> bsdf, base : fn(State) -> bsdf, normal : fn(State) -> float3,  state : State, math : mdl_math) -> bsdf{
+fn @color_custom_curve_layer__color_color_float_color_bsdf_bsdf_float3_mdl_math(normal_reflectivity : fn(State) -> color, grazing_reflectivity : fn(State) -> color, exponent : fn(State) -> float, weight : fn(State) -> color, layer : fn(State) -> bsdf, base : fn(State) -> bsdf, normal : fn(State) -> float3,  state : State, math : mdl_math) -> bsdf{
 {}
 }
 
-fn @color_measured_curve_layer__fn(State) -> color_arr_color_bsdf_bsdf_float3_State_mdl_math(curve_values : fn(State) -> [fn(State) -> color*-1], weight : fn(State) -> color, layer : fn(State) -> bsdf, base : fn(State) -> bsdf, normal : fn(State) -> float3,  state : State, math : mdl_math) -> bsdf{
+fn @color_measured_curve_layer__fn(State) -> color_arr_color_bsdf_bsdf_float3_mdl_math(curve_values : fn(State) -> [fn(State) -> color*-1], weight : fn(State) -> color, layer : fn(State) -> bsdf, base : fn(State) -> bsdf, normal : fn(State) -> float3,  state : State, math : mdl_math) -> bsdf{
 {}
 }
 
-fn @fresnel_factor__color_color_bsdf_State_mdl_math(ior : fn(State) -> color, extinction_coefficient : fn(State) -> color, base : fn(State) -> bsdf,  state : State, math : mdl_math) -> bsdf{
+fn @fresnel_factor__color_color_bsdf_mdl_math(ior : fn(State) -> color, extinction_coefficient : fn(State) -> color, base : fn(State) -> bsdf,  state : State, math : mdl_math) -> bsdf{
 {}
 }
 

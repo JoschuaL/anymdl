@@ -38,7 +38,7 @@ import base::coordinate_source;
 import base::texture_return;
 import base::rotation_translation_scale;
 import base::texture_coordinate_system;
-import nvidia::core_definitions::scratched_plastic;
+import core_definitions::scratched_plastic;
 import anno::*;
 
 export material noise_worley_glossy (
@@ -78,7 +78,7 @@ export material noise_worley_glossy (
     anno::author("NVIDIA Corporation"),
     anno::display_name("Dielectric, worley noise textures"),
     anno::description("A simple dielectric material showcasing procedural texturing")
-]] = nvidia::core_definitions::scratched_plastic(
+]] = core_definitions::scratched_plastic(
     ior: ior,
     diffuse_color: base::worley_noise_texture(
         uvw: base::transform_coordinate(
@@ -163,7 +163,7 @@ export material noise_perlin_glossy (
     anno::author("NVIDIA Corporation"),
     anno::display_name("Dielectric, perlin noise textures"),
     anno::description("A simple dielectric material showcasing procedural texturing")
-]] = nvidia::core_definitions::scratched_plastic(
+]] = core_definitions::scratched_plastic(
     ior: ior,
     diffuse_color: base::perlin_noise_texture(
         uvw: base::transform_coordinate(
