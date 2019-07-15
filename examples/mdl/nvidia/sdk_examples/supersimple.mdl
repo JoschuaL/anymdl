@@ -25,7 +25,7 @@ export material simple_glossy_material()
 
 
 
-
+*/
 
 
 export material uv_as_color_material(color tt = color(1.0)) =
@@ -44,8 +44,15 @@ export material gloss(color tt = color(1.0), float ru = 0.0, float rv = 0.0) =
     );
 
 
+export float3 testerer(float a){
+    float3 baka = float3(a);
+
+    int3 b = int3(baka*-baka);
+    return b;
+}
 
 
+/*
 
 export float lerpf(float a, float b, float l){
     return a * (1.0f - l) + b * l;
@@ -71,11 +78,6 @@ export material example_compilation(color tint = color(1.0f))
 
 */
 
-export float3 tester(){
-    float3 a = float3(10.0f);
-    float b = 5.0f;
-    a *= b;
-    return a;
-}
+
 
 
