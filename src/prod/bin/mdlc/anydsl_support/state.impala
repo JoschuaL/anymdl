@@ -1,7 +1,4 @@
-static zerof3: float3 = float3__float(0.0f);
-static zeromat3: float3x3 = float3x3__float(0.0f);
-static zerof4: float4 = float4__float(0.0f);
-static zeromat4: float4x4 = float4x4__float(0.0f);
+
 
 fn adjust_state(state: State, pos: float3, normal: float3) -> State{
     State{
@@ -73,13 +70,13 @@ fn @make_state(
         direction: @||{direction},
         animation_time: @||{animation_time},
         wavelength_base: @||{[wavelength_base]},
-        transform_coordinate_space_coordinate_space : @|from_space:coordinate_space, to_space:coordinate_space,|{ zeromat4},
-        transform_point_coordinate_space_coordinate_space_float3 : @|from_space:coordinate_space, to_space:coordinate_space,coord:float3,|{zerof3},
-        transform_vector_coordinate_space_coordinate_space_float3 : @|from_space:coordinate_space, to_space:coordinate_space,coord:float3,|{zerof3},
-        transform_normal_coordinate_space_coordinate_space_float3 : @|from_space:coordinate_space, to_space:coordinate_space,coord:float3,|{zerof3},
+        transform_coordinate_space_coordinate_space : @|from_space:coordinate_space, to_space:coordinate_space,|{ make_float4x4(make_float4(0.0f,0.0f,0.0f,0.0f),make_float4(0.0f,0.0f,0.0f,0.0f),make_float4(0.0f,0.0f,0.0f,0.0f),make_float4(0.0f,0.0f,0.0f,0.0f))},
+        transform_point_coordinate_space_coordinate_space_float3 : @|from_space:coordinate_space, to_space:coordinate_space,coord:float3,|{make_float3(0.0f,0.0f,0.0f)},
+        transform_vector_coordinate_space_coordinate_space_float3 : @|from_space:coordinate_space, to_space:coordinate_space,coord:float3,|{make_float3(0.0f,0.0f,0.0f)},
+        transform_normal_coordinate_space_coordinate_space_float3 : @|from_space:coordinate_space, to_space:coordinate_space,coord:float3,|{make_float3(0.0f,0.0f,0.0f)},
         transform_scale_coordinate_space_coordinate_space_float : @|from_space:coordinate_space, to_space:coordinate_space,scale:float,|{ 0.0f},
-        rounded_corner_normal_float_bool : @|factor:float,is:bool,|{zerof3},
-        rounded_corner_normal_float_bool_float : @|factor:float,is:bool,factor2:float,|{zerof3},
+        rounded_corner_normal_float_bool : @|factor:float,is:bool,|{make_float3(0.0f,0.0f,0.0f)},
+        rounded_corner_normal_float_bool_float : @|factor:float,is:bool,factor2:float,|{make_float3(0.0f,0.0f,0.0f)},
         meters_per_scene_unit: @||{meters_per_scene_unit},
         scene_units_per_meter: @||{scene_units_per_meter},
         object_id: @||{object_id},
@@ -89,19 +86,19 @@ fn @make_state(
 }
 
 static dummy_state: State = State{
-    position: @||{ zerof3},
+    position: @||{ make_float3(0.0f,0.0f,0.0f)},
 
 
 
-    normal: @||{ zerof3},
+    normal: @||{ make_float3(0.0f,0.0f,0.0f)},
 
 
 
-    geometry_normal: @||{ zerof3},
+    geometry_normal: @||{ make_float3(0.0f,0.0f,0.0f)},
 
 
 
-    motion: @||{ zerof3},
+    motion: @||{ make_float3(0.0f,0.0f,0.0f)},
 
 
 
@@ -109,31 +106,31 @@ static dummy_state: State = State{
 
 
 
-    texture_coordinate_int : @|index:int|{ zerof3},
+    texture_coordinate_int : @|index:int|{ make_float3(0.0f,0.0f,0.0f)},
 
 
 
-    texture_tangent_u_int : @|index:int|{ zerof3},
+    texture_tangent_u_int : @|index:int|{ make_float3(0.0f,0.0f,0.0f)},
 
 
 
-    texture_tangent_v_int : @|index:int|{ zerof3},
+    texture_tangent_v_int : @|index:int|{ make_float3(0.0f,0.0f,0.0f)},
 
 
 
-    tangent_space_int : @|index:int|{zeromat3},
+    tangent_space_int : @|index:int|{make_float3x3(make_float3(0.0f,0.0f,0.0f),make_float3(0.0f,0.0f,0.0f),make_float3(0.0f,0.0f,0.0f))},
 
 
 
-    geometry_tangent_u_int : @|index:int|{ zerof3},
+    geometry_tangent_u_int : @|index:int|{ make_float3(0.0f,0.0f,0.0f)},
 
 
 
-    geometry_tangent_v_int : @|index:int|{ zerof3},
+    geometry_tangent_v_int : @|index:int|{ make_float3(0.0f,0.0f,0.0f)},
 
 
 
-    direction: @||{ zerof3},
+    direction: @||{ make_float3(0.0f,0.0f,0.0f)},
 
 
 
@@ -147,19 +144,19 @@ static dummy_state: State = State{
 
 
 
-    transform_coordinate_space_coordinate_space : @|from_space:coordinate_space, to_space:coordinate_space,|{ zeromat4},
+    transform_coordinate_space_coordinate_space : @|from_space:coordinate_space, to_space:coordinate_space,|{ make_float4x4(make_float4(0.0f,0.0f,0.0f,0.0f),make_float4(0.0f,0.0f,0.0f,0.0f),make_float4(0.0f,0.0f,0.0f,0.0f),make_float4(0.0f,0.0f,0.0f,0.0f))},
 
 
 
-    transform_point_coordinate_space_coordinate_space_float3 : @|from_space:coordinate_space, to_space:coordinate_space,coord:float3,|{zerof3},
+    transform_point_coordinate_space_coordinate_space_float3 : @|from_space:coordinate_space, to_space:coordinate_space,coord:float3,|{make_float3(0.0f,0.0f,0.0f)},
 
 
 
-    transform_vector_coordinate_space_coordinate_space_float3 : @|from_space:coordinate_space, to_space:coordinate_space,coord:float3,|{zerof3},
+    transform_vector_coordinate_space_coordinate_space_float3 : @|from_space:coordinate_space, to_space:coordinate_space,coord:float3,|{make_float3(0.0f,0.0f,0.0f)},
 
 
 
-    transform_normal_coordinate_space_coordinate_space_float3 : @|from_space:coordinate_space, to_space:coordinate_space,coord:float3,|{zerof3},
+    transform_normal_coordinate_space_coordinate_space_float3 : @|from_space:coordinate_space, to_space:coordinate_space,coord:float3,|{make_float3(0.0f,0.0f,0.0f)},
 
 
 
@@ -167,11 +164,11 @@ static dummy_state: State = State{
 
 
 
-    rounded_corner_normal_float_bool : @|factor:float,is:bool,|{zerof3},
+    rounded_corner_normal_float_bool : @|factor:float,is:bool,|{make_float3(0.0f,0.0f,0.0f)},
 
 
 
-    rounded_corner_normal_float_bool_float : @|factor:float,is:bool,factor2:float,|{zerof3},
+    rounded_corner_normal_float_bool_float : @|factor:float,is:bool,factor2:float,|{make_float3(0.0f,0.0f,0.0f)},
 
 
 
