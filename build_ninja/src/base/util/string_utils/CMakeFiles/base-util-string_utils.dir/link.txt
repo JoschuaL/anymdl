@@ -1,2 +1,0 @@
-/usr/bin/ar qc libbase-util-string_utils.a  CMakeFiles/base-util-string_utils.dir/string_utils.cpp.o
-/usr/bin/ranlib libbase-util-string_utils.a

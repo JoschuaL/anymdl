@@ -1,2 +1,0 @@
-/usr/bin/ar qc libbase-system-version.a  CMakeFiles/base-system-version.dir/version.cpp.o
-/usr/bin/ranlib libbase-system-version.a

@@ -1,2 +1,0 @@
-/usr/bin/ar qc libmdl-integration-i18n.a  CMakeFiles/mdl-integration-i18n.dir/i18n_db.cpp.o CMakeFiles/mdl-integration-i18n.dir/i18n_translator.cpp.o
-/usr/bin/ranlib libmdl-integration-i18n.a

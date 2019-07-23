@@ -1,2 +1,0 @@
-/usr/bin/ar qc librender-mdl-backends.a  CMakeFiles/render-mdl-backends.dir/backends_backends.cpp.o CMakeFiles/render-mdl-backends.dir/backends_target_code.cpp.o
-/usr/bin/ranlib librender-mdl-backends.a

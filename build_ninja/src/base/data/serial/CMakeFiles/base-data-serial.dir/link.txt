@@ -1,2 +1,0 @@
-/usr/bin/ar qc libbase-data-serial.a  CMakeFiles/base-data-serial.dir/serial.cpp.o CMakeFiles/base-data-serial.dir/serial_buffer_serializer.cpp.o CMakeFiles/base-data-serial.dir/serial_file_serializer.cpp.o CMakeFiles/base-data-serial.dir/serial_marker_helpers.cpp.o
-/usr/bin/ranlib libbase-data-serial.a

@@ -1,2 +1,0 @@
-/usr/bin/ar qc libmdl-jit-libbsdf.a  CMakeFiles/mdl-jit-libbsdf.dir/generated/empty.cpp.o
-/usr/bin/ranlib libmdl-jit-libbsdf.a

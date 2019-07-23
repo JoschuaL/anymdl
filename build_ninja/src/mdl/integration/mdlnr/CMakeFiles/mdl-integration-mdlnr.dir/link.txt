@@ -1,2 +1,0 @@
-/usr/bin/ar qc libmdl-integration-mdlnr.a  CMakeFiles/mdl-integration-mdlnr.dir/mdlnr.cpp.o CMakeFiles/mdl-integration-mdlnr.dir/mdlnr_search_path.cpp.o
-/usr/bin/ranlib libmdl-integration-mdlnr.a

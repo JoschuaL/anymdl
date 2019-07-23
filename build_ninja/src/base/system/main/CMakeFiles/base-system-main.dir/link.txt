@@ -1,2 +1,0 @@
-/usr/bin/ar qc libbase-system-main.a  CMakeFiles/base-system-main.dir/module.cpp.o CMakeFiles/base-system-main.dir/module_registration_entry.cpp.o
-/usr/bin/ranlib libbase-system-main.a

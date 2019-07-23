@@ -1,2 +1,0 @@
-/usr/bin/ar qc libbase-lib-path.a  CMakeFiles/base-lib-path.dir/path_module_impl.cpp.o
-/usr/bin/ranlib libbase-lib-path.a
