@@ -1,0 +1,2 @@
+/usr/bin/ar qc libbase-data-db.a  CMakeFiles/base-data-db.dir/generated/empty.cpp.o
+/usr/bin/ranlib libbase-data-db.a

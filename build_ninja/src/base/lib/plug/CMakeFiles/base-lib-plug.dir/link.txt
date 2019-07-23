@@ -1,0 +1,2 @@
+/usr/bin/ar qc libbase-lib-plug.a  CMakeFiles/base-lib-plug.dir/plug_impl.cpp.o
+/usr/bin/ranlib libbase-lib-plug.a

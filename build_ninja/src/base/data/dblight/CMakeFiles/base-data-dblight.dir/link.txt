@@ -1,0 +1,2 @@
+/usr/bin/ar qc libbase-data-dblight.a  CMakeFiles/base-data-dblight.dir/dblight_access.cpp.o CMakeFiles/base-data-dblight.dir/dblight_database.cpp.o CMakeFiles/base-data-dblight.dir/dblight_info.cpp.o CMakeFiles/base-data-dblight.dir/dblight_scope.cpp.o CMakeFiles/base-data-dblight.dir/dblight_transaction.cpp.o
+/usr/bin/ranlib libbase-data-dblight.a

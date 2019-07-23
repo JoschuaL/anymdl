@@ -1,0 +1,2 @@
+/usr/bin/ar qc libbase-lib-log.a  CMakeFiles/base-lib-log.dir/generated/empty.cpp.o
+/usr/bin/ranlib libbase-lib-log.a

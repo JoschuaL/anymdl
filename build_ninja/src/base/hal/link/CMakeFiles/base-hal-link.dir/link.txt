@@ -1,0 +1,2 @@
+/usr/bin/ar qc libbase-hal-link.a  CMakeFiles/base-hal-link.dir/link_impl.cpp.o
+/usr/bin/ranlib libbase-hal-link.a

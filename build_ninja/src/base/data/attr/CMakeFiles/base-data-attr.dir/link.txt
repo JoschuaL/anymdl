@@ -1,0 +1,2 @@
+/usr/bin/ar qc libbase-data-attr.a  CMakeFiles/base-data-attr.dir/attr.cpp.o CMakeFiles/base-data-attr.dir/attr_attribute.cpp.o CMakeFiles/base-data-attr.dir/attr_attribute_list.cpp.o CMakeFiles/base-data-attr.dir/attr_attrset.cpp.o CMakeFiles/base-data-attr.dir/attr_module.cpp.o CMakeFiles/base-data-attr.dir/attr_registry.cpp.o CMakeFiles/base-data-attr.dir/attr_type.cpp.o CMakeFiles/base-data-attr.dir/attr_type_value_iterator.cpp.o CMakeFiles/base-data-attr.dir/attr_utilities.cpp.o
+/usr/bin/ranlib libbase-data-attr.a

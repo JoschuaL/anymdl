@@ -1,0 +1,2 @@
+/usr/bin/ar qc libbase-util-registry.a  CMakeFiles/base-util-registry.dir/config_registry_impl.cpp.o
+/usr/bin/ranlib libbase-util-registry.a

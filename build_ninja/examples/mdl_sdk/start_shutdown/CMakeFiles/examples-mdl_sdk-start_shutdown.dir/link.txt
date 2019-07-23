@@ -1,0 +1,1 @@
+/usr/local/bin/g++-9  -O3 -DNDEBUG -isysroot /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX10.14.sdk -mmacosx-version-min=10.13 -Wl,-search_paths_first -Wl,-headerpad_max_install_names  CMakeFiles/examples-mdl_sdk-start_shutdown.dir/example_start_shutdown.cpp.o  -o start_shutdown ../shared/libshared.a 

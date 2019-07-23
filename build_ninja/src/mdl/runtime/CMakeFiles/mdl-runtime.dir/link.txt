@@ -1,0 +1,2 @@
+/usr/bin/ar qc libmdl-runtime.a  CMakeFiles/mdl-runtime.dir/spectral/chroma_grid_d60.cpp.o CMakeFiles/mdl-runtime.dir/spectral/chroma_grid_d65.cpp.o CMakeFiles/mdl-runtime.dir/spectral/chroma_grid_e.cpp.o CMakeFiles/mdl-runtime.dir/spectral/spectral.cpp.o CMakeFiles/mdl-runtime.dir/spectral/spectral_tables.cpp.o
+/usr/bin/ranlib libmdl-runtime.a

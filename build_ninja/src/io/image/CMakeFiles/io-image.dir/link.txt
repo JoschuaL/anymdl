@@ -1,0 +1,2 @@
+/usr/bin/ar qc libio-image.a  CMakeFiles/io-image.dir/image/image_module_impl.cpp.o CMakeFiles/io-image.dir/image/image_canvas_impl.cpp.o CMakeFiles/io-image.dir/image/image_tile_impl.cpp.o CMakeFiles/io-image.dir/image/image_access_canvas.cpp.o CMakeFiles/io-image.dir/image/image_mipmap_impl.cpp.o CMakeFiles/io-image.dir/image/image_access_mipmap.cpp.o
+/usr/bin/ranlib libio-image.a

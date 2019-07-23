@@ -1,0 +1,2 @@
+/usr/bin/ar qc libshared.a  CMakeFiles/examples-mdl_sdk-shared.dir/generated/empty.cpp.o
+/usr/bin/ranlib libshared.a

@@ -1,0 +1,2 @@
+/usr/bin/ar qc libbase-system-stlext.a  CMakeFiles/base-system-stlext.dir/generated/empty.cpp.o
+/usr/bin/ranlib libbase-system-stlext.a

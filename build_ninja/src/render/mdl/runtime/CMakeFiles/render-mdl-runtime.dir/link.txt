@@ -1,0 +1,2 @@
+/usr/bin/ar qc librender-mdl-runtime.a  CMakeFiles/render-mdl-runtime.dir/mdlrt_bsdf_measurement.cpp.o CMakeFiles/render-mdl-runtime.dir/mdlrt_light_profile.cpp.o CMakeFiles/render-mdl-runtime.dir/mdlrt_resource_handler.cpp.o CMakeFiles/render-mdl-runtime.dir/mdlrt_texture.cpp.o
+/usr/bin/ranlib librender-mdl-runtime.a

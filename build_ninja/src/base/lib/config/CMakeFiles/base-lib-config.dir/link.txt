@@ -1,0 +1,2 @@
+/usr/bin/ar qc libbase-lib-config.a  CMakeFiles/base-lib-config.dir/config.cpp.o
+/usr/bin/ranlib libbase-lib-config.a

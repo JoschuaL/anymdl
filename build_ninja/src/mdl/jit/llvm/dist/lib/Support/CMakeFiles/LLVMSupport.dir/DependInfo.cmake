@@ -1,0 +1,171 @@
+# The set of languages for which implicit dependencies are needed:
+set(CMAKE_DEPENDS_LANGUAGES
+  "C"
+  "CXX"
+  )
+# The set of files for implicit dependencies of each language:
+set(CMAKE_DEPENDS_CHECK_C
+  "/Users/noisyedge/Projects/mdl-source/MDL-SDK/src/mdl/jit/llvm/dist/lib/Support/regcomp.c" "/Users/noisyedge/Projects/mdl-source/MDL-SDK/build_ninja/src/mdl/jit/llvm/dist/lib/Support/CMakeFiles/LLVMSupport.dir/regcomp.c.o"
+  "/Users/noisyedge/Projects/mdl-source/MDL-SDK/src/mdl/jit/llvm/dist/lib/Support/regerror.c" "/Users/noisyedge/Projects/mdl-source/MDL-SDK/build_ninja/src/mdl/jit/llvm/dist/lib/Support/CMakeFiles/LLVMSupport.dir/regerror.c.o"
+  "/Users/noisyedge/Projects/mdl-source/MDL-SDK/src/mdl/jit/llvm/dist/lib/Support/regexec.c" "/Users/noisyedge/Projects/mdl-source/MDL-SDK/build_ninja/src/mdl/jit/llvm/dist/lib/Support/CMakeFiles/LLVMSupport.dir/regexec.c.o"
+  "/Users/noisyedge/Projects/mdl-source/MDL-SDK/src/mdl/jit/llvm/dist/lib/Support/regfree.c" "/Users/noisyedge/Projects/mdl-source/MDL-SDK/build_ninja/src/mdl/jit/llvm/dist/lib/Support/CMakeFiles/LLVMSupport.dir/regfree.c.o"
+  "/Users/noisyedge/Projects/mdl-source/MDL-SDK/src/mdl/jit/llvm/dist/lib/Support/regstrlcpy.c" "/Users/noisyedge/Projects/mdl-source/MDL-SDK/build_ninja/src/mdl/jit/llvm/dist/lib/Support/CMakeFiles/LLVMSupport.dir/regstrlcpy.c.o"
+  )
+set(CMAKE_C_COMPILER_ID "GNU")
+
+# Preprocessor definitions for this target.
+set(CMAKE_TARGET_DEFINITIONS_C
+  "GTEST_HAS_RTTI=0"
+  "MI_BUILDING_LLVM"
+  "_REENTRANT"
+  "__STDC_CONSTANT_MACROS"
+  "__STDC_FORMAT_MACROS"
+  "__STDC_LIMIT_MACROS"
+  "__USE_XOPEN2K8"
+  )
+
+# The include file search paths:
+set(CMAKE_C_TARGET_INCLUDE_PATH
+  "src/mdl/jit/llvm/dist/lib/Support"
+  "../src/mdl/jit/llvm/dist/lib/Support"
+  "src/mdl/jit/llvm/dist/include"
+  "../src/mdl/jit/llvm/dist/include"
+  )
+set(CMAKE_DEPENDS_CHECK_CXX
+  "/Users/noisyedge/Projects/mdl-source/MDL-SDK/src/mdl/jit/llvm/dist/lib/Support/AMDGPUMetadata.cpp" "/Users/noisyedge/Projects/mdl-source/MDL-SDK/build_ninja/src/mdl/jit/llvm/dist/lib/Support/CMakeFiles/LLVMSupport.dir/AMDGPUMetadata.cpp.o"
+  "/Users/noisyedge/Projects/mdl-source/MDL-SDK/src/mdl/jit/llvm/dist/lib/Support/APFloat.cpp" "/Users/noisyedge/Projects/mdl-source/MDL-SDK/build_ninja/src/mdl/jit/llvm/dist/lib/Support/CMakeFiles/LLVMSupport.dir/APFloat.cpp.o"
+  "/Users/noisyedge/Projects/mdl-source/MDL-SDK/src/mdl/jit/llvm/dist/lib/Support/APInt.cpp" "/Users/noisyedge/Projects/mdl-source/MDL-SDK/build_ninja/src/mdl/jit/llvm/dist/lib/Support/CMakeFiles/LLVMSupport.dir/APInt.cpp.o"
+  "/Users/noisyedge/Projects/mdl-source/MDL-SDK/src/mdl/jit/llvm/dist/lib/Support/APSInt.cpp" "/Users/noisyedge/Projects/mdl-source/MDL-SDK/build_ninja/src/mdl/jit/llvm/dist/lib/Support/CMakeFiles/LLVMSupport.dir/APSInt.cpp.o"
+  "/Users/noisyedge/Projects/mdl-source/MDL-SDK/src/mdl/jit/llvm/dist/lib/Support/ARMAttributeParser.cpp" "/Users/noisyedge/Projects/mdl-source/MDL-SDK/build_ninja/src/mdl/jit/llvm/dist/lib/Support/CMakeFiles/LLVMSupport.dir/ARMAttributeParser.cpp.o"
+  "/Users/noisyedge/Projects/mdl-source/MDL-SDK/src/mdl/jit/llvm/dist/lib/Support/ARMBuildAttrs.cpp" "/Users/noisyedge/Projects/mdl-source/MDL-SDK/build_ninja/src/mdl/jit/llvm/dist/lib/Support/CMakeFiles/LLVMSupport.dir/ARMBuildAttrs.cpp.o"
+  "/Users/noisyedge/Projects/mdl-source/MDL-SDK/src/mdl/jit/llvm/dist/lib/Support/ARMWinEH.cpp" "/Users/noisyedge/Projects/mdl-source/MDL-SDK/build_ninja/src/mdl/jit/llvm/dist/lib/Support/CMakeFiles/LLVMSupport.dir/ARMWinEH.cpp.o"
+  "/Users/noisyedge/Projects/mdl-source/MDL-SDK/src/mdl/jit/llvm/dist/lib/Support/Allocator.cpp" "/Users/noisyedge/Projects/mdl-source/MDL-SDK/build_ninja/src/mdl/jit/llvm/dist/lib/Support/CMakeFiles/LLVMSupport.dir/Allocator.cpp.o"
+  "/Users/noisyedge/Projects/mdl-source/MDL-SDK/src/mdl/jit/llvm/dist/lib/Support/Atomic.cpp" "/Users/noisyedge/Projects/mdl-source/MDL-SDK/build_ninja/src/mdl/jit/llvm/dist/lib/Support/CMakeFiles/LLVMSupport.dir/Atomic.cpp.o"
+  "/Users/noisyedge/Projects/mdl-source/MDL-SDK/src/mdl/jit/llvm/dist/lib/Support/BinaryStreamError.cpp" "/Users/noisyedge/Projects/mdl-source/MDL-SDK/build_ninja/src/mdl/jit/llvm/dist/lib/Support/CMakeFiles/LLVMSupport.dir/BinaryStreamError.cpp.o"
+  "/Users/noisyedge/Projects/mdl-source/MDL-SDK/src/mdl/jit/llvm/dist/lib/Support/BinaryStreamReader.cpp" "/Users/noisyedge/Projects/mdl-source/MDL-SDK/build_ninja/src/mdl/jit/llvm/dist/lib/Support/CMakeFiles/LLVMSupport.dir/BinaryStreamReader.cpp.o"
+  "/Users/noisyedge/Projects/mdl-source/MDL-SDK/src/mdl/jit/llvm/dist/lib/Support/BinaryStreamRef.cpp" "/Users/noisyedge/Projects/mdl-source/MDL-SDK/build_ninja/src/mdl/jit/llvm/dist/lib/Support/CMakeFiles/LLVMSupport.dir/BinaryStreamRef.cpp.o"
+  "/Users/noisyedge/Projects/mdl-source/MDL-SDK/src/mdl/jit/llvm/dist/lib/Support/BinaryStreamWriter.cpp" "/Users/noisyedge/Projects/mdl-source/MDL-SDK/build_ninja/src/mdl/jit/llvm/dist/lib/Support/CMakeFiles/LLVMSupport.dir/BinaryStreamWriter.cpp.o"
+  "/Users/noisyedge/Projects/mdl-source/MDL-SDK/src/mdl/jit/llvm/dist/lib/Support/BlockFrequency.cpp" "/Users/noisyedge/Projects/mdl-source/MDL-SDK/build_ninja/src/mdl/jit/llvm/dist/lib/Support/CMakeFiles/LLVMSupport.dir/BlockFrequency.cpp.o"
+  "/Users/noisyedge/Projects/mdl-source/MDL-SDK/src/mdl/jit/llvm/dist/lib/Support/BranchProbability.cpp" "/Users/noisyedge/Projects/mdl-source/MDL-SDK/build_ninja/src/mdl/jit/llvm/dist/lib/Support/CMakeFiles/LLVMSupport.dir/BranchProbability.cpp.o"
+  "/Users/noisyedge/Projects/mdl-source/MDL-SDK/src/mdl/jit/llvm/dist/lib/Support/COM.cpp" "/Users/noisyedge/Projects/mdl-source/MDL-SDK/build_ninja/src/mdl/jit/llvm/dist/lib/Support/CMakeFiles/LLVMSupport.dir/COM.cpp.o"
+  "/Users/noisyedge/Projects/mdl-source/MDL-SDK/src/mdl/jit/llvm/dist/lib/Support/CachePruning.cpp" "/Users/noisyedge/Projects/mdl-source/MDL-SDK/build_ninja/src/mdl/jit/llvm/dist/lib/Support/CMakeFiles/LLVMSupport.dir/CachePruning.cpp.o"
+  "/Users/noisyedge/Projects/mdl-source/MDL-SDK/src/mdl/jit/llvm/dist/lib/Support/Chrono.cpp" "/Users/noisyedge/Projects/mdl-source/MDL-SDK/build_ninja/src/mdl/jit/llvm/dist/lib/Support/CMakeFiles/LLVMSupport.dir/Chrono.cpp.o"
+  "/Users/noisyedge/Projects/mdl-source/MDL-SDK/src/mdl/jit/llvm/dist/lib/Support/CodeGenCoverage.cpp" "/Users/noisyedge/Projects/mdl-source/MDL-SDK/build_ninja/src/mdl/jit/llvm/dist/lib/Support/CMakeFiles/LLVMSupport.dir/CodeGenCoverage.cpp.o"
+  "/Users/noisyedge/Projects/mdl-source/MDL-SDK/src/mdl/jit/llvm/dist/lib/Support/CommandLine.cpp" "/Users/noisyedge/Projects/mdl-source/MDL-SDK/build_ninja/src/mdl/jit/llvm/dist/lib/Support/CMakeFiles/LLVMSupport.dir/CommandLine.cpp.o"
+  "/Users/noisyedge/Projects/mdl-source/MDL-SDK/src/mdl/jit/llvm/dist/lib/Support/Compression.cpp" "/Users/noisyedge/Projects/mdl-source/MDL-SDK/build_ninja/src/mdl/jit/llvm/dist/lib/Support/CMakeFiles/LLVMSupport.dir/Compression.cpp.o"
+  "/Users/noisyedge/Projects/mdl-source/MDL-SDK/src/mdl/jit/llvm/dist/lib/Support/ConvertUTF.cpp" "/Users/noisyedge/Projects/mdl-source/MDL-SDK/build_ninja/src/mdl/jit/llvm/dist/lib/Support/CMakeFiles/LLVMSupport.dir/ConvertUTF.cpp.o"
+  "/Users/noisyedge/Projects/mdl-source/MDL-SDK/src/mdl/jit/llvm/dist/lib/Support/ConvertUTFWrapper.cpp" "/Users/noisyedge/Projects/mdl-source/MDL-SDK/build_ninja/src/mdl/jit/llvm/dist/lib/Support/CMakeFiles/LLVMSupport.dir/ConvertUTFWrapper.cpp.o"
+  "/Users/noisyedge/Projects/mdl-source/MDL-SDK/src/mdl/jit/llvm/dist/lib/Support/CrashRecoveryContext.cpp" "/Users/noisyedge/Projects/mdl-source/MDL-SDK/build_ninja/src/mdl/jit/llvm/dist/lib/Support/CMakeFiles/LLVMSupport.dir/CrashRecoveryContext.cpp.o"
+  "/Users/noisyedge/Projects/mdl-source/MDL-SDK/src/mdl/jit/llvm/dist/lib/Support/DAGDeltaAlgorithm.cpp" "/Users/noisyedge/Projects/mdl-source/MDL-SDK/build_ninja/src/mdl/jit/llvm/dist/lib/Support/CMakeFiles/LLVMSupport.dir/DAGDeltaAlgorithm.cpp.o"
+  "/Users/noisyedge/Projects/mdl-source/MDL-SDK/src/mdl/jit/llvm/dist/lib/Support/DJB.cpp" "/Users/noisyedge/Projects/mdl-source/MDL-SDK/build_ninja/src/mdl/jit/llvm/dist/lib/Support/CMakeFiles/LLVMSupport.dir/DJB.cpp.o"
+  "/Users/noisyedge/Projects/mdl-source/MDL-SDK/src/mdl/jit/llvm/dist/lib/Support/DataExtractor.cpp" "/Users/noisyedge/Projects/mdl-source/MDL-SDK/build_ninja/src/mdl/jit/llvm/dist/lib/Support/CMakeFiles/LLVMSupport.dir/DataExtractor.cpp.o"
+  "/Users/noisyedge/Projects/mdl-source/MDL-SDK/src/mdl/jit/llvm/dist/lib/Support/Debug.cpp" "/Users/noisyedge/Projects/mdl-source/MDL-SDK/build_ninja/src/mdl/jit/llvm/dist/lib/Support/CMakeFiles/LLVMSupport.dir/Debug.cpp.o"
+  "/Users/noisyedge/Projects/mdl-source/MDL-SDK/src/mdl/jit/llvm/dist/lib/Support/DebugCounter.cpp" "/Users/noisyedge/Projects/mdl-source/MDL-SDK/build_ninja/src/mdl/jit/llvm/dist/lib/Support/CMakeFiles/LLVMSupport.dir/DebugCounter.cpp.o"
+  "/Users/noisyedge/Projects/mdl-source/MDL-SDK/src/mdl/jit/llvm/dist/lib/Support/DeltaAlgorithm.cpp" "/Users/noisyedge/Projects/mdl-source/MDL-SDK/build_ninja/src/mdl/jit/llvm/dist/lib/Support/CMakeFiles/LLVMSupport.dir/DeltaAlgorithm.cpp.o"
+  "/Users/noisyedge/Projects/mdl-source/MDL-SDK/src/mdl/jit/llvm/dist/lib/Support/DynamicLibrary.cpp" "/Users/noisyedge/Projects/mdl-source/MDL-SDK/build_ninja/src/mdl/jit/llvm/dist/lib/Support/CMakeFiles/LLVMSupport.dir/DynamicLibrary.cpp.o"
+  "/Users/noisyedge/Projects/mdl-source/MDL-SDK/src/mdl/jit/llvm/dist/lib/Support/Errno.cpp" "/Users/noisyedge/Projects/mdl-source/MDL-SDK/build_ninja/src/mdl/jit/llvm/dist/lib/Support/CMakeFiles/LLVMSupport.dir/Errno.cpp.o"
+  "/Users/noisyedge/Projects/mdl-source/MDL-SDK/src/mdl/jit/llvm/dist/lib/Support/Error.cpp" "/Users/noisyedge/Projects/mdl-source/MDL-SDK/build_ninja/src/mdl/jit/llvm/dist/lib/Support/CMakeFiles/LLVMSupport.dir/Error.cpp.o"
+  "/Users/noisyedge/Projects/mdl-source/MDL-SDK/src/mdl/jit/llvm/dist/lib/Support/ErrorHandling.cpp" "/Users/noisyedge/Projects/mdl-source/MDL-SDK/build_ninja/src/mdl/jit/llvm/dist/lib/Support/CMakeFiles/LLVMSupport.dir/ErrorHandling.cpp.o"
+  "/Users/noisyedge/Projects/mdl-source/MDL-SDK/src/mdl/jit/llvm/dist/lib/Support/FileOutputBuffer.cpp" "/Users/noisyedge/Projects/mdl-source/MDL-SDK/build_ninja/src/mdl/jit/llvm/dist/lib/Support/CMakeFiles/LLVMSupport.dir/FileOutputBuffer.cpp.o"
+  "/Users/noisyedge/Projects/mdl-source/MDL-SDK/src/mdl/jit/llvm/dist/lib/Support/FileUtilities.cpp" "/Users/noisyedge/Projects/mdl-source/MDL-SDK/build_ninja/src/mdl/jit/llvm/dist/lib/Support/CMakeFiles/LLVMSupport.dir/FileUtilities.cpp.o"
+  "/Users/noisyedge/Projects/mdl-source/MDL-SDK/src/mdl/jit/llvm/dist/lib/Support/FoldingSet.cpp" "/Users/noisyedge/Projects/mdl-source/MDL-SDK/build_ninja/src/mdl/jit/llvm/dist/lib/Support/CMakeFiles/LLVMSupport.dir/FoldingSet.cpp.o"
+  "/Users/noisyedge/Projects/mdl-source/MDL-SDK/src/mdl/jit/llvm/dist/lib/Support/FormatVariadic.cpp" "/Users/noisyedge/Projects/mdl-source/MDL-SDK/build_ninja/src/mdl/jit/llvm/dist/lib/Support/CMakeFiles/LLVMSupport.dir/FormatVariadic.cpp.o"
+  "/Users/noisyedge/Projects/mdl-source/MDL-SDK/src/mdl/jit/llvm/dist/lib/Support/FormattedStream.cpp" "/Users/noisyedge/Projects/mdl-source/MDL-SDK/build_ninja/src/mdl/jit/llvm/dist/lib/Support/CMakeFiles/LLVMSupport.dir/FormattedStream.cpp.o"
+  "/Users/noisyedge/Projects/mdl-source/MDL-SDK/src/mdl/jit/llvm/dist/lib/Support/GlobPattern.cpp" "/Users/noisyedge/Projects/mdl-source/MDL-SDK/build_ninja/src/mdl/jit/llvm/dist/lib/Support/CMakeFiles/LLVMSupport.dir/GlobPattern.cpp.o"
+  "/Users/noisyedge/Projects/mdl-source/MDL-SDK/src/mdl/jit/llvm/dist/lib/Support/GraphWriter.cpp" "/Users/noisyedge/Projects/mdl-source/MDL-SDK/build_ninja/src/mdl/jit/llvm/dist/lib/Support/CMakeFiles/LLVMSupport.dir/GraphWriter.cpp.o"
+  "/Users/noisyedge/Projects/mdl-source/MDL-SDK/src/mdl/jit/llvm/dist/lib/Support/Hashing.cpp" "/Users/noisyedge/Projects/mdl-source/MDL-SDK/build_ninja/src/mdl/jit/llvm/dist/lib/Support/CMakeFiles/LLVMSupport.dir/Hashing.cpp.o"
+  "/Users/noisyedge/Projects/mdl-source/MDL-SDK/src/mdl/jit/llvm/dist/lib/Support/Host.cpp" "/Users/noisyedge/Projects/mdl-source/MDL-SDK/build_ninja/src/mdl/jit/llvm/dist/lib/Support/CMakeFiles/LLVMSupport.dir/Host.cpp.o"
+  "/Users/noisyedge/Projects/mdl-source/MDL-SDK/src/mdl/jit/llvm/dist/lib/Support/InitLLVM.cpp" "/Users/noisyedge/Projects/mdl-source/MDL-SDK/build_ninja/src/mdl/jit/llvm/dist/lib/Support/CMakeFiles/LLVMSupport.dir/InitLLVM.cpp.o"
+  "/Users/noisyedge/Projects/mdl-source/MDL-SDK/src/mdl/jit/llvm/dist/lib/Support/IntEqClasses.cpp" "/Users/noisyedge/Projects/mdl-source/MDL-SDK/build_ninja/src/mdl/jit/llvm/dist/lib/Support/CMakeFiles/LLVMSupport.dir/IntEqClasses.cpp.o"
+  "/Users/noisyedge/Projects/mdl-source/MDL-SDK/src/mdl/jit/llvm/dist/lib/Support/IntervalMap.cpp" "/Users/noisyedge/Projects/mdl-source/MDL-SDK/build_ninja/src/mdl/jit/llvm/dist/lib/Support/CMakeFiles/LLVMSupport.dir/IntervalMap.cpp.o"
+  "/Users/noisyedge/Projects/mdl-source/MDL-SDK/src/mdl/jit/llvm/dist/lib/Support/JSON.cpp" "/Users/noisyedge/Projects/mdl-source/MDL-SDK/build_ninja/src/mdl/jit/llvm/dist/lib/Support/CMakeFiles/LLVMSupport.dir/JSON.cpp.o"
+  "/Users/noisyedge/Projects/mdl-source/MDL-SDK/src/mdl/jit/llvm/dist/lib/Support/JamCRC.cpp" "/Users/noisyedge/Projects/mdl-source/MDL-SDK/build_ninja/src/mdl/jit/llvm/dist/lib/Support/CMakeFiles/LLVMSupport.dir/JamCRC.cpp.o"
+  "/Users/noisyedge/Projects/mdl-source/MDL-SDK/src/mdl/jit/llvm/dist/lib/Support/KnownBits.cpp" "/Users/noisyedge/Projects/mdl-source/MDL-SDK/build_ninja/src/mdl/jit/llvm/dist/lib/Support/CMakeFiles/LLVMSupport.dir/KnownBits.cpp.o"
+  "/Users/noisyedge/Projects/mdl-source/MDL-SDK/src/mdl/jit/llvm/dist/lib/Support/LEB128.cpp" "/Users/noisyedge/Projects/mdl-source/MDL-SDK/build_ninja/src/mdl/jit/llvm/dist/lib/Support/CMakeFiles/LLVMSupport.dir/LEB128.cpp.o"
+  "/Users/noisyedge/Projects/mdl-source/MDL-SDK/src/mdl/jit/llvm/dist/lib/Support/LineIterator.cpp" "/Users/noisyedge/Projects/mdl-source/MDL-SDK/build_ninja/src/mdl/jit/llvm/dist/lib/Support/CMakeFiles/LLVMSupport.dir/LineIterator.cpp.o"
+  "/Users/noisyedge/Projects/mdl-source/MDL-SDK/src/mdl/jit/llvm/dist/lib/Support/Locale.cpp" "/Users/noisyedge/Projects/mdl-source/MDL-SDK/build_ninja/src/mdl/jit/llvm/dist/lib/Support/CMakeFiles/LLVMSupport.dir/Locale.cpp.o"
+  "/Users/noisyedge/Projects/mdl-source/MDL-SDK/src/mdl/jit/llvm/dist/lib/Support/LockFileManager.cpp" "/Users/noisyedge/Projects/mdl-source/MDL-SDK/build_ninja/src/mdl/jit/llvm/dist/lib/Support/CMakeFiles/LLVMSupport.dir/LockFileManager.cpp.o"
+  "/Users/noisyedge/Projects/mdl-source/MDL-SDK/src/mdl/jit/llvm/dist/lib/Support/LowLevelType.cpp" "/Users/noisyedge/Projects/mdl-source/MDL-SDK/build_ninja/src/mdl/jit/llvm/dist/lib/Support/CMakeFiles/LLVMSupport.dir/LowLevelType.cpp.o"
+  "/Users/noisyedge/Projects/mdl-source/MDL-SDK/src/mdl/jit/llvm/dist/lib/Support/MD5.cpp" "/Users/noisyedge/Projects/mdl-source/MDL-SDK/build_ninja/src/mdl/jit/llvm/dist/lib/Support/CMakeFiles/LLVMSupport.dir/MD5.cpp.o"
+  "/Users/noisyedge/Projects/mdl-source/MDL-SDK/src/mdl/jit/llvm/dist/lib/Support/ManagedStatic.cpp" "/Users/noisyedge/Projects/mdl-source/MDL-SDK/build_ninja/src/mdl/jit/llvm/dist/lib/Support/CMakeFiles/LLVMSupport.dir/ManagedStatic.cpp.o"
+  "/Users/noisyedge/Projects/mdl-source/MDL-SDK/src/mdl/jit/llvm/dist/lib/Support/MathExtras.cpp" "/Users/noisyedge/Projects/mdl-source/MDL-SDK/build_ninja/src/mdl/jit/llvm/dist/lib/Support/CMakeFiles/LLVMSupport.dir/MathExtras.cpp.o"
+  "/Users/noisyedge/Projects/mdl-source/MDL-SDK/src/mdl/jit/llvm/dist/lib/Support/Memory.cpp" "/Users/noisyedge/Projects/mdl-source/MDL-SDK/build_ninja/src/mdl/jit/llvm/dist/lib/Support/CMakeFiles/LLVMSupport.dir/Memory.cpp.o"
+  "/Users/noisyedge/Projects/mdl-source/MDL-SDK/src/mdl/jit/llvm/dist/lib/Support/MemoryBuffer.cpp" "/Users/noisyedge/Projects/mdl-source/MDL-SDK/build_ninja/src/mdl/jit/llvm/dist/lib/Support/CMakeFiles/LLVMSupport.dir/MemoryBuffer.cpp.o"
+  "/Users/noisyedge/Projects/mdl-source/MDL-SDK/src/mdl/jit/llvm/dist/lib/Support/Mutex.cpp" "/Users/noisyedge/Projects/mdl-source/MDL-SDK/build_ninja/src/mdl/jit/llvm/dist/lib/Support/CMakeFiles/LLVMSupport.dir/Mutex.cpp.o"
+  "/Users/noisyedge/Projects/mdl-source/MDL-SDK/src/mdl/jit/llvm/dist/lib/Support/NativeFormatting.cpp" "/Users/noisyedge/Projects/mdl-source/MDL-SDK/build_ninja/src/mdl/jit/llvm/dist/lib/Support/CMakeFiles/LLVMSupport.dir/NativeFormatting.cpp.o"
+  "/Users/noisyedge/Projects/mdl-source/MDL-SDK/src/mdl/jit/llvm/dist/lib/Support/Options.cpp" "/Users/noisyedge/Projects/mdl-source/MDL-SDK/build_ninja/src/mdl/jit/llvm/dist/lib/Support/CMakeFiles/LLVMSupport.dir/Options.cpp.o"
+  "/Users/noisyedge/Projects/mdl-source/MDL-SDK/src/mdl/jit/llvm/dist/lib/Support/Parallel.cpp" "/Users/noisyedge/Projects/mdl-source/MDL-SDK/build_ninja/src/mdl/jit/llvm/dist/lib/Support/CMakeFiles/LLVMSupport.dir/Parallel.cpp.o"
+  "/Users/noisyedge/Projects/mdl-source/MDL-SDK/src/mdl/jit/llvm/dist/lib/Support/Path.cpp" "/Users/noisyedge/Projects/mdl-source/MDL-SDK/build_ninja/src/mdl/jit/llvm/dist/lib/Support/CMakeFiles/LLVMSupport.dir/Path.cpp.o"
+  "/Users/noisyedge/Projects/mdl-source/MDL-SDK/src/mdl/jit/llvm/dist/lib/Support/PluginLoader.cpp" "/Users/noisyedge/Projects/mdl-source/MDL-SDK/build_ninja/src/mdl/jit/llvm/dist/lib/Support/CMakeFiles/LLVMSupport.dir/PluginLoader.cpp.o"
+  "/Users/noisyedge/Projects/mdl-source/MDL-SDK/src/mdl/jit/llvm/dist/lib/Support/PrettyStackTrace.cpp" "/Users/noisyedge/Projects/mdl-source/MDL-SDK/build_ninja/src/mdl/jit/llvm/dist/lib/Support/CMakeFiles/LLVMSupport.dir/PrettyStackTrace.cpp.o"
+  "/Users/noisyedge/Projects/mdl-source/MDL-SDK/src/mdl/jit/llvm/dist/lib/Support/Process.cpp" "/Users/noisyedge/Projects/mdl-source/MDL-SDK/build_ninja/src/mdl/jit/llvm/dist/lib/Support/CMakeFiles/LLVMSupport.dir/Process.cpp.o"
+  "/Users/noisyedge/Projects/mdl-source/MDL-SDK/src/mdl/jit/llvm/dist/lib/Support/Program.cpp" "/Users/noisyedge/Projects/mdl-source/MDL-SDK/build_ninja/src/mdl/jit/llvm/dist/lib/Support/CMakeFiles/LLVMSupport.dir/Program.cpp.o"
+  "/Users/noisyedge/Projects/mdl-source/MDL-SDK/src/mdl/jit/llvm/dist/lib/Support/RWMutex.cpp" "/Users/noisyedge/Projects/mdl-source/MDL-SDK/build_ninja/src/mdl/jit/llvm/dist/lib/Support/CMakeFiles/LLVMSupport.dir/RWMutex.cpp.o"
+  "/Users/noisyedge/Projects/mdl-source/MDL-SDK/src/mdl/jit/llvm/dist/lib/Support/RandomNumberGenerator.cpp" "/Users/noisyedge/Projects/mdl-source/MDL-SDK/build_ninja/src/mdl/jit/llvm/dist/lib/Support/CMakeFiles/LLVMSupport.dir/RandomNumberGenerator.cpp.o"
+  "/Users/noisyedge/Projects/mdl-source/MDL-SDK/src/mdl/jit/llvm/dist/lib/Support/Regex.cpp" "/Users/noisyedge/Projects/mdl-source/MDL-SDK/build_ninja/src/mdl/jit/llvm/dist/lib/Support/CMakeFiles/LLVMSupport.dir/Regex.cpp.o"
+  "/Users/noisyedge/Projects/mdl-source/MDL-SDK/src/mdl/jit/llvm/dist/lib/Support/SHA1.cpp" "/Users/noisyedge/Projects/mdl-source/MDL-SDK/build_ninja/src/mdl/jit/llvm/dist/lib/Support/CMakeFiles/LLVMSupport.dir/SHA1.cpp.o"
+  "/Users/noisyedge/Projects/mdl-source/MDL-SDK/src/mdl/jit/llvm/dist/lib/Support/ScaledNumber.cpp" "/Users/noisyedge/Projects/mdl-source/MDL-SDK/build_ninja/src/mdl/jit/llvm/dist/lib/Support/CMakeFiles/LLVMSupport.dir/ScaledNumber.cpp.o"
+  "/Users/noisyedge/Projects/mdl-source/MDL-SDK/src/mdl/jit/llvm/dist/lib/Support/ScopedPrinter.cpp" "/Users/noisyedge/Projects/mdl-source/MDL-SDK/build_ninja/src/mdl/jit/llvm/dist/lib/Support/CMakeFiles/LLVMSupport.dir/ScopedPrinter.cpp.o"
+  "/Users/noisyedge/Projects/mdl-source/MDL-SDK/src/mdl/jit/llvm/dist/lib/Support/Signals.cpp" "/Users/noisyedge/Projects/mdl-source/MDL-SDK/build_ninja/src/mdl/jit/llvm/dist/lib/Support/CMakeFiles/LLVMSupport.dir/Signals.cpp.o"
+  "/Users/noisyedge/Projects/mdl-source/MDL-SDK/src/mdl/jit/llvm/dist/lib/Support/SmallPtrSet.cpp" "/Users/noisyedge/Projects/mdl-source/MDL-SDK/build_ninja/src/mdl/jit/llvm/dist/lib/Support/CMakeFiles/LLVMSupport.dir/SmallPtrSet.cpp.o"
+  "/Users/noisyedge/Projects/mdl-source/MDL-SDK/src/mdl/jit/llvm/dist/lib/Support/SmallVector.cpp" "/Users/noisyedge/Projects/mdl-source/MDL-SDK/build_ninja/src/mdl/jit/llvm/dist/lib/Support/CMakeFiles/LLVMSupport.dir/SmallVector.cpp.o"
+  "/Users/noisyedge/Projects/mdl-source/MDL-SDK/src/mdl/jit/llvm/dist/lib/Support/SourceMgr.cpp" "/Users/noisyedge/Projects/mdl-source/MDL-SDK/build_ninja/src/mdl/jit/llvm/dist/lib/Support/CMakeFiles/LLVMSupport.dir/SourceMgr.cpp.o"
+  "/Users/noisyedge/Projects/mdl-source/MDL-SDK/src/mdl/jit/llvm/dist/lib/Support/SpecialCaseList.cpp" "/Users/noisyedge/Projects/mdl-source/MDL-SDK/build_ninja/src/mdl/jit/llvm/dist/lib/Support/CMakeFiles/LLVMSupport.dir/SpecialCaseList.cpp.o"
+  "/Users/noisyedge/Projects/mdl-source/MDL-SDK/src/mdl/jit/llvm/dist/lib/Support/Statistic.cpp" "/Users/noisyedge/Projects/mdl-source/MDL-SDK/build_ninja/src/mdl/jit/llvm/dist/lib/Support/CMakeFiles/LLVMSupport.dir/Statistic.cpp.o"
+  "/Users/noisyedge/Projects/mdl-source/MDL-SDK/src/mdl/jit/llvm/dist/lib/Support/StringExtras.cpp" "/Users/noisyedge/Projects/mdl-source/MDL-SDK/build_ninja/src/mdl/jit/llvm/dist/lib/Support/CMakeFiles/LLVMSupport.dir/StringExtras.cpp.o"
+  "/Users/noisyedge/Projects/mdl-source/MDL-SDK/src/mdl/jit/llvm/dist/lib/Support/StringMap.cpp" "/Users/noisyedge/Projects/mdl-source/MDL-SDK/build_ninja/src/mdl/jit/llvm/dist/lib/Support/CMakeFiles/LLVMSupport.dir/StringMap.cpp.o"
+  "/Users/noisyedge/Projects/mdl-source/MDL-SDK/src/mdl/jit/llvm/dist/lib/Support/StringPool.cpp" "/Users/noisyedge/Projects/mdl-source/MDL-SDK/build_ninja/src/mdl/jit/llvm/dist/lib/Support/CMakeFiles/LLVMSupport.dir/StringPool.cpp.o"
+  "/Users/noisyedge/Projects/mdl-source/MDL-SDK/src/mdl/jit/llvm/dist/lib/Support/StringRef.cpp" "/Users/noisyedge/Projects/mdl-source/MDL-SDK/build_ninja/src/mdl/jit/llvm/dist/lib/Support/CMakeFiles/LLVMSupport.dir/StringRef.cpp.o"
+  "/Users/noisyedge/Projects/mdl-source/MDL-SDK/src/mdl/jit/llvm/dist/lib/Support/StringSaver.cpp" "/Users/noisyedge/Projects/mdl-source/MDL-SDK/build_ninja/src/mdl/jit/llvm/dist/lib/Support/CMakeFiles/LLVMSupport.dir/StringSaver.cpp.o"
+  "/Users/noisyedge/Projects/mdl-source/MDL-SDK/src/mdl/jit/llvm/dist/lib/Support/SystemUtils.cpp" "/Users/noisyedge/Projects/mdl-source/MDL-SDK/build_ninja/src/mdl/jit/llvm/dist/lib/Support/CMakeFiles/LLVMSupport.dir/SystemUtils.cpp.o"
+  "/Users/noisyedge/Projects/mdl-source/MDL-SDK/src/mdl/jit/llvm/dist/lib/Support/TarWriter.cpp" "/Users/noisyedge/Projects/mdl-source/MDL-SDK/build_ninja/src/mdl/jit/llvm/dist/lib/Support/CMakeFiles/LLVMSupport.dir/TarWriter.cpp.o"
+  "/Users/noisyedge/Projects/mdl-source/MDL-SDK/src/mdl/jit/llvm/dist/lib/Support/TargetParser.cpp" "/Users/noisyedge/Projects/mdl-source/MDL-SDK/build_ninja/src/mdl/jit/llvm/dist/lib/Support/CMakeFiles/LLVMSupport.dir/TargetParser.cpp.o"
+  "/Users/noisyedge/Projects/mdl-source/MDL-SDK/src/mdl/jit/llvm/dist/lib/Support/TargetRegistry.cpp" "/Users/noisyedge/Projects/mdl-source/MDL-SDK/build_ninja/src/mdl/jit/llvm/dist/lib/Support/CMakeFiles/LLVMSupport.dir/TargetRegistry.cpp.o"
+  "/Users/noisyedge/Projects/mdl-source/MDL-SDK/src/mdl/jit/llvm/dist/lib/Support/ThreadLocal.cpp" "/Users/noisyedge/Projects/mdl-source/MDL-SDK/build_ninja/src/mdl/jit/llvm/dist/lib/Support/CMakeFiles/LLVMSupport.dir/ThreadLocal.cpp.o"
+  "/Users/noisyedge/Projects/mdl-source/MDL-SDK/src/mdl/jit/llvm/dist/lib/Support/ThreadPool.cpp" "/Users/noisyedge/Projects/mdl-source/MDL-SDK/build_ninja/src/mdl/jit/llvm/dist/lib/Support/CMakeFiles/LLVMSupport.dir/ThreadPool.cpp.o"
+  "/Users/noisyedge/Projects/mdl-source/MDL-SDK/src/mdl/jit/llvm/dist/lib/Support/Threading.cpp" "/Users/noisyedge/Projects/mdl-source/MDL-SDK/build_ninja/src/mdl/jit/llvm/dist/lib/Support/CMakeFiles/LLVMSupport.dir/Threading.cpp.o"
+  "/Users/noisyedge/Projects/mdl-source/MDL-SDK/src/mdl/jit/llvm/dist/lib/Support/Timer.cpp" "/Users/noisyedge/Projects/mdl-source/MDL-SDK/build_ninja/src/mdl/jit/llvm/dist/lib/Support/CMakeFiles/LLVMSupport.dir/Timer.cpp.o"
+  "/Users/noisyedge/Projects/mdl-source/MDL-SDK/src/mdl/jit/llvm/dist/lib/Support/ToolOutputFile.cpp" "/Users/noisyedge/Projects/mdl-source/MDL-SDK/build_ninja/src/mdl/jit/llvm/dist/lib/Support/CMakeFiles/LLVMSupport.dir/ToolOutputFile.cpp.o"
+  "/Users/noisyedge/Projects/mdl-source/MDL-SDK/src/mdl/jit/llvm/dist/lib/Support/TrigramIndex.cpp" "/Users/noisyedge/Projects/mdl-source/MDL-SDK/build_ninja/src/mdl/jit/llvm/dist/lib/Support/CMakeFiles/LLVMSupport.dir/TrigramIndex.cpp.o"
+  "/Users/noisyedge/Projects/mdl-source/MDL-SDK/src/mdl/jit/llvm/dist/lib/Support/Triple.cpp" "/Users/noisyedge/Projects/mdl-source/MDL-SDK/build_ninja/src/mdl/jit/llvm/dist/lib/Support/CMakeFiles/LLVMSupport.dir/Triple.cpp.o"
+  "/Users/noisyedge/Projects/mdl-source/MDL-SDK/src/mdl/jit/llvm/dist/lib/Support/Twine.cpp" "/Users/noisyedge/Projects/mdl-source/MDL-SDK/build_ninja/src/mdl/jit/llvm/dist/lib/Support/CMakeFiles/LLVMSupport.dir/Twine.cpp.o"
+  "/Users/noisyedge/Projects/mdl-source/MDL-SDK/src/mdl/jit/llvm/dist/lib/Support/Unicode.cpp" "/Users/noisyedge/Projects/mdl-source/MDL-SDK/build_ninja/src/mdl/jit/llvm/dist/lib/Support/CMakeFiles/LLVMSupport.dir/Unicode.cpp.o"
+  "/Users/noisyedge/Projects/mdl-source/MDL-SDK/src/mdl/jit/llvm/dist/lib/Support/UnicodeCaseFold.cpp" "/Users/noisyedge/Projects/mdl-source/MDL-SDK/build_ninja/src/mdl/jit/llvm/dist/lib/Support/CMakeFiles/LLVMSupport.dir/UnicodeCaseFold.cpp.o"
+  "/Users/noisyedge/Projects/mdl-source/MDL-SDK/src/mdl/jit/llvm/dist/lib/Support/Valgrind.cpp" "/Users/noisyedge/Projects/mdl-source/MDL-SDK/build_ninja/src/mdl/jit/llvm/dist/lib/Support/CMakeFiles/LLVMSupport.dir/Valgrind.cpp.o"
+  "/Users/noisyedge/Projects/mdl-source/MDL-SDK/src/mdl/jit/llvm/dist/lib/Support/VersionTuple.cpp" "/Users/noisyedge/Projects/mdl-source/MDL-SDK/build_ninja/src/mdl/jit/llvm/dist/lib/Support/CMakeFiles/LLVMSupport.dir/VersionTuple.cpp.o"
+  "/Users/noisyedge/Projects/mdl-source/MDL-SDK/src/mdl/jit/llvm/dist/lib/Support/Watchdog.cpp" "/Users/noisyedge/Projects/mdl-source/MDL-SDK/build_ninja/src/mdl/jit/llvm/dist/lib/Support/CMakeFiles/LLVMSupport.dir/Watchdog.cpp.o"
+  "/Users/noisyedge/Projects/mdl-source/MDL-SDK/src/mdl/jit/llvm/dist/lib/Support/WithColor.cpp" "/Users/noisyedge/Projects/mdl-source/MDL-SDK/build_ninja/src/mdl/jit/llvm/dist/lib/Support/CMakeFiles/LLVMSupport.dir/WithColor.cpp.o"
+  "/Users/noisyedge/Projects/mdl-source/MDL-SDK/src/mdl/jit/llvm/dist/lib/Support/YAMLParser.cpp" "/Users/noisyedge/Projects/mdl-source/MDL-SDK/build_ninja/src/mdl/jit/llvm/dist/lib/Support/CMakeFiles/LLVMSupport.dir/YAMLParser.cpp.o"
+  "/Users/noisyedge/Projects/mdl-source/MDL-SDK/src/mdl/jit/llvm/dist/lib/Support/YAMLTraits.cpp" "/Users/noisyedge/Projects/mdl-source/MDL-SDK/build_ninja/src/mdl/jit/llvm/dist/lib/Support/CMakeFiles/LLVMSupport.dir/YAMLTraits.cpp.o"
+  "/Users/noisyedge/Projects/mdl-source/MDL-SDK/src/mdl/jit/llvm/dist/lib/Support/circular_raw_ostream.cpp" "/Users/noisyedge/Projects/mdl-source/MDL-SDK/build_ninja/src/mdl/jit/llvm/dist/lib/Support/CMakeFiles/LLVMSupport.dir/circular_raw_ostream.cpp.o"
+  "/Users/noisyedge/Projects/mdl-source/MDL-SDK/src/mdl/jit/llvm/dist/lib/Support/raw_os_ostream.cpp" "/Users/noisyedge/Projects/mdl-source/MDL-SDK/build_ninja/src/mdl/jit/llvm/dist/lib/Support/CMakeFiles/LLVMSupport.dir/raw_os_ostream.cpp.o"
+  "/Users/noisyedge/Projects/mdl-source/MDL-SDK/src/mdl/jit/llvm/dist/lib/Support/raw_ostream.cpp" "/Users/noisyedge/Projects/mdl-source/MDL-SDK/build_ninja/src/mdl/jit/llvm/dist/lib/Support/CMakeFiles/LLVMSupport.dir/raw_ostream.cpp.o"
+  "/Users/noisyedge/Projects/mdl-source/MDL-SDK/src/mdl/jit/llvm/dist/lib/Support/xxhash.cpp" "/Users/noisyedge/Projects/mdl-source/MDL-SDK/build_ninja/src/mdl/jit/llvm/dist/lib/Support/CMakeFiles/LLVMSupport.dir/xxhash.cpp.o"
+  )
+set(CMAKE_CXX_COMPILER_ID "GNU")
+
+# Preprocessor definitions for this target.
+set(CMAKE_TARGET_DEFINITIONS_CXX
+  "GTEST_HAS_RTTI=0"
+  "MI_BUILDING_LLVM"
+  "_REENTRANT"
+  "__STDC_CONSTANT_MACROS"
+  "__STDC_FORMAT_MACROS"
+  "__STDC_LIMIT_MACROS"
+  "__USE_XOPEN2K8"
+  )
+
+# The include file search paths:
+set(CMAKE_CXX_TARGET_INCLUDE_PATH
+  "src/mdl/jit/llvm/dist/lib/Support"
+  "../src/mdl/jit/llvm/dist/lib/Support"
+  "src/mdl/jit/llvm/dist/include"
+  "../src/mdl/jit/llvm/dist/include"
+  )
+
+# Targets to which this target links.
+set(CMAKE_TARGET_LINKED_INFO_FILES
+  )
+
+# Fortran module output directory.
+set(CMAKE_Fortran_TARGET_MODULE_DIR "")

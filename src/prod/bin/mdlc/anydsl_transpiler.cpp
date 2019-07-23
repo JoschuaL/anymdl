@@ -10,7 +10,7 @@
 #include <mi/base/handle.h>
 #include <mi/mdl/mdl_code_generators.h>
 
-#include <mdl/codegenerators/generator_code/generator_code_hash.h>
+
 #include <mdl/compiler/compilercore/compilercore_cc_conf.h>
 #include <mdl/compiler/compilercore/compilercore_file_resolution.h>
 #include <mdl/compiler/compilercore/compilercore_mdl.h>

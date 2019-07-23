@@ -1,0 +1,2 @@
+/usr/bin/ar qc libbase-hal-time.a  CMakeFiles/base-hal-time.dir/time.cpp.o
+/usr/bin/ranlib libbase-hal-time.a

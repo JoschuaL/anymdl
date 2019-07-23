@@ -1,0 +1,46 @@
+#IncludeRegexLine: ^[ 	]*[#%][ 	]*(include|import)[ 	]*[<"]([^">]+)([">])
+
+#IncludeRegexScan: ^.*$
+
+#IncludeRegexComplain: ^$
+
+#IncludeRegexTransform: 
+
+/Users/noisyedge/Projects/mdl-source/MDL-SDK/src/base/util/registry/config_registry_impl.cpp
+pch.h
+/Users/noisyedge/Projects/mdl-source/MDL-SDK/src/base/util/registry/pch.h
+config_registry_impl.h
+/Users/noisyedge/Projects/mdl-source/MDL-SDK/src/base/util/registry/config_registry_impl.h
+base/util/string_utils/i_string_lexicographic_cast.h
+-
+cctype
+-
+ostream
+-
+vector
+-
+
+/Users/noisyedge/Projects/mdl-source/MDL-SDK/src/base/util/registry/config_registry_impl.h
+i_config_registry.h
+/Users/noisyedge/Projects/mdl-source/MDL-SDK/src/base/util/registry/i_config_registry.h
+base/system/stlext/i_stlext_any.h
+-
+map
+-
+string
+-
+
+/Users/noisyedge/Projects/mdl-source/MDL-SDK/src/base/util/registry/i_config_registry.h
+base/util/string_utils/i_string_lexicographic_cast.h
+-
+base/system/stlext/i_stlext_any.h
+-
+iosfwd
+-
+map
+-
+string
+-
+
+src/base/util/registry/pch.h
+

@@ -1,0 +1,2 @@
+/usr/bin/ar qc libbase-lib-mem.a  CMakeFiles/base-lib-mem.dir/mem.cpp.o CMakeFiles/base-lib-mem.dir/mem_debug_alloc.cpp.o
+/usr/bin/ranlib libbase-lib-mem.a

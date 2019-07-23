@@ -1,0 +1,2 @@
+/usr/bin/ar qc libbase-hal-hal.a  CMakeFiles/base-hal-hal.dir/hal.cpp.o CMakeFiles/base-hal-hal.dir/hal_color.cpp.o CMakeFiles/base-hal-hal.dir/hal_ospath.cpp.o
+/usr/bin/ranlib libbase-hal-hal.a

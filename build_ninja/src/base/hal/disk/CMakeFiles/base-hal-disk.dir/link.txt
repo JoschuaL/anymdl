@@ -1,0 +1,2 @@
+/usr/bin/ar qc libbase-hal-disk.a  CMakeFiles/base-hal-disk.dir/disk.cpp.o CMakeFiles/base-hal-disk.dir/diskdirectory.cpp.o CMakeFiles/base-hal-disk.dir/diskfile.cpp.o CMakeFiles/base-hal-disk.dir/disk_file_reader_writer_impl.cpp.o CMakeFiles/base-hal-disk.dir/disk_memory_reader_writer_impl.cpp.o CMakeFiles/base-hal-disk.dir/disk_zip_file.cpp.o
+/usr/bin/ranlib libbase-hal-disk.a
