@@ -1,0 +1,2666 @@
+static pi = 3.14159265358979323846f;
+static half_pi = 1.57079632679489661923f;
+static two_pi = 6.28318530717958647692f;
+
+
+
+
+
+fn @make_mdl_math(math: Intrinsics) -> mdl_math{
+    let abs__int = @|a:int|{if(a < 0) {-a} else {a}};
+    let abs__float = @|a:float|{math.fabsf(a)};
+    let abs__double = @|a:double|{math.fabs(a)};
+    let acos__float = @|a:float|{math.acosf(a)};
+    let acos__double = @|a:double|{math.acos(a)};
+    let asin__float = @|a:float|{math.asinf(a)};
+    let asin__double = @|a:double|{math.asin(a)};
+    let atan__float = @|a:float|{math.atanf(a)};
+    let atan__double = @|a:double|{math.atan(a)};
+    let atan2__float_float = @|a:float, b:float|{math.atan2f(a,b)};
+    let atan2__double_double = @|a:double, b:double|{math.atan2(a,b)};
+    let average__float = @|a:float|{a};
+    let ceil__float = @|a:float|{math.floorf(a + 1.0f)};
+    let ceil__double = @|a:double|{math.floor(a + 1.0)};
+    let clamp__int_int_int = @|a:int, b:int, c:int|{math.min(c, math.max(b, a))};
+    let clamp__float_float_float = @|a:float, b:float, c:float|{math.fminf(c, math.fmaxf(b, a))};
+    let clamp__double_double_double = @|a:double, b:double, c:double|{math.fmin(c, math.fmax(b, a))};
+    let cos__float = @|a:float|{math.cosf(a)};
+    let cos__double = @|a:double|{math.cos(a)};
+    let degrees__float = @|a:float|{a * 180.0f / pi};
+    let degrees__double = @|a:double|{a * 180.0 / pi as double};
+    let exp__float = @|a:float|{math.expf(a)};
+    let exp__double = @|a:double|{math.exp(a)};
+    let exp2__float = @|a:float|{math.exp2f(a)};
+    let exp2__double = @|a:double|{math.exp2(a)};
+    let floor__float = @|a:float|{math.floorf(a)};
+    let floor__double = @|a:double|{math.floor(a)};
+    let frac__float = @|a:float|{math.fabsf(a - ((a as i32) as f32))};
+    let frac__double = @|a:double|{math.fabs(a - ((a as i64) as f64))};
+    let isnan__float = @|a:float|{math.isnanf(a) as bool};
+    let isnan__double = @|a:double|{math.isnan(a) as bool};
+    let isfinite__float = @|a:float|{math.isfinitef(a) as bool};
+    let isfinite__double = @|a:double|{math.isfinite(a) as bool};
+    let lerp__float_float_float = @|a: float, b: float, l:float|{
+        a * (1.0f - l) + b * l
+    };
+    let lerp__double_double_double = @|a: double, b: double, l:double|{
+        a * (1.0 - l) + b * l
+    };
+    let log__float = @|a:float|{math.logf(a)};
+    let log__double = @|a:double|{math.log(a)};
+    let log2__float = @|a:float|{math.log2f(a)};
+    let log2__double = @|a:double|{math.log2(a)};
+    let modf__float = @|a:float|{
+        let integ = (a as i32) as f32;
+        float2{
+            x: integ,
+            y: a - integ
+        }
+    };
+    let modf__double = @|a:double|{
+        let integ = (a as i64) as f64;
+        double2{
+            x: integ,
+            y: a - integ
+        }
+    };
+    let pow__int_int = @|a:int, b:int|{math.powf(a as float,b as float) as int};
+    let pow__float_float = @|a:float, b:float|{math.powf(a,b)};
+    let pow__double_double = @|a:double, b:double|{math.pow(a,b)};
+    let radians__float = @|a:float|{pi * a / 180.0f};
+    let radians__double = @|a:double|{pi as double * a / 180.0};
+    let round__double = @|a:double|{
+        let floor = floor__double(a);
+        let l = a-floor;
+        let h = floor + 1.0 - a;
+        if(l < h){l} else {h}
+    };
+
+    let round__float = @|a:float|{
+        let floor = floor__float(a);
+        let l = a-floor;
+        let h = floor + 1.0f - a;
+        if(l < h){l} else {h}
+    };
+
+    let rsqrt__float = @|a:float|{math.rsqrtf(a)};
+
+    let rsqrt__double = @|a:double|{math.rsqrt(a)};
+
+    let saturate__float = @|a:float|{clamp__float_float_float(a, 0.0f,1.0f)};
+    let saturate__double = @|a:double|{clamp__double_double_double(a, 0.0, 1.0)};
+    let sign__int = @|a:int|{if(a > 0) {1} else if(a < 0) {-1} else {0}};
+    let sign__float = @|a:float|{if(a > 0.0f) {1.0f} else if(a < 0.0f) {-1.0f} else {0.0f}};
+    let sign__double = @|a:double|{if(a > 0.0) {1.0} else if(a < 0.0) {-1.0} else {0.0}};
+    let sin__float = @|a:float|{math.sinf(a)};
+    let sin__double = @|a:double|{math.sin(a)};
+    let sincos__float = @|a:float|{float2{x: math.sinf(a), y: math.cosf(a)}};
+    let sincos__double = @|a:double|{double2{x: math.sin(a), y: math.cos(a)}};
+
+    let smoothstep__float_float_float = @|a:float, b:float, l:float|{
+        let t = clamp__float_float_float((l - a) / (b - a), 0.0f, 1.0f);
+        t * t * (3.0f - 2.0f * t)
+    };
+
+    let smoothstep__double_double_double = @|a:double, b:double, l:double|{
+        let t = clamp__double_double_double((l - a) / (b - a), 0.0, 1.0);
+        t * t * (3.0 - 2.0 * t)
+    };
+
+ 
+
+    let step__float_float = @|a:float, b:float|{if(b < a) {0.0f} else {1.0f}};
+
+    let step__double_double = @|a:double, b:double|{if(b < a) {0.0} else {1.0}};
+
+    let tan__double = @|a:double|{math.tan(a)};
+
+    let tan__float = @|a:float|{math.tanf(a)};
+
+    let sqrt__float = @|a:float|{math.sqrtf(a)};
+
+    let sqrt__double = @|a:double|{math.sqrt(a)};
+
+    let fmod__float_float = @|a:float, b:float|{math.fmodf(a,b)};
+
+    let fmod__double_double = @|a:double, b:double|{math.fmod(a,b)};
+
+    let max__int_int = @|a:int, b:int|{math.max(a,b)};
+
+    let max__float_float = @|a:float, b:float|{math.fmaxf(a,b)};
+
+    let max__double_double = @|a:double, b:double|{math.fmax(a,b)};
+
+    let min__int_int = @|a:int, b:int|{math.min(a,b)};
+
+    let min__float_float = @|a:float, b:float|{math.fminf(a,b)};
+
+    let min__double_double = @|a:double, b:double|{math.fmin(a,b)};
+
+    mdl_math{
+    PI: pi,
+    TWO_PI : two_pi,
+    HALF_PI: half_pi,
+    
+abs__int: @|a:int|{if(a < 0) {-a} else {a}},
+
+
+
+abs__int2: @|a:int2|{int2_map(a, abs__int)},
+
+
+
+abs__int3: @|a:int3|{int3_map(a, abs__int)},
+
+abs__int4: @|a:int4|{int4_map(a, abs__int)},
+
+
+
+abs__float: @|a:float|{math.fabsf(a)},
+
+
+
+abs__float2: @|a:float2|{float2_map(a, abs__float)},
+
+
+
+abs__float3: @|a:float3|{float3_map(a, abs__float)},
+
+
+
+abs__float4: @|a:float4|{float4_map(a, abs__float)},
+
+abs__double: @|a:double|{math.fabs(a)},
+
+abs__double2: @|a:double2|{double2_map(a, abs__double)},
+
+
+
+abs__double3: @|a:double3|{double3_map(a, abs__double)},
+
+
+
+abs__double4: @|a:double4|{double4_map(a, abs__double)},
+
+
+
+abs__color: @|c:color|{color_map(c, abs__float)},
+
+
+
+acos__float: @|a:float|{math.acosf(a)},
+
+
+
+acos__float2: @|a:float2|{float2_map(a,acos__float)},
+
+
+
+acos__float3: @|a:float3|{float3_map(a,acos__float)},
+
+
+
+acos__float4: @|a:float4|{float4_map(a,acos__float)},
+
+
+
+acos__double: @|a:double|{math.acos(a)},
+
+
+
+acos__double2: @|a:double2|{double2_map(a, acos__double)},
+
+
+
+acos__double3: @|a:double3|{double3_map(a, acos__double)},
+
+
+
+acos__double4: @|a:double4|{double4_map(a, acos__double)},
+
+
+
+all__bool: @|b:bool|{b},
+
+
+
+all__bool2: @|b:bool2|{b.x && b.y},
+
+
+
+all__bool3: @|b:bool3|{b.x && b.y && b.x},
+
+
+
+all__bool4: @|b:bool4|{b.x && b.y && b.z && b.w},
+
+
+
+any__bool: @|b:bool|{b},
+
+
+
+any__bool2: @|b:bool2|{b.x || b.y},
+
+
+
+any__bool3: @|b:bool3|{b.x || b.y || b.z},
+
+
+
+any__bool4: @|b:bool4|{b.x || b.y || b.z || b.w},
+
+
+
+asin__float: @|a:float|{math.asinf(a)},
+
+
+
+asin__float2: @|a:float2|{float2_map(a, asin__float)},
+
+
+
+asin__float3: @|a:float3|{float3_map(a, asin__float)},
+
+
+
+asin__float4: @|a:float4|{float4_map(a, asin__float)},
+
+
+
+asin__double: @|a:double|{math.asin(a)},
+
+
+
+asin__double2: @|a:double2|{double2_map(a, asin__double)},
+
+
+
+asin__double3: @|a:double3|{double3_map(a, asin__double)},
+
+
+
+asin__double4: @|a:double4|{double4_map(a, asin__double)},
+
+
+
+
+atan__float: @|a:float|{math.atanf(a)},
+
+
+
+atan__float2: @|a:float2|{float2_map(a, atan__float)},
+
+
+
+atan__float3: @|a:float3|{float3_map(a, atan__float)},
+
+
+
+atan__float4: @|a:float4|{float4_map(a, atan__float)},
+
+
+
+atan__double: @|a:double|{math.atan(a)},
+
+
+
+atan__double2: @|a:double2|{double2_map(a, atan__double)},
+
+
+
+atan__double3: @|a:double3|{double3_map(a, atan__double)},
+
+
+
+atan__double4: @|a:double4|{double4_map(a, atan__double)},
+
+
+
+atan2__float_float: @|a:float, b:float|{math.atan2f(a,b)},
+
+
+
+atan2__float2_float2: @|a:float2, b:float2|{float2_zip(a,b,atan2__float_float)},
+
+
+
+atan2__float3_float3: @|a:float3, b:float3|{float3_zip(a,b,atan2__float_float)},
+
+
+
+atan2__float4_float4: @|a:float4, b:float4|{float4_zip(a,b,atan2__float_float)},
+
+
+
+atan2__double_double: @|a:double, b:double|{math.atan2(a,b)},
+
+
+
+atan2__double2_double2: @|a:double2, b:double2|{double2_zip(a, b, atan2__double_double)},
+
+
+
+atan2__double3_double3: @|a:double3, b:double3|{double3_zip(a, b, atan2__double_double)},
+
+
+
+atan2__double4_double4: @|a:double4, b:double4|{double4_zip(a, b, atan2__double_double)},
+
+
+
+
+average__float: @|a:float|{a},
+
+
+
+average__float2: @|a:float2|{(a.x + a.y) / 2.0f},
+
+
+
+average__float3: @|a:float3|{(a.x + a.y + a.z) / 3.0f},
+
+
+
+average__float4: @|a:float4|{(a.x + a.y + a.z + a.w) / 4.0f},
+
+
+
+average__double: @|a:double|{a},
+
+
+
+average__double2: @|a:double2|{(a.x + a.y) / 2.0},
+
+
+
+average__double3: @|a:double3|{(a.x + a.y + a.z) / 3.0},
+
+
+
+average__double4: @|a:double4|{(a.x + a.y + a.z + a.w) / 4.0},
+
+
+
+average__color: @|c:color|{(c.r + c.g + c.b) / 3.0f},
+
+
+
+ceil__float: @|a:float|{math.floorf(a + 1.0f)},
+
+
+
+ceil__float2: @|a:float2|{float2_map(a, ceil__float)},
+
+
+
+ceil__float3: @|a:float3|{float3_map(a, ceil__float)},
+
+
+
+ceil__float4: @|a:float4|{float4_map(a, ceil__float)},
+
+
+
+ceil__double: @|a:double|{math.floor(a + 1.0)},
+
+
+
+ceil__double2: @|a:double2|{double2_map(a, ceil__double)},
+
+
+
+ceil__double3: @|a:double3|{double3_map(a, ceil__double)},
+
+
+
+ceil__double4: @|a:double4|{double4_map(a, ceil__double)},
+
+
+
+
+clamp__int_int_int: @|a:int, b:int, c:int|{math.min(c, math.max(b, a))},
+
+
+
+clamp__int2_int2_int2: @|a:int2, b:int2, c:int2|{int2_zip(int2_zip(b, a, math.max), c, math.min)},
+
+
+
+clamp__int3_int3_int3: @|a:int3, b:int3, c:int3|{int3_zip(int3_zip(b, a, math.max), c, math.min)},
+
+
+
+clamp__int4_int4_int4: @|a:int4, b:int4, c:int4|{int4_zip(int4_zip(b, a, math.max), c, math.min)},
+
+
+
+clamp__float_float_float: @|a:float, b:float, c:float|{math.fminf(c, math.fmaxf(b, a))},
+
+
+
+clamp__float2_float2_float2: @|a:float2, b:float2, c:float2|{float2_zip(float2_zip(b, a, math.fmaxf), c, math.fminf)},
+
+
+
+clamp__float3_float3_float3: @|a:float3, b:float3, c:float3|{float3_zip(float3_zip(b, a, math.fmaxf), c, math.fminf)},
+
+
+
+clamp__float4_float4_float4: @|a:float4, b:float4, c:float4|{float4_zip(float4_zip(b, a, math.fmaxf), c, math.fminf)},
+
+
+
+clamp__double_double_double: @|a:double, b:double, c:double|{math.fmin(c, math.fmax(b, a))},
+
+
+
+clamp__double2_double2_double2: @|a:double2, b:double2, c:double2|{double2_zip(double2_zip(b, a, math.fmax), c, math.fmin)},
+
+
+
+clamp__double3_double3_double3: @|a:double3, b:double3, c:double3|{double3_zip(double3_zip(b, a, math.fmax), c, math.fmin)},
+
+
+
+clamp__double4_double4_double4: @|a:double4, b:double4, c:double4|{double4_zip(double4_zip(b, a, math.fmax), c, math.fmin)},
+
+
+
+clamp__color_color_color: @|a:color, b:color, c:color|{color_zip(color_zip(b, a, math.fmaxf), c, math.fminf)},
+
+
+
+clamp__int2_int2_int: @|a:int2, b:int2, c:int|{int2_zip(int2_zip(b, a, math.max), make_int2(c,c), math.min)},
+
+
+
+clamp__int2_int_int2: @|a:int2, b:int, c:int2|{int2_zip(int2_zip(make_int2(b,b), a, math.max), c, math.min)},
+
+
+
+clamp__int2_int_int: @|a:int2, b:int, c:int|{int2_zip(int2_zip(make_int2(b,b), a, math.max), make_int2(c,c), math.min)},
+
+
+
+clamp__int3_int3_int: @|a:int3, b:int3, c:int|{int3_zip(int3_zip(b, a, math.max), make_int3(c,c,c), math.min)},
+
+clamp__int3_int_int3: @|a:int3, b:int, c:int3|{int3_zip(int3_zip(make_int3(b,b,b), a, math.max), c, math.min)},
+
+clamp__int3_int_int: @|a:int3, b:int, c:int|{int3_zip(int3_zip(make_int3(b,b,b), a, math.max), make_int3(c,c,c), math.min)},
+
+
+
+
+clamp__int4_int4_int: @|a:int4, b:int4, c:int|{int4_zip(int4_zip(b, a, math.max), make_int4(c,c,c,c), math.min)},
+
+clamp__int4_int_int4: @|a:int4, b:int, c:int4|{int4_zip(int4_zip(make_int4(b,b,b,b), a, math.max), c, math.min)},
+
+clamp__int4_int_int: @|a:int4, b:int, c:int|{int4_zip(int4_zip(make_int4(b,b,b,b), a, math.max), make_int4(c,c,c,c), math.min)},
+
+
+
+clamp__float2_float2_float: @|a:float2, b:float2, c:float|{float2_zip(float2_zip(b, a, math.fmaxf), make_float2(c,c), math.fminf)},
+
+
+
+clamp__float2_float_float2: @|a:float2, b:float, c:float2|{float2_zip(float2_zip(make_float2(b,b), a, math.fmaxf), c, math.fminf)},
+
+
+
+clamp__float2_float_float: @|a:float2, b:float, c:float|{float2_zip(float2_zip(make_float2(b,b), a, math.fmaxf), make_float2(c,c), math.fminf)},
+
+
+
+clamp__float3_float3_float: @|a:float3, b:float3, c:float|{float3_zip(float3_zip(b, a, math.fmaxf), make_float3(c,c,c), math.fminf)},
+
+clamp__float3_float_float3: @|a:float3, b:float, c:float3|{float3_zip(float3_zip(make_float3(b,b,b), a, math.fmaxf), c, math.fminf)},
+
+clamp__float3_float_float: @|a:float3, b:float, c:float|{float3_zip(float3_zip(make_float3(b,b,b), a, math.fmaxf), make_float3(c,c,c), math.fminf)},
+
+
+
+
+clamp__float4_float4_float: @|a:float4, b:float4, c:float|{float4_zip(float4_zip(b, a, math.fmaxf), make_float4(c,c,c,c), math.fminf)},
+
+clamp__float4_float_float4: @|a:float4, b:float, c:float4|{float4_zip(float4_zip(make_float4(b,b,b,b), a, math.fmaxf), c, math.fminf)},
+
+clamp__float4_float_float: @|a:float4, b:float, c:float|{float4_zip(float4_zip(make_float4(b,b,b,b), a, math.fmaxf), make_float4(c,c,c,c), math.fminf)},
+
+
+
+
+clamp__color_color_float: @|a:color, b:color, c:float|{color_zip(color_zip(b, a, math.fmaxf), make_color(c,c,c), math.fminf)},
+
+clamp__color_float_color: @|a:color, b:float, c:color|{color_zip(color_zip(make_color(b,b,b), a, math.fmaxf), c, math.fminf)},
+
+clamp__color_float_float: @|a:color, b:float, c:float|{color_zip(color_zip(make_color(b,b,b), a, math.fmaxf), make_color(c,c,c), math.fminf)},
+
+
+
+clamp__double2_double2_double: @|a:double2, b:double2, c:double|{double2_zip(double2_zip(b, a, math.fmax), make_double2(c,c), math.fmin)},
+
+
+
+clamp__double2_double_double2: @|a:double2, b:double, c:double2|{double2_zip(double2_zip(make_double2(b,b), a, math.fmax), c, math.fmin)},
+
+
+
+clamp__double2_double_double: @|a:double2, b:double, c:double|{double2_zip(double2_zip(make_double2(b,b), a, math.fmax), make_double2(c,c), math.fmin)},
+
+
+
+clamp__double3_double3_double: @|a:double3, b:double3, c:double|{double3_zip(double3_zip(b, a, math.fmax), make_double3(c,c,c), math.fmin)},
+
+clamp__double3_double_double3: @|a:double3, b:double, c:double3|{double3_zip(double3_zip(make_double3(b,b,b), a, math.fmax), c, math.fmin)},
+
+clamp__double3_double_double: @|a:double3, b:double, c:double|{double3_zip(double3_zip(make_double3(b,b,b), a, math.fmax), make_double3(c,c,c), math.fmin)},
+
+
+
+
+clamp__double4_double4_double: @|a:double4, b:double4, c:double|{double4_zip(double4_zip(b, a, math.fmax), make_double4(c,c,c,c), math.fmin)},
+
+clamp__double4_double_double4: @|a:double4, b:double, c:double4|{double4_zip(double4_zip(make_double4(b,b,b,b), a, math.fmax), c, math.fmin)},
+
+clamp__double4_double_double: @|a:double4, b:double, c:double|{double4_zip(double4_zip(make_double4(b,b,b,b), a, math.fmax), make_double4(c,c,c,c), math.fmin)},
+
+
+
+
+
+cos__float: @|a:float|{math.cosf(a)},
+
+
+
+cos__float2: @|a:float2|{float2_map(a, cos__float)},
+
+
+
+cos__float3: @|a:float3|{float3_map(a, cos__float)},
+
+
+
+cos__float4: @|a:float4|{float4_map(a, cos__float)},
+
+
+
+cos__double: @|a:double|{math.cos(a)},
+
+
+
+cos__double2: @|a:double2|{double2_map(a, cos__double)},
+
+
+
+cos__double3: @|a:double3|{double3_map(a, cos__double)},
+
+
+
+cos__double4: @|a:double4|{double4_map(a, cos__double)},
+
+
+
+cross__float3_float3: @|a:float3, b:float3|{
+    make_float3(a.y * b.z - a.z * b.y, a.z * b.x - a.x * b.z, a.x * b.y - a.y * b.x)
+},
+
+
+
+cross__double3_double3: @|a:double3, b:double3|{
+    make_double3(a.y * b.z - a.z * b.y, a.z * b.x - a.x * b.z, a.x * b.y - a.y * b.x)
+},
+
+
+
+degrees__float: @|a:float|{a * 180.0f / pi},
+
+
+
+degrees__float2: @|a:float2|{float2_map(a, degrees__float)},
+
+
+
+degrees__float3: @|a:float3|{float3_map(a, degrees__float)},
+
+
+
+degrees__float4: @|a:float4|{float4_map(a, degrees__float)},
+
+
+
+degrees__double: @|a:double|{a * 180.0 / pi as double},
+
+
+
+degrees__double2: @|a:double2|{double2_map(a, degrees__double)},
+
+
+
+degrees__double3: @|a:double3|{double3_map(a, degrees__double)},
+
+
+
+degrees__double4: @|a:double4|{double4_map(a, degrees__double)},
+
+
+
+distance__float_float: @|a:float, b:float|{math.fabsf(b - a)},
+
+
+
+distance__float2_float2: @|a: float2, b:float2|{
+    math.sqrtf(math.powf(b.x - a.x, 2.0f) + math.powf(b.y - a.y, 2.0f))
+},
+
+
+
+distance__float3_float3: @|a: float3, b:float3|{
+    math.sqrtf(math.powf(b.x - a.x, 2.0f) + math.powf(b.y - a.y, 2.0f) + math.powf(b.z - a.z, 2.0f))
+},
+
+
+
+distance__float4_float4: @|a: float4, b:float4|{
+    math.sqrtf(math.powf(b.x - a.x, 2.0f) + math.powf(b.y - a.y, 2.0f) + math.powf(b.z - a.z, 2.0f) + math.powf(b.w - a.w, 2.0f))
+},
+
+
+
+distance__double_double: @|a:double, b:double|{math.fabs(b - a)},
+
+
+
+distance__double2_double2: @|a: double2, b:double2|{
+    math.sqrt(math.pow(b.x - a.x, 2.0) + math.pow(b.y - a.y, 2.0))
+},
+
+
+
+distance__double3_double3: @|a: double3, b:double3|{
+    math.sqrt(math.pow(b.x - a.x, 2.0) + math.pow(b.y - a.y, 2.0) + math.pow(b.z - a.z, 2.0))
+},
+
+
+
+distance__double4_double4: @|a: double4, b:double4|{
+    math.sqrt(math.pow(b.x - a.x, 2.0) + math.pow(b.y - a.y, 2.0) + math.pow(b.z - a.z, 2.0) + math.pow(b.w - a.w, 2.0))
+},
+
+
+
+dot__float_float: @|a:float, b:float|{a * b},
+
+
+
+dot__float2_float2: @|a:float2, b:float2|{a.x * b.x + a.y * b.y},
+
+
+
+dot__float3_float3: @|a:float3, b:float3|{a.x * b.x + a.y * b.y + a.z * b.z},
+
+
+
+dot__float4_float4: @|a:float4, b:float4|{a.x * b.x + a.y * b.y + a.z * b.z + a.w * b.w},
+
+
+
+dot__double_double: @|a:double, b:double|{a * b},
+
+
+
+dot__double2_double2: @|a:double2, b:double2|{a.x * b.x + a.y * b.y},
+
+
+
+dot__double3_double3: @|a:double3, b:double3|{a.x * b.x + a.y * b.y + a.z * b.z},
+
+
+
+dot__double4_double4: @|a:double4, b:double4|{a.x * b.x + a.y * b.y + a.z * b.z + a.w * b.w},
+
+
+// TODO
+eval_at_wavelength__color_float: @|a:color, b:float|{0.0f},
+
+
+
+exp__float: @|a:float|{math.expf(a)},
+
+
+
+exp__float2: @|a:float2|{float2_map(a, exp__float)},
+
+
+
+exp__float3: @|a:float3|{float3_map(a, exp__float)},
+
+
+
+exp__float4: @|a:float4|{float4_map(a, exp__float)},
+
+
+
+exp__double: @|a:double|{math.exp(a)},
+
+
+
+exp__double2: @|a:double2|{double2_map(a, exp__double)},
+
+
+
+exp__double3: @|a:double3|{double3_map(a, exp__double)},
+
+
+
+exp__double4: @|a:double4|{double4_map(a, exp__double)},
+
+
+
+exp__color: @|c:color|{color_map(c, exp__float)},
+
+
+
+exp2__float: @|a:float|{math.exp2f(a)},
+
+
+
+exp2__float2: @|a:float2|{float2_map(a, exp2__float)},
+
+
+
+exp2__float3: @|a:float3|{float3_map(a, exp2__float)},
+
+
+
+exp2__float4: @|a:float4|{float4_map(a, exp2__float)},
+
+
+
+exp2__double: @|a:double|{math.exp2(a)},
+
+
+
+exp2__double2: @|a:double2|{double2_map(a, exp2__double)},
+
+
+
+exp2__double3: @|a:double3|{double3_map(a, exp2__double)},
+
+
+
+exp2__double4: @|a:double4|{double4_map(a, exp2__double)},
+
+
+
+exp2__color: @|c:color|{color_map(c, exp2__float)},
+
+
+
+floor__float: @|a:float|{math.floorf(a)},
+
+
+
+floor__float2: @|a:float2|{float2_map(a, floor__float)},
+
+
+
+floor__float3: @|a:float3|{float3_map(a, floor__float)},
+
+
+
+floor__float4: @|a:float4|{float4_map(a, floor__float)},
+
+
+
+floor__double: @|a:double|{math.floor(a)},
+
+
+
+floor__double2: @|a:double2|{double2_map(a, floor__double)},
+
+
+
+floor__double3: @|a:double3|{double3_map(a, floor__double)},
+
+
+
+floor__double4: @|a:double4|{double4_map(a, floor__double)},
+
+
+
+fmod__float_float: @|a:float, b:float|{math.fmodf(a,b)},
+
+
+
+fmod__float2_float2: @|a:float2, b:float2|{float2_zip(a,b,fmod__float_float)},
+
+
+
+fmod__float3_float3: @|a:float3, b:float3|{float3_zip(a,b,fmod__float_float)},
+
+
+
+fmod__float4_float4: @|a:float4, b:float4|{float4_zip(a,b,fmod__float_float)},
+
+
+
+fmod__double_double: @|a:double, b:double|{math.fmod(a,b)},
+
+
+
+fmod__double2_double2: @|a:double2, b:double2|{double2_zip(a,b,fmod__double_double)},
+
+
+
+fmod__double3_double3: @|a:double3, b:double3|{double3_zip(a,b,fmod__double_double)},
+
+
+
+fmod__double4_double4: @|a:double4, b:double4|{double4_zip(a,b,fmod__double_double)},
+
+
+
+
+fmod__float2_float: @|a:float2, b:float|{float2_zip(a,make_float2(b,b),fmod__float_float)},
+
+
+
+fmod__float3_float: @|a:float3, b:float|{float3_zip(a,make_float3(b,b,b),fmod__float_float)},
+
+
+
+fmod__float4_float: @|a:float4, b:float|{float4_zip(a,make_float4(b,b,b,b),fmod__float_float)},
+
+
+
+
+
+
+fmod__double2_double: @|a:double2, b:double|{double2_zip(a,make_double2(b,b),fmod__double_double)},
+
+
+
+fmod__double3_double: @|a:double3, b:double|{double3_zip(a,make_double3(b,b,b),fmod__double_double)},
+
+
+
+fmod__double4_double: @|a:double4, b:double|{double4_zip(a,make_double4(b,b,b,b),fmod__double_double)},
+
+
+frac__float: @|a:float|{math.fabsf(a - ((a as i32) as f32))},
+
+
+
+frac__float2: @|a:float2|{float2_map(a, frac__float)},
+
+
+
+frac__float3: @|a:float3|{float3_map(a, frac__float)},
+
+
+
+frac__float4: @|a:float4|{float4_map(a, frac__float)},
+
+
+
+frac__double: @|a:double|{math.fabs(a - ((a as i64) as f64))},
+
+
+
+frac__double2: @|a:double2|{double2_map(a, frac__double)},
+
+
+
+frac__double3: @|a:double3|{double3_map(a, frac__double)},
+
+
+
+frac__double4: @|a:double4|{double4_map(a, frac__double)},
+
+
+
+
+isnan__float: @|a:float|{math.isnanf(a) as bool},
+
+
+
+isnan__float2: @|a:float2|{make_bool2(isnan__float(a.x), isnan__float(a.y))},
+
+
+
+isnan__float3: @|a:float3|{make_bool3(isnan__float(a.x), isnan__float(a.y), isnan__float(a.z))},
+
+
+
+isnan__float4: @|a:float4|{make_bool4(isnan__float(a.x), isnan__float(a.y), isnan__float(a.z), isnan__float(a.w))},
+
+
+
+isnan__double: @|a:double|{math.isnan(a) as bool},
+
+
+
+isnan__double2: @|a:double2|{make_bool2(isnan__double(a.x), isnan__double(a.y))},
+
+
+
+isnan__double3: @|a:double3|{make_bool3(isnan__double(a.x), isnan__double(a.y), isnan__double(a.z))},
+
+
+
+isnan__double4: @|a:double4|{make_bool4(isnan__double(a.x), isnan__double(a.y), isnan__double(a.z), isnan__double(a.w))},
+
+
+
+isfinite__float: @|a:float|{math.isfinitef(a) as bool},
+
+
+
+isfinite__float2: @|a:float2|{make_bool2(isfinite__float(a.x), isfinite__float(a.y))},
+
+
+
+isfinite__float3: @|a:float3|{make_bool3(isfinite__float(a.x), isfinite__float(a.y), isfinite__float(a.z))},
+
+
+
+isfinite__float4: @|a:float4|{make_bool4(isfinite__float(a.x), isfinite__float(a.y), isfinite__float(a.z), isfinite__float(a.w))},
+
+
+
+isfinite__double: @|a:double|{math.isfinite(a) as bool},
+
+
+
+isfinite__double2: @|a:double2|{make_bool2(isfinite__double(a.x), isfinite__double(a.y))},
+
+
+
+isfinite__double3: @|a:double3|{make_bool3(isfinite__double(a.x), isfinite__double(a.y), isfinite__double(a.z))},
+
+
+
+isfinite__double4: @|a:double4|{make_bool4(isfinite__double(a.x), isfinite__double(a.y), isfinite__double(a.z), isfinite__double(a.w))},
+
+
+
+length__float: @|a:float|{a},
+
+
+
+length__float2: @|a:float2|{math.sqrtf(math.powf(a.x, 2.0f) + math.powf(a.y, 2.0f))},
+
+
+
+length__float3: @|a:float3|{math.sqrtf(math.powf(a.x, 2.0f) + math.powf(a.y, 2.0f) + math.powf(a.z, 2.0f))},
+
+
+
+length__float4: @|a:float4|{math.sqrtf(math.powf(a.x, 2.0f) + math.powf(a.y, 2.0f) + math.powf(a.z, 2.0f) + math.powf(a.w, 2.0f))},
+
+
+
+length__double: @|a:double|{a},
+
+
+
+length__double2: @|a:double2|{math.sqrt(math.pow(a.x, 2.0) + math.pow(a.y, 2.0))},
+
+
+
+length__double3: @|a:double3|{math.sqrt(math.pow(a.x, 2.0) + math.pow(a.y, 2.0) + math.pow(a.z, 2.0))},
+
+
+
+length__double4: @|a:double4|{math.sqrt(math.pow(a.x, 2.0) + math.pow(a.y, 2.0) + math.pow(a.z, 2.0) + math.pow(a.w, 2.0))},
+
+
+
+lerp__float_float_float: @|a: float, b: float, l:float|{
+    a * (1.0f - l) + b * l
+},
+
+
+
+lerp__float2_float2_float2: @|a: float2, b: float2, l:float2|{make_float2(
+    lerp__float_float_float(a.x, b.x,l.x),
+    lerp__float_float_float(a.y, b.y,l.y)
+)},
+
+
+
+lerp__float3_float3_float3: @|a: float3, b: float3, l:float3|{make_float3(
+    lerp__float_float_float(a.x,b.x,l.x),
+    lerp__float_float_float(a.y,b.y,l.y),
+    lerp__float_float_float(a.z,b.z,l.z)
+)},
+
+
+
+lerp__float4_float4_float4: @|a: float4, b: float4, l:float4|{make_float4(
+    lerp__float_float_float(a.x,b.x,l.x),
+    lerp__float_float_float(a.y,b.y,l.y),
+    lerp__float_float_float(a.z,b.z,l.z),
+    lerp__float_float_float(a.w,b.w,l.w)
+)},
+
+
+
+lerp__double_double_double: @|a: double, b: double, l:double|{
+    a * (1.0 - l) + b * l
+},
+
+
+
+lerp__double2_double2_double2: @|a: double2, b: double2, l:double2|{make_double2(
+    lerp__double_double_double(a.x, b.x,l.x),
+    lerp__double_double_double(a.y, b.y,l.y)
+)},
+
+
+
+lerp__double3_double3_double3: @|a: double3, b: double3, l:double3|{make_double3(
+    lerp__double_double_double(a.x,b.x,l.x),
+    lerp__double_double_double(a.y,b.y,l.y),
+    lerp__double_double_double(a.z,b.z,l.z)
+)},
+
+
+
+lerp__double4_double4_double4: @|a: double4, b: double4, l:double4|{make_double4(
+    lerp__double_double_double(a.x,b.x,l.x),
+    lerp__double_double_double(a.y,b.y,l.y),
+    lerp__double_double_double(a.z,b.z,l.z),
+    lerp__double_double_double(a.w,b.w,l.w)
+)},
+
+
+
+lerp__float2_float2_float: @|a: float2, b: float2, l:float|{make_float2(
+    lerp__float_float_float(a.x, b.x,l),
+    lerp__float_float_float(a.y, b.y,l)
+)},
+
+
+
+lerp__float3_float3_float: @|a: float3, b: float3, l:float|{make_float3(
+    lerp__float_float_float(a.x,b.x,l),
+    lerp__float_float_float(a.y,b.y,l),
+    lerp__float_float_float(a.z,b.z,l)
+)},
+
+
+
+lerp__float4_float4_float: @|a: float4, b: float4, l:float|{make_float4(
+    lerp__float_float_float(a.x,b.x,l),
+    lerp__float_float_float(a.y,b.y,l),
+    lerp__float_float_float(a.z,b.z,l),
+    lerp__float_float_float(a.w,b.w,l)
+)},
+
+
+
+lerp__double2_double2_double: @|a: double2, b: double2, l:double|{make_double2(
+    lerp__double_double_double(a.x, b.x,l),
+    lerp__double_double_double(a.y, b.y,l)
+)},
+
+
+
+lerp__double3_double3_double: @|a: double3, b: double3, l:double|{make_double3(
+    lerp__double_double_double(a.x,b.x,l),
+    lerp__double_double_double(a.y,b.y,l),
+    lerp__double_double_double(a.z,b.z,l)
+)},
+
+
+
+lerp__double4_double4_double: @|a: double4, b: double4, l:double|{make_double4(
+    lerp__double_double_double(a.x,b.x,l),
+    lerp__double_double_double(a.y,b.y,l),
+    lerp__double_double_double(a.z,b.z,l),
+    lerp__double_double_double(a.w,b.w,l)
+)},
+
+
+lerp__color_color_color: @|a: color, b: color, l:color|{make_color(
+    lerp__float_float_float(a.r,b.r,l.r),
+    lerp__float_float_float(a.g,b.g,l.g),
+    lerp__float_float_float(a.b,b.b,l.b)
+)},
+
+lerp__color_color_float: @|a: color, b: color, l:float|{make_color(
+    lerp__float_float_float(a.r,b.r,l),
+    lerp__float_float_float(a.g,b.g,l),
+    lerp__float_float_float(a.b,b.b,l)
+)},
+
+
+
+log__float: @|a:float|{math.logf(a)},
+
+
+
+log__float2: @|a:float2|{float2_map(a, log__float)},
+
+
+
+log__float3: @|a:float3|{float3_map(a, log__float)},
+
+
+
+log__float4: @|a:float4|{float4_map(a, log__float)},
+
+
+
+log__double: @|a:double|{math.log(a)},
+
+
+
+log__double2: @|a:double2|{double2_map(a, log__double)},
+
+
+
+log__double3: @|a:double3|{double3_map(a, log__double)},
+
+
+
+log__double4: @|a:double4|{double4_map(a, log__double)},
+
+
+
+log__color: @|c:color|{color_map(c, log__float)},
+
+
+
+log2__float: @|a:float|{math.log2f(a)},
+
+
+
+log2__float2: @|a:float2|{float2_map(a, log2__float)},
+
+
+
+log2__float3: @|a:float3|{float3_map(a, log2__float)},
+
+
+
+log2__float4: @|a:float4|{float4_map(a, log2__float)},
+
+
+
+log2__double: @|a:double|{math.log2(a)},
+
+
+
+log2__double2: @|a:double2|{double2_map(a, log2__double)},
+
+
+
+log2__double3: @|a:double3|{double3_map(a, log2__double)},
+
+
+
+log2__double4: @|a:double4|{double4_map(a, log2__double)},
+
+
+
+log2__color: @|c:color|{color_map(c, log2__float)},
+
+
+//log10 doesn't apper in the MDL doc, so I wont implement it here
+
+log10__float: @|a:float|{a},
+
+
+
+log10__float2: @|a:float2|{a},
+
+
+
+log10__float3: @|a:float3|{a},
+
+
+
+log10__float4: @|a:float4|{a},
+
+
+
+log10__double: @|a:double|{a},
+
+
+
+log10__double2: @|a:double2|{a},
+
+
+
+log10__double3: @|a:double3|{a},
+
+
+
+log10__double4: @|a:double4|{a},
+
+
+
+log10__color: @|c:color|{c},
+
+
+
+luminance__float3: @|a:float3|{
+    0.212671f * a.x + 0.715160f * a.y + 0.072169f * a.z
+},
+
+
+//implementation dependent, you'll have to use your own function
+luminance__color: @|a:color|{a.r},
+
+
+
+max__int_int: @|a:int, b:int|{math.max(a,b)},
+
+
+
+max__int2_int2: @|a:int2, b:int2|{int2_zip(a,b,max__int_int)},
+
+
+
+max__int3_int3: @|a:int3, b:int3|{int3_zip(a,b,max__int_int)},
+
+
+
+max__int4_int4: @|a:int4, b:int4|{int4_zip(a,b,max__int_int)},
+
+
+
+
+
+max__int2_int: @|a:int2, b:int|{int2_zip(a,make_int2(b,b),max__int_int)},
+
+
+
+max__int3_int: @|a:int3, b:int|{int3_zip(a,make_int3(b,b,b),max__int_int)},
+
+
+
+max__int4_int: @|a:int4, b:int|{int4_zip(a,make_int4(b,b,b,b),max__int_int)},
+
+
+
+
+max__int_int2: @|a:int, b:int2|{int2_zip(make_int2(a,a),b,max__int_int)},
+
+
+
+max__int_int3: @|a:int, b:int3|{int3_zip(make_int3(a,a,a),b,max__int_int)},
+
+
+
+max__int_int4: @|a:int, b:int4|{int4_zip(make_int4(a,a,a,a),b,max__int_int)},
+
+
+
+
+
+
+max__float_float: @|a:float, b:float|{math.fmaxf(a,b)},
+
+max__float2_float2: @|a:float2, b:float2|{float2_zip(a,b,max__float_float)},
+
+
+
+max__float3_float3: @|a:float3, b:float3|{float3_zip(a,b,max__float_float)},
+
+
+
+max__float4_float4: @|a:float4, b:float4|{float4_zip(a,b,max__float_float)},
+
+
+
+
+
+max__float2_float: @|a:float2, b:float|{float2_zip(a,make_float2(b,b),max__float_float)},
+
+
+
+max__float3_float: @|a:float3, b:float|{float3_zip(a,make_float3(b,b,b),max__float_float)},
+
+
+
+max__float4_float: @|a:float4, b:float|{float4_zip(a,make_float4(b,b,b,b),max__float_float)},
+
+
+
+
+max__float_float2: @|a:float, b:float2|{float2_zip(make_float2(a,a),b,max__float_float)},
+
+
+
+max__float_float3: @|a:float, b:float3|{float3_zip(make_float3(a,a,a),b,max__float_float)},
+
+
+
+max__float_float4: @|a:float, b:float4|{float4_zip(make_float4(a,a,a,a),b,max__float_float)},
+
+
+
+
+
+
+
+
+max__double_double: @|a:double, b:double|{math.fmax(a,b)},
+
+
+
+
+
+
+
+
+max__double2_double2: @|a:double2, b:double2|{double2_zip(a,b,max__double_double)},
+
+
+
+max__double3_double3: @|a:double3, b:double3|{double3_zip(a,b,max__double_double)},
+
+
+
+max__double4_double4: @|a:double4, b:double4|{double4_zip(a,b,max__double_double)},
+
+
+
+
+
+max__double2_double: @|a:double2, b:double|{double2_zip(a,make_double2(b,b),max__double_double)},
+
+
+
+max__double3_double: @|a:double3, b:double|{double3_zip(a,make_double3(b,b,b),max__double_double)},
+
+
+
+max__double4_double: @|a:double4, b:double|{double4_zip(a,make_double4(b,b,b,b),max__double_double)},
+
+
+
+
+max__double_double2: @|a:double, b:double2|{double2_zip(make_double2(a,a),b,max__double_double)},
+
+
+
+max__double_double3: @|a:double, b:double3|{double3_zip(make_double3(a,a,a),b,max__double_double)},
+
+
+
+max__double_double4: @|a:double, b:double4|{double4_zip(make_double4(a,a,a,a),b,max__double_double)},
+
+
+
+
+
+
+
+
+max__color_color: @|a:color, b:color|{color_zip(a,b,max__float_float)},
+
+
+
+max__float_color: @|a:float, b:color|{color_zip(make_color(a,a,a),b,max__float_float)},
+
+
+
+max__color_float: @|a:color, b:float|{color_zip(a,make_color(b,b,b),max__float_float)},
+
+
+
+max_value__float: @|a:float|{a},
+
+
+
+max_value__float2: @|a:float2|{math.fmaxf(a.x, a.y)},
+
+
+
+max_value__float3: @|a:float3|{math.fmaxf(math.fmaxf(a.x, a.y), a.z)},
+
+
+
+max_value__float4: @|a:float4|{math.fmaxf(math.fmaxf(a.x, a.y), math.fmaxf(a.z, a.w))},
+
+
+
+max_value__double: @|a:double|{a},
+
+
+
+max_value__double2: @|a:double2|{math.fmax(a.x, a.y)},
+
+
+
+max_value__double3: @|a:double3|{math.fmax(math.fmax(a.x, a.y), a.z)},
+
+
+
+max_value__double4: @|a:double4|{math.fmax(math.fmax(a.x, a.y), math.fmax(a.z, a.w))},
+
+
+
+max_value__color: @|a:color|{math.fmaxf(math.fmaxf(a.r, a.g), a.b)},
+
+
+//wavelength function, renderer specific.
+max_value_wavelength__color: @|a:color|{0.0f},
+
+
+
+min__int_int: @|a:int, b:int|{math.min(a,b)},
+
+
+
+min__int2_int2: @|a:int2, b:int2|{int2_zip(a,b,min__int_int)},
+
+
+
+min__int3_int3: @|a:int3, b:int3|{int3_zip(a,b,min__int_int)},
+
+
+
+min__int4_int4: @|a:int4, b:int4|{int4_zip(a,b,min__int_int)},
+
+
+
+
+
+min__int2_int: @|a:int2, b:int|{int2_zip(a,make_int2(b,b),min__int_int)},
+
+
+
+min__int3_int: @|a:int3, b:int|{int3_zip(a,make_int3(b,b,b),min__int_int)},
+
+
+
+min__int4_int: @|a:int4, b:int|{int4_zip(a,make_int4(b,b,b,b),min__int_int)},
+
+
+
+
+min__int_int2: @|a:int, b:int2|{int2_zip(make_int2(a,a),b,min__int_int)},
+
+
+
+min__int_int3: @|a:int, b:int3|{int3_zip(make_int3(a,a,a),b,min__int_int)},
+
+
+
+min__int_int4: @|a:int, b:int4|{int4_zip(make_int4(a,a,a,a),b,min__int_int)},
+
+
+
+
+
+
+min__float_float: @|a:float, b:float|{math.fminf(a,b)},
+
+min__float2_float2: @|a:float2, b:float2|{float2_zip(a,b,min__float_float)},
+
+
+
+min__float3_float3: @|a:float3, b:float3|{float3_zip(a,b,min__float_float)},
+
+
+
+min__float4_float4: @|a:float4, b:float4|{float4_zip(a,b,min__float_float)},
+
+
+
+
+
+min__float2_float: @|a:float2, b:float|{float2_zip(a,make_float2(b,b),min__float_float)},
+
+
+
+min__float3_float: @|a:float3, b:float|{float3_zip(a,make_float3(b,b,b),min__float_float)},
+
+
+
+min__float4_float: @|a:float4, b:float|{float4_zip(a,make_float4(b,b,b,b),min__float_float)},
+
+
+
+
+min__float_float2: @|a:float, b:float2|{float2_zip(make_float2(a,a),b,min__float_float)},
+
+
+
+min__float_float3: @|a:float, b:float3|{float3_zip(make_float3(a,a,a),b,min__float_float)},
+
+
+
+min__float_float4: @|a:float, b:float4|{float4_zip(make_float4(a,a,a,a),b,min__float_float)},
+
+
+
+
+
+
+
+
+min__double_double: @|a:double, b:double|{math.fmin(a,b)},
+
+
+
+
+
+
+
+
+min__double2_double2: @|a:double2, b:double2|{double2_zip(a,b,min__double_double)},
+
+
+
+min__double3_double3: @|a:double3, b:double3|{double3_zip(a,b,min__double_double)},
+
+
+
+min__double4_double4: @|a:double4, b:double4|{double4_zip(a,b,min__double_double)},
+
+
+
+
+
+min__double2_double: @|a:double2, b:double|{double2_zip(a,make_double2(b,b),min__double_double)},
+
+
+
+min__double3_double: @|a:double3, b:double|{double3_zip(a,make_double3(b,b,b),min__double_double)},
+
+
+
+min__double4_double: @|a:double4, b:double|{double4_zip(a,make_double4(b,b,b,b),min__double_double)},
+
+
+
+
+min__double_double2: @|a:double, b:double2|{double2_zip(make_double2(a,a),b,min__double_double)},
+
+
+
+min__double_double3: @|a:double, b:double3|{double3_zip(make_double3(a,a,a),b,min__double_double)},
+
+
+
+min__double_double4: @|a:double, b:double4|{double4_zip(make_double4(a,a,a,a),b,min__double_double)},
+
+
+
+
+
+
+
+
+min__color_color: @|a:color, b:color|{color_zip(a,b,min__float_float)},
+
+
+
+min__float_color: @|a:float, b:color|{color_zip(make_color(a,a,a),b,min__float_float)},
+
+
+
+min__color_float: @|a:color, b:float|{color_zip(a,make_color(b,b,b),min__float_float)},
+
+
+
+min_value__float: @|a:float|{a},
+
+
+
+min_value__float2: @|a:float2|{math.fminf(a.x, a.y)},
+
+
+
+min_value__float3: @|a:float3|{math.fminf(math.fminf(a.x, a.y), a.z)},
+
+
+
+min_value__float4: @|a:float4|{math.fminf(math.fminf(a.x, a.y), math.fminf(a.z, a.w))},
+
+
+
+min_value__double: @|a:double|{a},
+
+
+
+min_value__double2: @|a:double2|{math.fmin(a.x, a.y)},
+
+
+
+min_value__double3: @|a:double3|{math.fmin(math.fmin(a.x, a.y), a.z)},
+
+
+
+min_value__double4: @|a:double4|{math.fmin(math.fmin(a.x, a.y), math.fmin(a.z, a.w))},
+
+
+
+min_value__color: @|a:color|{math.fminf(math.fminf(a.r, a.g), a.b)},
+
+
+//wavelenth function, renderer specific.
+min_value_wavelength__color: @|a:color|{0.0f},
+
+
+
+
+modf__float: @|a:float|{
+    let integ = (a as i32) as f32;
+    make_float2(integ, a - integ)
+},
+
+
+modf__float2: @|a:float2|{make_float2x2(
+    modf__float(a.x),
+    modf__float(a.y),
+)},
+
+
+
+modf__float3: @|a:float3|{make_float3x2(
+    modf__float(a.x),
+    modf__float(a.y),
+    modf__float(a.z),
+)},
+
+
+
+modf__float4: @|a:float4|{make_float4x2(
+    modf__float(a.x),
+    modf__float(a.y),
+    modf__float(a.z),
+    modf__float(a.w),
+)},
+
+
+
+modf__double: @|a:double|{
+    let integ = (a as i64) as f64;
+    make_double2(integ, a - integ)
+},
+
+
+
+modf__double2: @|a:double2|{make_double2x2(
+    modf__double(a.x),
+    modf__double(a.y),
+)},
+
+
+
+modf__double3: @|a:double3|{make_double3x2(
+    modf__double(a.x),
+    modf__double(a.y),
+    modf__double(a.z),
+)},
+
+
+
+modf__double4: @|a:double4|{make_double4x2(
+    modf__double(a.x),
+    modf__double(a.y),
+    modf__double(a.z),
+    modf__double(a.w),
+)},
+
+
+
+
+normalize__float: @|a:float|{1.0f},
+
+
+
+normalize__float2: @|a:float2|{
+    let len = math.sqrtf(a.x * a.x + a.y * a.y);
+    if(len == 0.0f){
+        a
+    } else {
+        make_float2(a.x / len, a.y / len)
+    }
+    
+},
+
+
+
+normalize__float3: @|a:float3|{
+    let len = math.sqrtf(a.x * a.x + a.y * a.y + a.z * a.z);
+    if(len == 0.0f){
+        a
+    } else {
+        make_float3(a.x / len, a.y / len, a.z / len)
+    }
+},
+
+
+
+normalize__float4: @|a:float4|{
+    let len = math.sqrtf(a.x * a.x + a.y * a.y + a.z * a.z + a.w * a.w);
+    if(len == 0.0f){
+        a
+    } else {
+        make_float4(a.x / len, a.y / len, a.z / len, a.w / len)
+    }
+},
+
+
+
+normalize__double: @|a:double|{1.0},
+
+
+
+normalize__double2: @|a:double2|{
+    let len = math.sqrt(a.x * a.x + a.y * a.y);
+    if(len == 0.0){
+        a
+    } else {
+        make_double2(a.x / len, a.y / len)
+    }
+    
+},
+
+
+
+normalize__double3: @|a:double3|{
+    let len = math.sqrt(a.x * a.x + a.y * a.y + a.z * a.z);
+    if(len == 0.0){
+        a
+    } else {
+        make_double3(a.x / len, a.y / len, a.z / len)
+    }
+},
+
+
+
+normalize__double4: @|a:double4|{
+    let len = math.sqrt(a.x * a.x + a.y * a.y + a.z * a.z + a.w * a.w);
+    if(len == 0.0){
+        a
+    } else {
+        make_double4(a.x / len, a.y / len, a.z / len, a.w / len)
+    }
+},
+
+
+
+pow__int_int: @|a:int, b:int|{math.powf(a as float,b as float) as int},
+
+
+
+pow__int2_int2: @|a:int2, b:int2|{int2_zip(a,b,pow__int_int)},
+
+
+
+pow__int3_int3: @|a:int3, b:int3|{int3_zip(a,b,pow__int_int)},
+
+
+
+pow__int4_int4: @|a:int4, b:int4|{int4_zip(a,b,pow__int_int)},
+
+
+
+
+pow__float_float: @|a:float, b:float|{math.powf(a,b)},
+
+
+
+pow__float2_float2: @|a:float2, b:float2|{float2_zip(a,b,pow__float_float)},
+
+
+
+pow__float3_float3: @|a:float3, b:float3|{float3_zip(a,b,pow__float_float)},
+
+
+
+pow__float4_float4: @|a:float4, b:float4|{float4_zip(a,b,pow__float_float)},
+
+
+
+
+
+pow__double_double: @|a:double, b:double|{math.pow(a,b)},
+
+
+
+pow__double2_double2: @|a:double2, b:double2|{double2_zip(a,b,pow__double_double)},
+
+
+
+pow__double3_double3: @|a:double3, b:double3|{double3_zip(a,b,pow__double_double)},
+
+
+
+pow__double4_double4: @|a:double4, b:double4|{double4_zip(a,b,pow__double_double)},
+
+
+
+
+
+
+pow__int2_int: @|a:int2, b:int|{int2_zip(a,make_int2(b,b),pow__int_int)},
+
+
+
+pow__int3_int: @|a:int3, b:int|{int3_zip(a,make_int3(b,b,b),pow__int_int)},
+
+
+
+pow__int4_int: @|a:int4, b:int|{int4_zip(a,make_int4(b,b,b,b),pow__int_int)},
+
+
+
+
+pow__float2_float: @|a:float2, b:float|{float2_zip(a,make_float2(b,b),pow__float_float)},
+
+
+
+pow__float3_float: @|a:float3, b:float|{float3_zip(a,make_float3(b,b,b),pow__float_float)},
+
+
+
+pow__float4_float: @|a:float4, b:float|{float4_zip(a,make_float4(b,b,b,b),pow__float_float)},
+
+
+
+
+
+pow__double2_double: @|a:double2, b:double|{double2_zip(a,make_double2(b,b),pow__double_double)},
+
+
+
+pow__double3_double: @|a:double3, b:double|{double3_zip(a,make_double3(b,b,b),pow__double_double)},
+
+
+
+pow__double4_double: @|a:double4, b:double|{double4_zip(a,make_double4(b,b,b,b),pow__double_double)},
+
+
+
+
+pow__color_color: @|a:color, b:color|{color_zip(a,b,pow__float_float)},
+
+
+
+pow__color_float: @|a:color, b:float|{color_zip(a,make_color(b,b,b),pow__float_float)},
+
+
+
+radians__float: @|a:float|{pi * a / 180.0f},
+
+
+
+radians__float2: @|a:float2|{float2_map(a, radians__float)},
+
+
+
+radians__float3: @|a:float3|{float3_map(a, radians__float)},
+
+
+
+radians__float4: @|a:float4|{float4_map(a, radians__float)},
+
+
+
+radians__double: @|a:double|{pi as double * a / 180.0},
+
+
+
+radians__double2: @|a:double2|{double2_map(a, radians__double)},
+
+
+
+radians__double3: @|a:double3|{double3_map(a, radians__double)},
+
+
+
+radians__double4: @|a:double4|{double4_map(a, radians__double)},
+
+
+
+
+
+round__float: @|a:float|{
+    let floor = floor__float(a);
+    let l = a-floor;
+    let h = floor + 1.0f - a;
+    if(l < h){l} else {h}
+},
+
+
+round__float2: @|a:float2|{float2_map(a, round__float)},
+
+
+
+round__float3: @|a:float3|{float3_map(a, round__float)},
+
+
+
+round__float4: @|a:float4|{float4_map(a, round__float)},
+
+
+
+round__double: @|a:double|{
+    let floor = floor__double(a);
+    let l = a-floor;
+    let h = floor + 1.0 - a;
+    if(l < h){l} else {h}
+},
+
+
+
+round__double2: @|a:double2|{double2_map(a, round__double)},
+
+
+
+round__double3: @|a:double3|{double3_map(a, round__double)},
+
+
+
+round__double4: @|a:double4|{double4_map(a, round__double)},
+
+
+
+
+
+rsqrt__float: @|a:float|{math.rsqrtf(a)},
+
+
+
+rsqrt__float2: @|a:float2|{float2_map(a, rsqrt__float)},
+
+
+
+rsqrt__float3: @|a:float3|{float3_map(a, rsqrt__float)},
+
+
+
+rsqrt__float4: @|a:float4|{float4_map(a, rsqrt__float)},
+
+
+
+rsqrt__double: @|a:double|{math.rsqrt(a)},
+
+
+
+rsqrt__double2: @|a:double2|{double2_map(a, rsqrt__double)},
+
+
+
+rsqrt__double3: @|a:double3|{double3_map(a, rsqrt__double)},
+
+
+
+rsqrt__double4: @|a:double4|{double4_map(a, rsqrt__double)},
+
+
+
+rsqrt__color: @|c:color|{color_map(c, rsqrt__float)},
+
+
+
+saturate__float: @|a:float|{clamp__float_float_float(a, 0.0f,1.0f)},
+
+
+
+saturate__float2: @|a:float2|{float2_map(a, saturate__float)},
+
+
+
+saturate__float3: @|a:float3|{float3_map(a, saturate__float)},
+
+
+
+saturate__float4: @|a:float4|{float4_map(a, saturate__float)},
+
+
+
+saturate__double: @|a:double|{clamp__double_double_double(a, 0.0, 1.0)},
+
+
+
+saturate__double2: @|a:double2|{double2_map(a, saturate__double)},
+
+
+
+saturate__double3: @|a:double3|{double3_map(a, saturate__double)},
+
+
+
+saturate__double4: @|a:double4|{double4_map(a, saturate__double)},
+
+
+
+saturate__color: @|c:color|{color_map(c, saturate__float)},
+
+
+
+sign__int: @|a:int|{if(a > 0) {1} else if(a < 0) {-1} else {0}},
+
+
+
+sign__int2: @|a:int2|{int2_map(a, sign__int)},
+
+
+
+sign__int3: @|a:int3|{int3_map(a, sign__int)},
+
+
+
+sign__int4: @|a:int4|{int4_map(a, sign__int)},
+
+
+
+
+
+sign__float: @|a:float|{if(a > 0.0f) {1.0f} else if(a < 0.0f) {-1.0f} else {0.0f}},
+
+
+
+sign__float2: @|a:float2|{float2_map(a, sign__float)},
+
+
+
+sign__float3: @|a:float3|{float3_map(a, sign__float)},
+
+
+
+sign__float4: @|a:float4|{float4_map(a, sign__float)},
+
+sign__double: @|a:double|{if(a > 0.0) {1.0} else if(a < 0.0) {-1.0} else {0.0}},
+
+
+
+sign__double2: @|a:double2|{double2_map(a, sign__double)},
+
+
+
+sign__double3: @|a:double3|{double3_map(a, sign__double)},
+
+
+
+sign__double4: @|a:double4|{double4_map(a, sign__double)},
+
+
+
+
+
+sin__float: @|a:float|{math.sinf(a)},
+
+
+
+sin__float2: @|a:float2|{float2_map(a, sin__float)},
+
+
+
+sin__float3: @|a:float3|{float3_map(a, sin__float)},
+
+
+
+sin__float4: @|a:float4|{float4_map(a, sin__float)},
+
+
+
+sin__double: @|a:double|{math.sin(a)},
+
+
+
+sin__double2: @|a:double2|{double2_map(a, sin__double)},
+
+
+
+sin__double3: @|a:double3|{double3_map(a, sin__double)},
+
+
+
+sin__double4: @|a:double4|{double4_map(a, sin__double)},
+
+
+
+
+sincos__float: @|a:float|{make_float2(math.sinf(a), math.cosf(a))},
+
+
+
+sincos__float2: @|a:float2|{make_float2x2(sincos__float(a.x), sincos__float(a.y))},
+
+
+
+sincos__float3: @|a:float3|{make_float3x2(sincos__float(a.x), sincos__float(a.y), sincos__float(a.z))},
+
+
+
+sincos__float4: @|a:float4|{make_float4x2(sincos__float(a.x), sincos__float(a.y), sincos__float(a.z), sincos__float(a.w))},
+
+
+
+sincos__double: @|a:double|{make_double2(math.sin(a), math.cos(a))},
+
+
+
+sincos__double2: @|a:double2|{make_double2x2(sincos__double(a.x), sincos__double(a.y))},
+
+
+
+sincos__double3: @|a:double3|{make_double3x2(sincos__double(a.x), sincos__double(a.y), sincos__double(a.z))},
+
+
+
+sincos__double4: @|a:double4|{make_double4x2(sincos__double(a.x), sincos__double(a.y), sincos__double(a.z), sincos__double(a.w))},
+
+
+
+smoothstep__float_float_float: @|a:float, b:float, l:float|{
+    let t = clamp__float_float_float((l - a) / (b - a), 0.0f, 1.0f);
+    t * t * (3.0f - 2.0f * t)
+},
+
+
+
+smoothstep__float2_float2_float2: @|a:float2, b:float2, c:float2|{
+    make_float2(
+        smoothstep__float_float_float(a.x, b.x, c.x),
+        smoothstep__float_float_float(a.y, b.y, c.y)
+    )
+},
+
+
+
+smoothstep__float3_float3_float3: @|a:float3, b:float3, c:float3|{
+    make_float3(
+        smoothstep__float_float_float(a.x, b.x, c.x),
+        smoothstep__float_float_float(a.y, b.y, c.y),
+        smoothstep__float_float_float(a.z, b.z, c.z)
+    )
+},
+
+
+
+smoothstep__float4_float4_float4: @|a:float4, b:float4, c:float4|{
+    make_float4(
+        smoothstep__float_float_float(a.x, b.x, c.x),
+        smoothstep__float_float_float(a.y, b.y, c.y),
+        smoothstep__float_float_float(a.z, b.z, c.z),
+        smoothstep__float_float_float(a.w, b.w, c.w)
+    )
+},
+
+
+
+smoothstep__double_double_double: @|a:double, b:double, l:double|{
+    let t = clamp__double_double_double((l - a) / (b - a), 0.0, 1.0);
+    t * t * (3.0 - 2.0 * t)
+},
+
+
+
+smoothstep__double2_double2_double2: @|a:double2, b:double2, c:double2|{
+    make_double2(
+        smoothstep__double_double_double(a.x, b.x, c.x),
+        smoothstep__double_double_double(a.y, b.y, c.y)
+    )
+},
+
+
+
+smoothstep__double3_double3_double3: @|a:double3, b:double3, c:double3|{
+    make_double3(
+        smoothstep__double_double_double(a.x, b.x, c.x),
+        smoothstep__double_double_double(a.y, b.y, c.y),
+        smoothstep__double_double_double(a.z, b.z, c.z)
+    )
+},
+
+
+
+smoothstep__double4_double4_double4: @|a:double4, b:double4, c:double4|{
+    make_double4(
+        smoothstep__double_double_double(a.x, b.x, c.x),
+        smoothstep__double_double_double(a.y, b.y, c.y),
+        smoothstep__double_double_double(a.z, b.z, c.z),
+        smoothstep__double_double_double(a.w, b.w, c.w)
+    )
+},
+
+
+smoothstep__float2_float2_float: @|a:float2, b:float2, c:float|{
+    make_float2(
+        smoothstep__float_float_float(a.x, b.x, c),
+        smoothstep__float_float_float(a.y, b.y, c)
+    )
+},
+
+
+
+smoothstep__float3_float3_float: @|a:float3, b:float3, c:float|{
+    make_float3(
+        smoothstep__float_float_float(a.x, b.x, c),
+        smoothstep__float_float_float(a.y, b.y, c),
+        smoothstep__float_float_float(a.z, b.z, c)
+    )
+},
+
+
+
+smoothstep__float4_float4_float: @|a:float4, b:float4, c:float|{
+    make_float4(
+        smoothstep__float_float_float(a.x, b.x, c),
+        smoothstep__float_float_float(a.y, b.y, c),
+        smoothstep__float_float_float(a.z, b.z, c),
+        smoothstep__float_float_float(a.w, b.w, c)
+    )
+},
+
+
+
+smoothstep__double2_double2_double: @|a:double2, b:double2, c:double|{
+    make_double2(
+        smoothstep__double_double_double(a.x, b.x, c),
+        smoothstep__double_double_double(a.y, b.y, c)
+    )
+},
+
+
+
+smoothstep__double3_double3_double: @|a:double3, b:double3, c:double|{
+    make_double3(
+        smoothstep__double_double_double(a.x, b.x, c),
+        smoothstep__double_double_double(a.y, b.y, c),
+        smoothstep__double_double_double(a.z, b.z, c)
+    )
+},
+
+
+
+smoothstep__double4_double4_double: @|a:double4, b:double4, c:double|{
+    make_double4(
+        smoothstep__double_double_double(a.x, b.x, c),
+        smoothstep__double_double_double(a.y, b.y, c),
+        smoothstep__double_double_double(a.z, b.z, c),
+        smoothstep__double_double_double(a.w, b.w, c)
+    )
+},
+
+
+sqrt__float: @|a:float|{math.sqrtf(a)},
+
+
+
+sqrt__float2: @|a:float2|{float2_map(a, sqrt__float)},
+
+
+
+sqrt__float3: @|a:float3|{float3_map(a, sqrt__float)},
+
+
+
+sqrt__float4: @|a:float4|{float4_map(a, sqrt__float)},
+
+
+
+sqrt__double: @|a:double|{math.sqrt(a)},
+
+
+
+sqrt__double2: @|a:double2|{double2_map(a, sqrt__double)},
+
+
+
+sqrt__double3: @|a:double3|{double3_map(a, sqrt__double)},
+
+
+
+sqrt__double4: @|a:double4|{double4_map(a, sqrt__double)},
+
+
+
+sqrt__color: @|c:color|{color_map(c, sqrt__float)},
+
+
+
+
+
+
+step__float_float: @|a:float, b:float|{if(b < a) {0.0f} else {1.0f}},
+
+
+
+step__float2_float2: @|a:float2, b:float2|{float2_zip(a,b,step__float_float)},
+
+
+
+step__float3_float3: @|a:float3, b:float3|{float3_zip(a,b,step__float_float)},
+
+
+
+step__float4_float4: @|a:float4, b:float4|{float4_zip(a,b,step__float_float)},
+
+
+
+
+
+step__double_double: @|a:double, b:double|{if(b < a) {0.0} else {1.0}},
+
+
+
+
+step__double2_double2: @|a:double2, b:double2|{double2_zip(a,b,step__double_double)},
+
+
+
+step__double3_double3: @|a:double3, b:double3|{double3_zip(a,b,step__double_double)},
+
+
+
+step__double4_double4: @|a:double4, b:double4|{double4_zip(a,b,step__double_double)},
+
+
+
+
+
+
+tan__float: @|a:float|{math.tanf(a)},
+
+
+
+tan__float2: @|a:float2|{float2_map(a, tan__float)},
+
+
+
+tan__float3: @|a:float3|{float3_map(a, tan__float)},
+
+
+
+tan__float4: @|a:float4|{float4_map(a, tan__float)},
+
+
+
+tan__double: @|a:double|{math.tan(a)},
+
+
+
+tan__double2: @|a:double2|{double2_map(a, tan__double)},
+
+
+
+tan__double3: @|a:double3|{double3_map(a, tan__double)},
+
+
+
+tan__double4: @|a:double4|{double4_map(a, tan__double)},
+
+
+
+
+
+transpose__float2x2: @|mat:float2x2|{
+    make_float2x2(
+                make_float2(mat.x.x, mat.y.x),
+                make_float2(mat.x.y, mat.y.x),
+    )
+},
+
+
+
+transpose__float2x3: @|mat:float2x3|{
+    make_float3x2(
+                make_float2(mat.x.x, mat.y.x),
+                make_float2(mat.x.y, mat.y.y),
+                make_float2(mat.x.z, mat.y.z),
+                
+    )
+},
+
+
+
+transpose__float3x2: @|mat:float3x2|{
+    make_float2x3(   
+                make_float3(mat.x.x, mat.y.x, mat.z.x),
+                make_float3(mat.x.y, mat.y.y, mat.z.y),
+    )
+},
+
+
+
+transpose__float3x3: @|mat:float3x3|{
+    make_float3x3(
+                make_float3(mat.x.x, mat.x.y, mat.x.z),
+                make_float3(mat.y.x, mat.y.y, mat.y.z),
+                make_float3(mat.z.x, mat.z.y, mat.z.z),
+                
+    )
+},
+
+
+
+transpose__float4x2: @|mat:float4x2|{
+    make_float2x4(
+                make_float4(mat.x.x, mat.y.x, mat.z.x, mat.w.x),
+                make_float4(mat.x.y, mat.y.y, mat.z.y, mat.w.y)
+    )
+},
+
+
+
+transpose__float2x4: @|mat:float2x4|{
+
+    make_float4x2(
+                make_float2(mat.x.x, mat.y.x),
+                make_float2(mat.x.y, mat.y.y),
+                make_float2(mat.x.z, mat.y.z),
+                make_float2(mat.x.w, mat.y.w)
+    )
+},
+
+
+
+transpose__float3x4: @|mat:float3x4|{
+    make_float4x3(
+                make_float3(mat.x.x, mat.y.x, mat.z.x),
+                make_float3(mat.x.y, mat.y.y, mat.z.y),
+                make_float3(mat.x.z, mat.y.z, mat.z.z),
+                make_float3(mat.x.w, mat.y.w, mat.z.w)
+    )
+    
+},
+
+
+
+transpose__float4x3: @|mat:float4x3|{
+
+    make_float3x4(
+                make_float4(mat.x.x, mat.y.x, mat.z.x, mat.w.x),
+                make_float4(mat.x.y, mat.y.y, mat.z.y, mat.w.y),
+                make_float4(mat.x.z, mat.y.z, mat.z.z, mat.w.z)
+    )
+},
+
+
+
+transpose__float4x4: @|mat:float4x4|{
+    make_float4x4(
+                make_float4(mat.x.x, mat.y.x, mat.z.x, mat.w.x),
+                make_float4(mat.x.y, mat.y.y, mat.z.y, mat.w.y),
+                make_float4(mat.x.z, mat.y.z, mat.z.z, mat.w.z),
+                make_float4(mat.x.w, mat.y.w, mat.z.w, mat.w.w)
+    )
+},
+
+
+
+
+transpose__double2x2: @|mat:double2x2|{
+    make_double2x2(
+                make_double2(mat.x.x, mat.y.x),
+                make_double2(mat.x.y, mat.y.x),
+    )
+},
+
+
+
+transpose__double2x3: @|mat:double2x3|{
+    make_double3x2(
+                make_double2(mat.x.x, mat.y.x),
+                make_double2(mat.x.y, mat.y.y),
+                make_double2(mat.x.z, mat.y.z),
+                
+    )
+},
+
+
+
+transpose__double3x2: @|mat:double3x2|{
+    make_double2x3(   
+                make_double3(mat.x.x, mat.y.x, mat.z.x),
+                make_double3(mat.x.y, mat.y.y, mat.z.y),
+    )
+},
+
+
+
+transpose__double3x3: @|mat:double3x3|{
+    make_double3x3(
+                make_double3(mat.x.x, mat.x.y, mat.x.z),
+                make_double3(mat.y.x, mat.y.y, mat.y.z),
+                make_double3(mat.z.x, mat.z.y, mat.z.z),
+                
+    )
+},
+
+
+
+transpose__double4x2: @|mat:double4x2|{
+    make_double2x4(
+                make_double4(mat.x.x, mat.y.x, mat.z.x, mat.w.x),
+                make_double4(mat.x.y, mat.y.y, mat.z.y, mat.w.y)
+    )
+},
+
+
+
+transpose__double2x4: @|mat:double2x4|{
+
+    make_double4x2(
+                make_double2(mat.x.x, mat.y.x),
+                make_double2(mat.x.y, mat.y.y),
+                make_double2(mat.x.z, mat.y.z),
+                make_double2(mat.x.w, mat.y.w)
+    )
+},
+
+
+
+transpose__double3x4: @|mat:double3x4|{
+    make_double4x3(
+                make_double3(mat.x.x, mat.y.x, mat.z.x),
+                make_double3(mat.x.y, mat.y.y, mat.z.y),
+                make_double3(mat.x.z, mat.y.z, mat.z.z),
+                make_double3(mat.x.w, mat.y.w, mat.z.w)
+    )
+    
+},
+
+
+
+transpose__double4x3: @|mat:double4x3|{
+
+    make_double3x4(
+                make_double4(mat.x.x, mat.y.x, mat.z.x, mat.w.x),
+                make_double4(mat.x.y, mat.y.y, mat.z.y, mat.w.y),
+                make_double4(mat.x.z, mat.y.z, mat.z.z, mat.w.z)
+    )
+},
+
+
+
+transpose__double4x4: @|mat:double4x4|{
+    make_double4x4(
+                make_double4(mat.x.x, mat.y.x, mat.z.x, mat.w.x),
+                make_double4(mat.x.y, mat.y.y, mat.z.y, mat.w.y),
+                make_double4(mat.x.z, mat.y.z, mat.z.z, mat.w.z),
+                make_double4(mat.x.w, mat.y.w, mat.z.w, mat.w.w)
+    )
+},
+
+//using this in mdl without a constant value (i.e. without it getting folded during compilation) results in a compilation error, so not really sure what formular they use
+blackbody__float: @|a:float|{make_color(a,a,a)},
+
+
+//wavelengths, thus renderer specific
+emission_color__float_arr_float_arr : @|a:&[float], b: &[float]|{make_color(0.0f, 0.0f, 0.0f)},
+
+//in mdl this doesn't seem to do anything, so I don't do anything either
+emission_color__color: @|c:color|{c},
+
+
+//These appear nowhere in the MDL language specification, so no idea what they are supposed to do
+DX__float: @|a:float|{a},
+
+
+
+DX__float2: @|a:float2|{a},
+
+
+
+DX__float3: @|a:float3|{a},
+
+
+
+DX__float4: @|a:float4|{a},
+
+
+
+DY__float: @|a:float|{a},
+
+
+
+DY__float2: @|a:float2|{a},
+
+
+
+DY__float3: @|a:float3|{a},
+
+
+
+DY__float4: @|a:float4|{a},
+
+
+
+DX__double: @|a:double|{a},
+
+
+
+DX__double2: @|a:double2|{a},
+
+
+
+DX__double3: @|a:double3|{a},
+
+
+
+DX__double4: @|a:double4|{a},
+
+
+
+DY__double: @|a:double|{a},
+
+
+
+DY__double2: @|a:double2|{a},
+
+
+
+DY__double3: @|a:double3|{a},
+
+
+
+DY__double4: @|a:double4|{a}
+
+    }
+}

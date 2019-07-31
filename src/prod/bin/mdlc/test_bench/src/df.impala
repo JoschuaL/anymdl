@@ -1,0 +1,1544 @@
+type scatter_mode = int;
+static scatter_mode_scatter_reflect : int = 0;
+static scatter_mode_scatter_transmit : int = 1;
+static scatter_mode_scatter_reflect_transmit = 2;
+
+
+
+
+
+
+
+
+fn @absorb_sample(data: &mut BSDF_sample_data) -> (){
+    data.pdf = 0.0f;
+    data.event_type = BSDF_EVENT_ABSORB;
+}
+
+fn @absorb_evaluate(data: &mut BSDF_evaluate_data) -> (){
+    data.pdf = 0.0f;
+    data.bsdf = make_float3(0.0f, 0.0f, 0.0f);
+}
+
+fn @absorb_pdf(data: &mut BSDF_pdf_data) -> (){
+    data.pdf = 0.0f;
+}
+
+fn @no_emission_sample(data: &mut EDF_sample_data) -> ()
+{
+    data.k1 = make_float3(0.0f, 0.0f, 0.0f);
+    data.pdf = 0.0f;
+    data.edf_over_pdf = make_float3(0.0f, 0.0f, 0.0f);
+    data.event_type = EDF_EVENT_NONE;
+}
+
+fn @no_emission_evaluate(data: &mut EDF_evaluate_data) -> ()
+{
+    data.pdf = 0.0f;
+    data.edf = make_float3(0.0f,0.0f,0.0f);
+}
+
+fn @no_emission_pdf(data: &mut EDF_pdf_data) -> ()
+{
+    data.pdf = 0.0f;
+}
+
+fn @get_bumped_basis(
+    x_axis: &mut float3,
+    z_axis: &mut float3,
+    aniso_axis: float3,
+    shading_normal_bumped: float3,
+    math: mdl_math
+) -> bool{
+    *z_axis = math.cross__float3_float3(aniso_axis, shading_normal_bumped);
+    let l = math.dot__float3_float3(*z_axis, *z_axis);
+    if(l < 1e-8f){
+        return(false)
+    }
+    *z_axis = div__float3_float_mdl_math(*z_axis, math.sqrt__float(l), math);
+    *x_axis = math.cross__float3_float3(shading_normal_bumped, *z_axis);
+    return(true)    
+}
+
+fn @copysignf(dst: float, src: float, math: mdl_math) -> float{
+    if(src >= 0.0f){
+        math.abs__float(dst)
+    } else {
+        -math.abs__float(dst)
+    }
+}
+
+fn @get_oriented_normals(
+    shading_normal: &mut float3,
+    geometry_normal: &mut float3,
+    shading_normal0: float3,
+    geometry_normal0: float3,
+    k1: float3,
+    math: mdl_math
+) -> () {
+    *geometry_normal = mul__float3_float_mdl_math(geometry_normal0, copysignf(1.0f, math.dot__float3_float3(k1, geometry_normal0), math), math);
+    *shading_normal = mul__float3_float_mdl_math(shading_normal0, copysignf(1.0f, math.dot__float3_float3(shading_normal0, *geometry_normal), math), math);
+}
+
+struct Normals {
+    shading_normal: float3,
+    geometry_normal: float3
+}
+
+struct Geometry {
+    n: Normals,
+    x_axis: float3,
+    z_axis: float3
+}
+
+fn @get_geometry(
+    g: &mut Geometry,
+    shading_normal: float3,
+    tangent_u: float3,
+    k1: float3,
+    state: State,
+    math: mdl_math
+) -> bool {
+    get_oriented_normals(&mut g.n.shading_normal, &mut g.n.geometry_normal, shading_normal, state.geometry_normal(), k1, math);
+    get_bumped_basis(&mut g.x_axis, &mut g.z_axis, tangent_u, g.n.shading_normal, math)
+
+}
+
+fn @cosine_hemisphere_sample(v: float2, math: mdl_math) -> float3{
+    if((v.x == 0.0f) && (v.y == 0.0f)){
+        return(make_float3(0.0f, 1.0f, 0.0f))
+    }
+
+    let mut u = make_float2(v.x+v.x, v.y*v.y);
+    if(u.x >= 1.0f){
+        u.x -= 2.0f;
+    }
+    if(u.y >= 1.0f){
+        u.y -= 2.0f;
+    }
+    let mut r: float;
+    let mut phi: float;
+    let mut y = 1.0f;
+    if(u.x * u.x > u.y * u.y){
+        r = u.x;
+        y -= u.x * u.x;
+        phi = (-math.PI / 4.0f) * (u.y / u.x) as float;
+    } else {
+        r = u.y;
+        y -= u.y * u.y;
+        phi = (-math.PI / 2.0f) + (math.PI / 4.0f)  * (u.x / u.y);
+    }
+
+    if(y <= 0.0f){
+        return (make_float3(0.0f, 1.0f, 0.0f))
+    }
+    let temp = math.sincos__float(phi);
+    let si = temp.x;
+    let co = temp.y;
+    make_float3(r * si, math.sqrt__float(y), r*co)
+}
+
+fn @eval_oren_nayar(
+    k1: float3,
+    k2: float3,
+    normal: float3,
+    roughness: float,
+    math: mdl_math
+) -> float{
+    let nk1 = math.dot__float3_float3(k1, normal);
+    let nk2 = math.dot__float3_float3(k2, normal);
+    
+    let kp1 = sub__float3_float3_mdl_math(k1, mul__float3_float_mdl_math(normal, nk1, math), math);
+    let kp2 = sub__float3_float3_mdl_math(k2, mul__float3_float_mdl_math(normal, nk2, math), math);
+
+    let sigma2 = roughness * roughness;
+    let A = 1.0f - (sigma2 / (sigma2 * 2.0f + 0.66f));
+    let B = 0.45f * sigma2 / (sigma2 + 0.09f);
+
+    let sl = math.dot__float3_float3(kp1, kp1) * math.dot__float3_float3(kp2, kp2);
+    A + (if(sl == 0.0f) {0.0f} else {
+        B * math.max__float_float(
+            0.0f, math.dot__float3_float3(kp1, kp2) * math.sqrt__float(
+                (1.0f - nk1 * nk1) * (1.0f - nk2 * nk2) / sl
+            ) / math.max__float_float(nk1, nk2)
+        )
+    })
+}
+
+fn @diffuse_sample(
+    data: &mut BSDF_sample_data,
+    state: State,
+    g: Geometry,
+    tint: float3,
+    roughness: float,
+    transmit: bool,
+    math: mdl_math
+) -> (){
+    let cosh = cosine_hemisphere_sample(make_float2(data.xi.x, data.xi.y), math);
+    let sign = if (transmit) {-1.0f} else {1.0f};
+    data.k2 = math.normalize__float3(
+        add__float3_float3_mdl_math(
+            add__float3_float3_mdl_math(
+                mul__float3_float_mdl_math(
+                    g.x_axis, 
+                    cosh.x,
+                    
+                    math
+                ), 
+                mul__float3_float_mdl_math(
+                    g.n.shading_normal, 
+                    sign * cosh.y,
+                    
+                    math
+                ),
+                
+                math
+            ), 
+            mul__float3_float_mdl_math(
+                g.z_axis,
+                cosh.z,
+                
+                math
+            ),
+            
+            math
+        )
+    );
+    
+
+    if(cosh.y <= 0.0f || sign * math.dot__float3_float3(data.k2, g.n.geometry_normal) <= 0.0f){
+        absorb_sample(data);
+        return()
+    }
+
+    data.bsdf_over_pdf = tint;
+    if(roughness > 0.0f){
+        data.bsdf_over_pdf = mul__float3_float_mdl_math(data.bsdf_over_pdf, eval_oren_nayar(data.k2, data.k1, g.n.shading_normal, roughness, math), math);
+    }
+    data.pdf = cosh.y * (1.0f / math.PI);
+    data.event_type = if(transmit) {BSDF_EVENT_DIFFUSE_TRANSMISSION} else {BSDF_EVENT_DIFFUSE_REFLECTION};
+}
+
+fn @diffuse_reflection_bsdf_sample(
+    data: &mut BSDF_sample_data,
+    state: State,
+    inherited_normal: float3,
+    tint: float3,
+    roughness: float,
+    math: mdl_math
+) -> (){
+    let mut g: Geometry;
+    if(!get_geometry(&mut g, inherited_normal, state.texture_tangent_u_int(0), data.k1, state, math)){
+        absorb_sample(data);
+        return()
+    }
+
+    diffuse_sample(data, state, g, math.saturate__float3(tint), roughness, false, math);
+}
+
+fn @diffuse_pdf(
+    data: &mut BSDF_pdf_data,
+    state: State,
+    inherited_normal: float3,
+    transmit: bool,
+    math: mdl_math
+) -> (){
+    let mut shading_normal: float3;
+    let mut geometry_normal: float3;
+    get_oriented_normals(
+        &mut shading_normal, &mut geometry_normal, inherited_normal, state.geometry_normal(), data.k1, math
+    );
+
+    let sign = if (transmit) {-1.0f} else {1.0f};
+    let nk2 = math.max__float_float(sign * math.dot__float3_float3(data.k2, shading_normal), 0.0f);
+    data.pdf = nk2 * (1.0f / math.PI);
+}
+
+fn @diffuse_reflection_bsdf_pdf(
+    data: &mut BSDF_pdf_data,
+    state: State,
+    inherited_normal: float3,
+    tint: float3,
+    roughness: float,
+    math: mdl_math
+) -> (){
+    diffuse_pdf(data, state, inherited_normal, false, math);
+}
+
+
+fn @diffuse_evaluate(
+    data: &mut BSDF_evaluate_data,
+    state: State,
+    inherited_normal: float3,
+    tint: float3,
+    roughness: float,
+    transmit: bool,
+    math: mdl_math
+) -> (){
+    
+ 
+    let mut shading_normal: float3;
+    let mut geometry_normal: float3;
+    get_oriented_normals(
+        &mut shading_normal, 
+        &mut geometry_normal, 
+        inherited_normal, 
+        state.geometry_normal(), 
+        data.k1,
+        math
+    );
+    let sign = if(transmit) {-1.0f} else {1.0f};
+    let nk2 = math.max__float_float(sign * math.dot__float3_float3(data.k2, shading_normal), 0.0f);
+    let pdf = nk2 * (1.0f / math.PI);
+
+    data.bsdf = mul__float3_float_mdl_math(tint, pdf, math);
+    if(nk2 > 0.0f && roughness > 0.0f){
+        data.bsdf = mul__float3_float_mdl_math(data.bsdf, eval_oren_nayar(data.k2, data.k1, shading_normal, roughness, math), math);
+    }
+
+    data.pdf = pdf;
+
+    
+}
+
+fn @diffuse_reflection_bsdf_evaluate(
+    data: &mut BSDF_evaluate_data,
+    state: State,
+    inherited_normal: float3,
+    tint: float3,
+    roughness: float,
+    math: mdl_math
+) -> (){
+    diffuse_evaluate(data, state, inherited_normal, math.saturate__float3(tint), roughness, false, math);
+}
+
+
+
+fn @diffuse_reflection_bsdf__color_float_mdl_math(
+    tint : fn(State) -> color, 
+    roughness : fn(State) -> float,  
+    math : mdl_math) -> bsdf
+{
+    
+    bsdf{
+        sample: @|data:&mut BSDF_sample_data, state:State, params: material_parameters|{
+            diffuse_reflection_bsdf_sample(
+                data,
+                state,
+                state.normal(),
+                as_float3(tint(state)),
+                roughness(state),
+                math
+            );
+        },
+        pdf: @|data:&mut BSDF_pdf_data, state:State, params: material_parameters|{
+            diffuse_reflection_bsdf_pdf(
+                data,
+                state,
+                state.normal(),
+                as_float3(tint(state)),
+                roughness(state),
+                math
+            );
+        },
+        evaluate: @|data:&mut BSDF_evaluate_data, state:State, params: material_parameters|{
+            diffuse_reflection_bsdf_evaluate(
+                data,
+                state,
+                state.normal(),
+                as_float3(tint(state)),
+                roughness(state),
+                math
+            );
+        },
+        is_default: false,
+        tint: tint
+    }
+}
+
+struct Distribution{
+    sample: fn(float3, float3) -> float3,
+    eval: fn(float3) -> float,
+    shadow_mask: fn(
+        &mut float,
+        &mut float,
+        float,
+        float3,
+        float,
+        float3,
+        float,
+        bool
+    ) -> float 
+}
+
+fn @refract(
+    k: float3,
+    n: float3,
+    b: float,
+    nk: float,
+    total_reflection: &mut bool,
+    math: mdl_math
+) -> float3
+{
+    let refract = b * b * (1.0f - nk * nk);
+    *total_reflection = (refract > 1.0f);
+    if(*total_reflection) 
+        {sub__float3_float3_mdl_math(mul__float3_float_mdl_math(n, nk + nk, math), k, math)} 
+    else 
+        {
+            math.normalize__float3(
+                add__float3_float3_mdl_math(
+                    mul__float3_float_mdl_math(
+                        neg__float3_mdl_math(k, math),
+                        b,
+                        
+                        math
+                    ), 
+                    mul__float3_float_mdl_math(
+                        n, 
+                        (b * nk - math.sqrt__float(1.0f - refract)),
+                        
+                        math
+                    ),
+                    
+                    math
+                )
+            )
+        }
+}
+
+fn @ior_fresnel(
+    eta: float,
+    kh: float,
+    math: mdl_math
+) -> float
+{
+    let mut costheta = 1.0f - (1.0f - kh * kh) / (eta * eta);
+    if(costheta < 0.0f){
+        return(1.0f)
+    }
+    costheta = math.sqrt__float(costheta);
+
+    let n1t1 = kh;
+    let n1t2 = costheta;
+    let n2t1 = kh * eta;
+    let n2t2 = costheta * eta;
+    let r_p = (n1t2 - n2t1) / (n1t2 + n2t1);
+    let r_o = (n1t1 - n2t2) / (n1t1 + n2t2);
+    let fres = 0.5f * (r_p * r_p + r_o * r_o);
+
+    math.saturate__float(fres)
+}
+
+fn @process_ior_sample(
+    data: &mut BSDF_sample_data,
+    mat_ior: float3,
+    math: mdl_math
+) -> float2
+{
+    if(data.ior1.x == BSDF_USE_MATERIAL_IOR){
+        data.ior1 = mat_ior;
+    }
+    if(data.ior2.x == BSDF_USE_MATERIAL_IOR){
+        data.ior2 = mat_ior;
+    }
+
+    let mut ior = make_float2(
+        (data.ior1.x + data.ior1.y + data.ior1.z) * (1.0 / 3.0) as float,
+        (data.ior2.x + data.ior2.y + data.ior2.z) * (1.0 / 3.0) as float
+    );
+
+    let IOR_THRESHOLD = 1e-4f;
+    let ior_diff = ior.y - ior.x;
+    if(math.abs__float(ior_diff) < IOR_THRESHOLD){
+        ior.y = ior.x + copysignf(IOR_THRESHOLD, ior_diff, math);
+    }
+
+    ior
+}
+
+fn @process_ior_evaluate(
+    data: &mut BSDF_evaluate_data,
+    mat_ior: float3,
+    math: mdl_math
+) -> float2
+{
+    if(data.ior1.x == BSDF_USE_MATERIAL_IOR){
+        data.ior1 = mat_ior;
+    }
+    if(data.ior2.x == BSDF_USE_MATERIAL_IOR){
+        data.ior2 = mat_ior;
+    }
+
+    let mut ior = make_float2(
+        (data.ior1.x + data.ior1.y + data.ior1.z) * (1.0 / 3.0) as float,
+        (data.ior2.x + data.ior2.y + data.ior2.z) * (1.0 / 3.0) as float
+    );
+
+    let IOR_THRESHOLD = 1e-4f;
+    let ior_diff = ior.y - ior.x;
+    if(math.abs__float(ior_diff) < IOR_THRESHOLD){
+        ior.y = ior.x + copysignf(IOR_THRESHOLD, ior_diff, math);
+    }
+
+    ior
+}
+
+fn @process_ior_pdf(
+    data: &mut BSDF_pdf_data,
+    mat_ior: float3,
+    math: mdl_math
+) -> float2
+{
+    if(data.ior1.x == BSDF_USE_MATERIAL_IOR){
+        data.ior1 = mat_ior;
+    }
+    if(data.ior2.x == BSDF_USE_MATERIAL_IOR){
+        data.ior2 = mat_ior;
+    }
+
+    let mut ior = make_float2(
+        (data.ior1.x + data.ior1.y + data.ior1.z) * (1.0 / 3.0) as float,
+        (data.ior2.x + data.ior2.y + data.ior2.z) * (1.0 / 3.0) as float
+    );
+
+    let IOR_THRESHOLD = 1e-4f;
+    let ior_diff = ior.y - ior.x;
+    if(math.abs__float(ior_diff) < IOR_THRESHOLD){
+        ior.y = ior.x + copysignf(IOR_THRESHOLD, ior_diff, math);
+    }
+
+    ior
+}
+
+
+fn @microfacet_sample_geometry(
+    ph: Distribution,
+    data: &mut BSDF_sample_data,
+    state: State,
+    g: Geometry,
+    tint: float3,
+    mode: scatter_mode,
+    thin_walled: bool,
+    mat_ior: float3,
+    math: mdl_math
+) -> ()
+{
+    let nk1 = math.abs__float(math.dot__float3_float3(data.k1, g.n.shading_normal));
+
+    let k10 = make_float3(
+        math.dot__float3_float3(data.k1, g.x_axis),
+        nk1,
+        math.dot__float3_float3(data.k1, g.z_axis)
+    );
+
+    let h0 = ph.sample(data.xi, k10);
+
+    let h = add__float3_float3_mdl_math(
+        mul__float3_float_mdl_math(
+            g.n.shading_normal,
+            h0.y,
+            
+            math
+        ),
+        add__float3_float3_mdl_math(
+            mul__float3_float_mdl_math(
+                g.x_axis, 
+                h0.x,
+                
+                math
+            ), 
+            mul__float3_float_mdl_math(
+                g.z_axis, 
+                h0.z,
+                
+                math
+            ),
+            
+            math
+        ),
+        
+        math
+    );
+
+    let kh = math.dot__float3_float3(data.k1, h);
+
+    if(kh <= 0.0f){
+        absorb_sample(data);
+        return()
+    }
+
+    let ior = process_ior_sample(data, mat_ior, math);
+    let f_refl = if(mode == scatter_mode_scatter_reflect) {1.0f} else {if(mode == scatter_mode_scatter_transmit){0.0f} else {ior_fresnel(ior.y / ior.x, kh, math)}};
+
+    if(data.xi.z < f_refl){
+        data.k2 = sub__float3_float3_mdl_math(mul__float3_float_mdl_math(h , (2.0f * kh), math), data.k1, math);
+        data.event_type = BSDF_EVENT_GLOSSY_REFLECTION;
+    } else {
+        let mut tir = false;
+        if(thin_walled){
+            data.k2 = sub__float3_float3_mdl_math(mul__float3_float_mdl_math(h , (2.0f * kh), math), data.k1, math);
+            data.k2 = math.normalize__float3(
+                sub__float3_float3_mdl_math(data.k2, mul__float3_float_mdl_math(g.n.shading_normal, 2.0f * math.dot__float3_float3(data.k2, g.n.shading_normal), math), math)
+            );
+
+        } else {
+            data.k2 = refract(data.k1, h, ior.x / ior.y, kh, &mut tir, math);
+        }
+
+        data.event_type = if(tir) {BSDF_EVENT_GLOSSY_REFLECTION} else {BSDF_EVENT_GLOSSY_TRANSMISSION};
+        if(tir && mode == scatter_mode_scatter_transmit){
+            absorb_sample(data);
+            return()
+        }
+    }
+
+    let gnk2 = math.dot__float3_float3(data.k2, g.n.geometry_normal) * (
+        if(data.event_type == BSDF_EVENT_GLOSSY_REFLECTION) {1.0f} else {-1.0f}
+    );
+
+    if(gnk2 <= 0.0f){
+        absorb_sample(data);
+        return()
+    }
+
+    let refraction = !thin_walled && (data.event_type == BSDF_EVENT_GLOSSY_TRANSMISSION);
+
+    data.bsdf_over_pdf = tint;
+
+    let nk2 = math.abs__float(math.dot__float3_float3(data.k2, g.n.shading_normal));
+    let k2h = math.abs__float(math.dot__float3_float3(data.k2, h));
+
+    let mut G1: float;
+    let mut G2: float;
+
+    let G12 = ph.shadow_mask(
+        &mut G1, &mut G2, h0.y,
+        k10, kh,
+        make_float3(
+            math.dot__float3_float3(data.k2, g.x_axis),
+            nk2,
+            math.dot__float3_float3(data.k1, g.z_axis)
+        ), k2h, refraction
+    );
+
+    if(G12 <= 0.0f){
+        absorb_sample(data);
+        return()
+    }
+
+    data.bsdf_over_pdf = mul__float3_float_mdl_math(data.bsdf_over_pdf, G12 / G1, math);
+
+    {
+        data.pdf = ph.eval(h0) * G1;
+
+        if(refraction){
+            let tmp = kh * ior.x - k2h * ior.y;
+            data.pdf *= kh * k2h / (nk1 * h0.y * tmp * tmp);
+        } else {
+            data.pdf *= 0.25f / (nk1 * h0.y);
+        }
+    }
+}
+
+fn @microfacet_sample(
+    ph: Distribution,
+    data: &mut BSDF_sample_data,
+    state: State,
+    normal: float3,
+    tangent_u: float3,
+    tint: float3,
+    mode: scatter_mode,
+    thin_walled: bool,
+    mat_ior: float3,
+    math: mdl_math
+) -> ()
+{
+    let mut g: Geometry;
+    if(!get_geometry(&mut g, normal, tangent_u, data.k1, state, math)){
+        absorb_sample(data);
+        return()
+    }
+
+    microfacet_sample_geometry(ph, data, state, g, tint, mode, thin_walled, mat_ior, math)
+}
+
+fn @compute_half_vector(
+    k1: float3,
+    k2: float3,
+    shading_normal: float3,
+    ior: float2,
+    nk1: float,
+    nk2: float,
+    transmission: bool,
+    thin_walled: bool,
+    math: mdl_math
+) -> float3
+{
+    let mut h : float3;
+    if(transmission){
+        if(thin_walled){
+            h = add__float3_float3_mdl_math(k1, add__float3_float3_mdl_math(mul__float3_float_mdl_math(shading_normal,nk2 + nk2, math), k2, math), math);
+        } else {
+            h = add__float3_float3_mdl_math(mul__float3_float_mdl_math(k2, ior.y, math), mul__float3_float_mdl_math(k1, ior.x, math), math);
+            if(ior.y > ior.x){
+                h = mul__float3_float_mdl_math(h, -1.0f, math);
+            }
+        }
+    } else {
+        h = add__float3_float3_mdl_math(k1, k2, math);
+    }
+
+    math.normalize__float3(h)
+}
+
+fn @microfacet_evaluate_geometry_evaluate(
+    ph: Distribution,
+    data: &mut BSDF_evaluate_data,
+    state: State,
+    g: Geometry,
+    mode: scatter_mode,
+    thin_walled: bool,
+    mat_ior: float3,
+    math: mdl_math
+) -> float
+{
+    let backside_eval = math.dot__float3_float3(data.k2, g.n.geometry_normal) < 0.0f;
+    
+    if((backside_eval && (mode == scatter_mode_scatter_reflect)) || (!backside_eval && (mode == scatter_mode_scatter_transmit))){
+        absorb_evaluate(data);
+        return(0.0f)
+    }
+
+    let nk1 = math.abs__float(math.dot__float3_float3(g.n.shading_normal, data.k1));
+    let nk2 = math.abs__float(math.dot__float3_float3(g.n.shading_normal, data.k2));
+    let ior = process_ior_evaluate(data, mat_ior, math);
+    let h = compute_half_vector(
+        data.k1,
+        data.k2,
+        g.n.shading_normal,
+        ior,
+        nk1,
+        nk2,
+        backside_eval,
+        thin_walled,
+        math
+    );
+
+    let nh = math.dot__float3_float3(g.n.shading_normal, h);
+    let k1h = math.dot__float3_float3(data.k1, h);
+    let k2h = math.dot__float3_float3(data.k2, h) * (if(backside_eval){-1.0f} else {1.0f});
+
+    if(nh < 0.0f || k1h < 0.0f || k2h < 0.0f){
+        absorb_evaluate(data);
+        return(0.0f)
+    }
+
+    let fresnnel_refl = ior_fresnel(ior.y / ior.x, k1h, math);
+
+    let weight = if(mode == scatter_mode_scatter_reflect_transmit){if(backside_eval){1.0f - fresnnel_refl} else {fresnnel_refl}} else {1.0f};
+
+    data.pdf = ph.eval(
+        make_float3(
+            math.dot__float3_float3(g.x_axis, h),
+            nh,
+            math.dot__float3_float3(g.z_axis, h)
+        )
+    );
+
+
+
+    let mut G1: float;
+    let mut G2: float;
+
+    let refraction = !thin_walled && backside_eval;
+
+    let G12 = ph.shadow_mask(
+        &mut G1,
+        &mut G2,
+        nh,
+        make_float3(
+            math.dot__float3_float3(g.x_axis, data.k1),
+            nk1, 
+            math.dot__float3_float3(g.z_axis, data.k1)
+        ),
+        k1h,
+        make_float3(
+            math.dot__float3_float3(g.x_axis, data.k2),
+            nk2, 
+            math.dot__float3_float3(g.z_axis, data.k2)
+        ),
+        k2h,
+        refraction
+    );
+
+    if(refraction){
+        let tmp = k1h * ior.x - k2h * ior.y;
+        data.pdf *= k1h * k2h / (nk1 * nh * tmp * tmp);
+    } else {
+        data.pdf *= 0.25f / (nk1 * nh);
+        
+    }
+
+    let bsdf = data.pdf * weight * G12;
+    data.pdf *= G1;
+    bsdf
+}
+
+fn @microfacet_evaluate_geometry_pdf(
+    ph: Distribution,
+    data: &mut BSDF_pdf_data,
+    state: State,
+    g: Geometry,
+    mode: scatter_mode,
+    thin_walled: bool,
+    mat_ior: float3,
+    math: mdl_math
+) -> float
+{
+    let backside_eval = math.dot__float3_float3(data.k2, g.n.geometry_normal) < 0.0f;
+    
+    if((backside_eval && (mode == scatter_mode_scatter_reflect)) || (!backside_eval && (mode == scatter_mode_scatter_transmit))){
+        absorb_pdf(data);
+        return(0.0f)
+    }
+
+    let nk1 = math.abs__float(math.dot__float3_float3(g.n.shading_normal, data.k1));
+    let nk2 = math.abs__float(math.dot__float3_float3(g.n.shading_normal, data.k2));
+    let ior = process_ior_pdf(data, mat_ior, math);
+    let h = compute_half_vector(
+        data.k1,
+        data.k2,
+        g.n.shading_normal,
+        ior,
+        nk1,
+        nk2,
+        backside_eval,
+        thin_walled,
+        math
+    );
+
+    let nh = math.dot__float3_float3(g.n.shading_normal, h);
+    let k1h = math.dot__float3_float3(data.k1, h);
+    let k2h = math.dot__float3_float3(data.k2, h) * (if(backside_eval){-1.0f} else {1.0f});
+
+    if(nh < 0.0f || k1h < 0.0f || k2h < 0.0f){
+        absorb_pdf(data);
+        return(0.0f)
+    }
+
+    let fresnnel_refl = ior_fresnel(ior.y / ior.x, k1h, math);
+
+    let weight = if(mode == scatter_mode_scatter_reflect_transmit){if(backside_eval){1.0f - fresnnel_refl} else {fresnnel_refl}} else {1.0f};
+
+    let mut G1: float;
+    let mut G2: float;
+
+    let refraction = !thin_walled && backside_eval;
+
+    let G12 = ph.shadow_mask(
+        &mut G1,
+        &mut G2,
+        nh,
+        make_float3(
+            math.dot__float3_float3(g.x_axis, data.k1),
+            nk1, 
+            math.dot__float3_float3(g.z_axis, data.k1)
+        ),
+        k1h,
+        make_float3(
+            math.dot__float3_float3(g.x_axis, data.k2),
+            nk2, 
+            math.dot__float3_float3(g.z_axis, data.k2)
+        ),
+        k2h,
+        refraction
+    );
+
+    if(refraction){
+        let tmp = k1h * ior.x - k2h * ior.y;
+        data.pdf *= k1h * k2h / (nk1 * nh * tmp * tmp);
+    } else {
+        data.pdf *= 0.25f / (nk1 * nh);
+    }
+
+    let bsdf = data.pdf * weight * G12;
+    data.pdf *= G1;
+    bsdf
+}
+
+fn @microfacet_evaluate_geometry_sample(
+    ph: Distribution,
+    data: &mut BSDF_sample_data,
+    state: State,
+    g: Geometry,
+    mode: scatter_mode,
+    thin_walled: bool,
+    mat_ior: float3,
+    math: mdl_math
+) -> float
+{
+    let backside_eval = math.dot__float3_float3(data.k2, g.n.geometry_normal) < 0.0f;
+    if((backside_eval && (mode == scatter_mode_scatter_reflect)) || (!backside_eval && (mode == scatter_mode_scatter_transmit))){
+        absorb_sample(data);
+        return(0.0f)
+    }
+
+    let nk1 = math.abs__float(math.dot__float3_float3(g.n.shading_normal, data.k1));
+    let nk2 = math.abs__float(math.dot__float3_float3(g.n.shading_normal, data.k2));
+    let ior = process_ior_sample(data, mat_ior, math);
+    let h = compute_half_vector(
+        data.k1,
+        data.k2,
+        g.n.shading_normal,
+        ior,
+        nk1,
+        nk2,
+        backside_eval,
+        thin_walled,
+        math
+    );
+
+    let nh = math.dot__float3_float3(g.n.shading_normal, h);
+    let k1h = math.dot__float3_float3(data.k1, h);
+    let k2h = math.dot__float3_float3(data.k2, h) * (if(backside_eval){-1.0f} else {1.0f});
+
+    if(nh < 0.0f || k1h < 0.0f || k2h < 0.0f){
+        absorb_sample(data);
+        return(0.0f)
+    }
+
+    let fresnnel_refl = ior_fresnel(ior.y / ior.x, k1h, math);
+
+    let weight = if(mode == scatter_mode_scatter_reflect_transmit){if(backside_eval){1.0f - fresnnel_refl} else {fresnnel_refl}} else {1.0f};
+
+    let mut G1: float;
+    let mut G2: float;
+
+    let refraction = !thin_walled && backside_eval;
+
+    let G12 = ph.shadow_mask(
+        &mut G1,
+        &mut G2,
+        nh,
+        make_float3(
+            math.dot__float3_float3(g.x_axis, data.k1),
+            nk1, 
+            math.dot__float3_float3(g.z_axis, data.k1)
+        ),
+        k1h,
+        make_float3(
+            math.dot__float3_float3(g.x_axis, data.k2),
+            nk2, 
+            math.dot__float3_float3(g.z_axis, data.k2)
+        ),
+        k2h,
+        refraction
+    );
+
+    if(refraction){
+        let tmp = k1h * ior.x - k2h * ior.y;
+        data.pdf *= k1h * k2h / (nk1 * nh * tmp * tmp);
+    } else {
+        data.pdf *= 0.25f / (nk1 * nh);
+    }
+
+    let bsdf = data.pdf * weight * G12;
+    data.pdf *= G1;
+    bsdf
+}
+
+fn @microfacet_evaluate_evaluate(
+    ph: Distribution,
+    data: &mut BSDF_evaluate_data,
+    state: State,
+    normal : float3,
+    tangent_u: float3,
+    thin_walled: bool,
+    mat_ior: float3,
+    mode : scatter_mode,
+    math: mdl_math
+) -> float
+{
+    let mut g: Geometry;
+    if(!get_geometry(&mut g, normal, tangent_u, data.k1, state, math)){
+        absorb_evaluate(data);
+        return(0.0f)
+    }
+    microfacet_evaluate_geometry_evaluate(ph, data, state, g, mode, thin_walled, mat_ior, math)
+}
+
+fn @microfacet_evaluate_sample(
+    ph: Distribution,
+    data: &mut BSDF_sample_data,
+    state: State,
+    normal : float3,
+    tangent_u: float3,
+    thin_walled: bool,
+    mat_ior: float3,
+    mode : scatter_mode,
+    math: mdl_math
+) -> float
+{
+    let mut g: Geometry;
+    if(!get_geometry(&mut g, normal, tangent_u, data.k1, state, math)){
+        absorb_sample(data);
+        return(0.0f)
+    }
+    microfacet_evaluate_geometry_sample(ph, data, state, g, mode, thin_walled, mat_ior, math)
+}
+
+fn @microfacet_evaluate_pdf(
+    ph: Distribution,
+    data: &mut BSDF_pdf_data,
+    state: State,
+    normal : float3,
+    tangent_u: float3,
+    thin_walled: bool,
+    mat_ior: float3,
+    mode : scatter_mode,
+    math: mdl_math
+) -> float
+{
+    let mut g: Geometry;
+    if(!get_geometry(&mut g, normal, tangent_u, data.k1, state, math)){
+        absorb_pdf(data);
+        return(0.0f)
+    }
+    microfacet_evaluate_geometry_pdf(ph, data, state, g, mode, thin_walled, mat_ior, math)
+}
+
+fn @microfacet_mask_v_cavities(
+    nh: float,
+    kh: float,
+    nk: float,
+    math: mdl_math
+) -> float{
+    math.min__float_float(1.0f, 2.0f * nh * nk / kh)
+}
+
+fn @roughness_to_exponent(
+    roughness_u: float,
+    roughness_v: float
+) -> float2
+{
+    make_float2(
+        2.0f / (roughness_u * roughness_u),
+        2.0f / (roughness_v * roughness_v)
+    )
+}
+
+fn @clamp_roughness(r: float, math: mdl_math) -> float{
+    math.min__float_float(math.max__float_float(r, 0.00001f), 1.0f)
+}
+
+fn @hvd_phong_sample(samples: float2, exponent: float2, math: mdl_math) -> float3{
+    let sy4 = samples.x * 4.0f;
+    let cosupper = math.cos__float(math.PI * math.frac__float(sy4));
+
+    let e = make_float2(
+        exponent.x + 1.0f,
+        exponent.y + 1.0f
+    );
+
+    let eu1mcu = e.x * (1.0f - cosupper);
+    let ev1pcu = e.y * (1.0f + cosupper);
+    let t = eu1mcu + ev1pcu;
+
+    let tt = (math.pow__float_float(1.0f - samples.x, -t/(e.x * e.y)) - 1.0f) / t;
+    let tttv = math.sqrt__float(ev1pcu * tt);
+    let tttu = math.sqrt__float(eu1mcu * tt);
+
+    math.normalize__float3(
+        make_float3(
+            if((samples.x < 0.75f) && (samples.x >= 0.25f)) {-tttv} else {tttv},
+            1.0f,
+            if(samples.x >= 0.5f) {-tttu} else {tttu}
+        )
+    )
+}
+
+fn @hvd_phong_eval(
+    exponent: float2,
+    nh: float,
+    ht: float,
+    hb: float,
+    math: mdl_math
+) -> float
+{
+    let p = if(nh > 0.99999f) {1.0f} else {math.pow__float_float(nh, (exponent.x * ht * ht + exponent.y * hb * hb) / (1.0f - nh * nh))};
+    math.sqrt__float((exponent.x + 1.0f) * (exponent.x + 1.0f)) * (0.5f/math.PI) as float * p
+}
+
+fn @flip(h: float3, k: float3, xi: float, math: mdl_math) -> float3{
+    let a = h.y * k.y;
+    let b = h.x * k.x + h.z * k.z;
+    let kh = math.max__float_float(a+b, 0.0f);
+    let kh_f = math.max__float_float(1.0f-b, 0.0f);
+
+    if(xi < kh_f / (kh + kh_f)){
+        make_float3(
+            -h.x,
+            h.y,
+            -h.z
+        )
+    } else {
+        h
+    }
+}
+
+
+
+fn @simple_glossy_bsdf_sample(
+    data: &mut BSDF_sample_data,
+    state: State,
+    inherited_normal: float3,
+    roughness_u: float,
+    roughness_v: float,
+    tint: float3,
+    tangent_u: float3,
+    mode: scatter_mode,
+    math: mdl_math
+) -> ()
+{
+    let m_exponent = roughness_to_exponent(clamp_roughness(roughness_u, math), clamp_roughness(roughness_v, math));
+    let ph = Distribution{
+        sample: @|xi: float3, k: float3|{
+            flip(hvd_phong_sample(make_float2(xi.x, xi.y), m_exponent, math), k, xi.z, math)
+        },
+        eval: @|h: float3|{
+            hvd_phong_eval(m_exponent, h.y, h.x, h.z, math)
+        },
+        shadow_mask: 
+            @|
+                G1: &mut float,
+                G2: &mut float,
+                nh: float,
+                k1: float3,
+                k1h: float,
+                k2: float3,
+                k2h: float,
+                refraction: bool
+            |{
+                *G1 = microfacet_mask_v_cavities(nh, k1h, k1.y, math);
+                *G2 = microfacet_mask_v_cavities(nh, k2h, k2.y, math);
+                if(refraction){math.max__float_float(*G1 + *G2 - 1.0f, 0.0f)} else {math.min__float_float(*G1, *G2)}
+            }
+
+    };
+}
+
+fn @simple_glossy_bsdf_evaluate(
+    data: &mut BSDF_evaluate_data,
+    state: State,
+    inherited_normal: float3,
+    roughness_u: float,
+    roughness_v: float,
+    tint: float3,
+    tangent_u: float3,
+    mode: scatter_mode,
+    thin_walled: bool,
+    mat_ior: float3,
+    math: mdl_math
+) -> ()
+{
+    let m_exponent = roughness_to_exponent(clamp_roughness(roughness_u, math), clamp_roughness(roughness_v, math));
+    let ph = Distribution{
+        sample: @|xi: float3, k: float3|{
+            flip(hvd_phong_sample(make_float2(xi.x, xi.y), m_exponent, math), k, xi.z, math)
+        },
+        eval: @|h: float3|{
+            hvd_phong_eval(m_exponent, h.y, h.x, h.z, math)
+        },
+        shadow_mask: 
+            @|
+                G1: &mut float,
+                G2: &mut float,
+                nh: float,
+                k1: float3,
+                k1h: float,
+                k2: float3,
+                k2h: float,
+                refraction: bool
+            |{
+                *G1 = microfacet_mask_v_cavities(nh, k1h, k1.y, math);
+                *G2 = microfacet_mask_v_cavities(nh, k2h, k2.y, math);
+                if(refraction){math.max__float_float(*G1 + *G2 - 1.0f, 0.0f)} else {math.min__float_float(*G1, *G2)}
+            }
+
+    };
+    data.bsdf = mul__float3_float_mdl_math(math.saturate__float3(tint), microfacet_evaluate_evaluate(ph, data, state, inherited_normal, tangent_u, thin_walled, mat_ior, mode, math), math);
+}
+
+fn @simple_glossy_bsdf_pdf(
+    data: &mut BSDF_pdf_data,
+    state: State,
+    inherited_normal: float3,
+    roughness_u: float,
+    roughness_v: float,
+    tint: float3,
+    tangent_u: float3,
+    mode: scatter_mode,
+    thin_walled:bool,
+    mat_ior: float3,
+    math: mdl_math
+) -> ()
+{
+    let m_exponent = roughness_to_exponent(clamp_roughness(roughness_u, math), clamp_roughness(roughness_v, math));
+    let ph = Distribution{
+        sample: @|xi: float3, k: float3|{
+            flip(hvd_phong_sample(make_float2(xi.x, xi.y), m_exponent, math), k, xi.z, math)
+        },
+        eval: @|h: float3|{
+            hvd_phong_eval(m_exponent, h.y, h.x, h.z, math)
+        },
+        shadow_mask: 
+            @|
+                G1: &mut float,
+                G2: &mut float,
+                nh: float,
+                k1: float3,
+                k1h: float,
+                k2: float3,
+                k2h: float,
+                refraction: bool
+            |{
+                *G1 = microfacet_mask_v_cavities(nh, k1h, k1.y, math);
+                *G2 = microfacet_mask_v_cavities(nh, k2h, k2.y, math);
+                if(refraction){math.max__float_float(*G1 + *G2 - 1.0f, 0.0f)} else {math.min__float_float(*G1, *G2)}
+            }
+
+    };
+    microfacet_evaluate_pdf(ph, data, state, inherited_normal, tangent_u, thin_walled, mat_ior, mode, math);
+}
+     
+
+/*
+fn @diffuse_transmission_bsdf__color_mdl_math(tint : fn(State) -> color,  state : State, math : mdl_math) -> bsdf{
+{}
+}
+
+fn @specular_bsdf__color_scatter_mode_mdl_math(tint : fn(State) -> color, mode : fn(State) -> fn(State) -> scatter_mode,  state : State, math : mdl_math) -> bsdf{
+{}
+}
+*/
+fn @simple_glossy_bsdf__float_float_color_float3_scatter_mode_mdl_math(
+    roughness_u : fn(State) -> float,
+    roughness_v : fn(State) -> float, 
+    tint : fn(State) -> color, 
+    tangent_u : fn(State) -> float3, 
+    mode : fn(State) -> scatter_mode,
+    math : mdl_math) -> bsdf
+{
+    
+    bsdf{
+        sample: @|data:&mut BSDF_sample_data, state:State, params: material_parameters|{
+            simple_glossy_bsdf_sample(
+                data,
+                state,
+                state.normal(),
+                roughness_u(state),
+                roughness_v(state),
+                as_float3(tint(state)),
+                tangent_u(state),
+                mode(state),
+                math
+            );
+        },
+        pdf: @|data:&mut BSDF_pdf_data, state:State, params: material_parameters|{
+            simple_glossy_bsdf_pdf(
+                data,
+                state,
+                state.normal(),
+                roughness_u(state),
+                roughness_v(state),
+                as_float3(tint(state)),
+                tangent_u(state),
+                mode(state),
+                params.thin_walled,
+                as_float3(params.ior),
+                math
+            );
+        },
+        evaluate: @|data:&mut BSDF_evaluate_data, state:State, params: material_parameters|{
+            simple_glossy_bsdf_evaluate(
+                data,
+                state,
+                state.normal(),
+                roughness_u(state),
+                roughness_v(state),
+                as_float3(tint(state)),
+                tangent_u(state),
+                mode(state),
+                params.thin_walled,
+                as_float3(params.ior),
+                math
+            );
+        },
+        is_default: false,
+        tint: tint
+    }
+}
+/*
+fn @backscattering_glossy_reflection_bsdf__float_float_color_float3_mdl_math(roughness_u : fn(State) -> float, roughness_v : fn(State) -> float, tint : fn(State) -> color, tangent_u : fn(State) -> float3,  state : State, math : mdl_math) -> bsdf{
+{}
+}
+
+fn @measured_bsdf__bsdf_measurement_float_scatter_mode_mdl_math(measurement : fn(State) -> fn(State) -> bsdf_measurement, multiplier : fn(State) -> fn(State) -> float, mode : fn(State) -> fn(State) -> scatter_mode,  state : State, math : mdl_math) -> bsdf{
+{}
+}
+
+fn @microfacet_beckmann_smith_bsdf__float_float_color_float3_scatter_mode_mdl_math(roughness_u : fn(State) -> float, roughness_v : fn(State) -> float, tint : fn(State) -> color, tangent_u : fn(State) -> float3, mode : fn(State) -> fn(State) -> scatter_mode,  state : State, math : mdl_math) -> bsdf{
+{}
+}
+
+fn @microfacet_ggx_smith_bsdf__float_float_color_float3_scatter_mode_mdl_math(roughness_u : fn(State) -> float, roughness_v : fn(State) -> float, tint : fn(State) -> color, tangent_u : fn(State) -> float3, mode : fn(State) -> fn(State) -> scatter_mode,  state : State, math : mdl_math) -> bsdf{
+{}
+}
+
+fn @microfacet_beckmann_vcavities_bsdf__float_float_color_float3_scatter_mode_mdl_math(roughness_u : fn(State) -> float, roughness_v : fn(State) -> float, tint : fn(State) -> color, tangent_u : fn(State) -> float3, mode : fn(State) -> fn(State) -> scatter_mode,  state : State, math : mdl_math) -> bsdf{
+{}
+}
+
+fn @microfacet_ggx_vcavities_bsdf__float_float_color_float3_scatter_mode_mdl_math(roughness_u : fn(State) -> float, roughness_v : fn(State) -> float, tint : fn(State) -> color, tangent_u : fn(State) -> float3, mode : fn(State) -> fn(State) -> scatter_mode,  state : State, math : mdl_math) -> bsdf{
+{}
+}
+
+fn @ward_geisler_moroder_bsdf__float_float_color_float3_mdl_math(roughness_u : fn(State) -> float, roughness_v : fn(State) -> float, tint : fn(State) -> color, tangent_u : fn(State) -> float3,  state : State, math : mdl_math) -> bsdf{
+{}
+}
+
+fn @diffuse_edf__mdl_math(handle : fn(State) -> fn(State) -> string,  state : State, math : mdl_math) -> edf{
+{}
+}
+
+fn @spot_edf__float_bool_float3x3_mdl_math(exponent : fn(State) -> fn(State) -> float, global_distribution : fn(State) -> fn(State) -> bool, global_frame : fn(State) -> fn(State) -> fn(State) -> float3x3,  state : State, math : mdl_math) -> edf{
+{}
+}
+
+fn @spot_edf__float_float_bool_float3x3_mdl_math(exponent : fn(State) -> fn(State) -> float, spread : fn(State) -> fn(State) -> float, global_distribution : fn(State) -> fn(State) -> bool, global_frame : fn(State) -> fn(State) -> fn(State) -> float3x3,  state : State, math : mdl_math) -> edf{
+{}
+}
+
+fn @measured_edf__light_profile_bool_float3x3_mdl_math(profile : fn(State) -> fn(State) -> light_profile, global_distribution : fn(State) -> fn(State) -> bool, global_frame : fn(State) -> fn(State) -> fn(State) -> float3x3,  state : State, math : mdl_math) -> edf{
+{}
+}
+
+fn @measured_edf__light_profile_float_bool_float3x3_mdl_math(profile : fn(State) -> fn(State) -> light_profile, multiplier : fn(State) -> fn(State) -> float, global_distribution : fn(State) -> fn(State) -> bool, global_frame : fn(State) -> fn(State) -> fn(State) -> float3x3,  state : State, math : mdl_math) -> edf{
+{}
+}
+
+fn @measured_edf__light_profile_float_bool_float3x3_float3_mdl_math(profile : fn(State) -> fn(State) -> light_profile, multiplier : fn(State) -> fn(State) -> float, global_distribution : fn(State) -> fn(State) -> bool, global_frame : fn(State) -> fn(State) -> fn(State) -> float3x3, tangent_u : fn(State) -> float3,  state : State, math : mdl_math) -> edf{
+{}
+}
+
+fn @anisotropic_vdf__float_mdl_math(directional_bias : fn(State) -> float,  state : State, math : mdl_math) -> vdf{
+{}
+}
+
+fn @tint__color_bsdf_mdl_math(tint : fn(State) -> color, base : fn(State) -> bsdf,  state : State, math : mdl_math) -> bsdf{
+{}
+}
+
+fn @tint__color_edf_mdl_math(tint : fn(State) -> fn(State) -> color, base : fn(State) -> edf,  state : State, math : mdl_math) -> edf{
+{}
+}
+
+fn @thin_film__float_color_bsdf_mdl_math(thickness : fn(State) -> float, ior : fn(State) -> color, base : fn(State) -> bsdf,  state : State, math : mdl_math) -> bsdf{
+{}
+}
+
+fn @directional_factor__color_color_float_bsdf_mdl_math(normal_tint : fn(State) -> color, grazing_tint : fn(State) -> color, exponent : fn(State) -> float, base : fn(State) -> bsdf,  state : State, math : mdl_math) -> bsdf{
+{}
+}
+
+struct bsdf_component {
+    weight: fn(State) -> float,
+    component: fn(State) -> bsdf,
+}
+
+fn @bsdf_component__float_bsdf_mdl_math(weight: fn(State) -> float, component: fn(State) -> bsdf, state: State, math: mdl_math) -> bsdf_component {
+    bsdf_component{
+        weight: |state:State|{weight(state)},
+        component: |state:State|{component(state)},
+    }
+}
+fn @bsdf_component__bsdf_component_mdl_math(copy: fn(State) -> bsdf_component, state: State, math: mdl_math) -> bsdf_component {
+    bsdf_component{
+        weight: copy(state).weight,
+        component: copy(state).component,
+    }
+}
+struct edf_component {
+    weight: fn(State) -> fn(State) -> float,
+    component: fn(State) -> edf,
+}
+
+fn @edf_component__float_edf_mdl_math(weight: fn(State) -> fn(State) -> float, component: fn(State) -> edf, state: State, math: mdl_math) -> edf_component {
+    edf_component{
+        weight: |state:State|{weight(state)},
+        component: |state:State|{component(state)},
+    }
+}
+fn @edf_component__edf_component_mdl_math(copy: fn(State) -> edf_component, state: State, math: mdl_math) -> edf_component {
+    edf_component{
+        weight: copy(state).weight,
+        component: copy(state).component,
+    }
+}
+struct vdf_component {
+    weight: fn(State) -> float,
+    component: fn(State) -> vdf,
+}
+
+fn @vdf_component__float_vdf_mdl_math(weight: fn(State) -> float, component: fn(State) -> vdf, state: State, math: mdl_math) -> vdf_component {
+    vdf_component{
+        weight: |state:State|{weight(state)},
+        component: |state:State|{component(state)},
+    }
+}
+fn @vdf_component__vdf_component_mdl_math(copy: fn(State) -> vdf_component, state: State, math: mdl_math) -> vdf_component {
+    vdf_component{
+        weight: copy(state).weight,
+        component: copy(state).component,
+    }
+}
+fn @normalized_mix__fn(State) -> bsdf_component_arr_mdl_math(components : fn(State) -> [fn(State) -> bsdf_component*-1],  state : State, math : mdl_math) -> bsdf{
+{}
+}
+
+fn @normalized_mix__fn(State) -> vdf_component_arr_mdl_math(components : fn(State) -> [fn(State) -> vdf_component*-1],  state : State, math : mdl_math) -> vdf{
+{}
+}
+
+fn @normalized_mix__fn(State) -> edf_component_arr_mdl_math(components : fn(State) -> [fn(State) -> edf_component*-1],  state : State, math : mdl_math) -> edf{
+{}
+}
+
+fn @clamped_mix__fn(State) -> bsdf_component_arr_mdl_math(components : fn(State) -> [fn(State) -> bsdf_component*-1],  state : State, math : mdl_math) -> bsdf{
+{}
+}
+
+fn @clamped_mix__fn(State) -> vdf_component_arr_mdl_math(components : fn(State) -> [fn(State) -> vdf_component*-1],  state : State, math : mdl_math) -> vdf{
+{}
+}
+
+fn @clamped_mix__fn(State) -> edf_component_arr_mdl_math(components : fn(State) -> [fn(State) -> edf_component*-1],  state : State, math : mdl_math) -> edf{
+{}
+}
+
+fn @weighted_layer__float_bsdf_bsdf_float3_mdl_math(weight : fn(State) -> float, layer : fn(State) -> bsdf, base : fn(State) -> bsdf, normal : fn(State) -> float3,  state : State, math : mdl_math) -> bsdf{
+{}
+}
+
+fn @fresnel_layer__color_float_bsdf_bsdf_float3_mdl_math(ior : fn(State) -> color, weight : fn(State) -> float, layer : fn(State) -> bsdf, base : fn(State) -> bsdf, normal : fn(State) -> float3,  state : State, math : mdl_math) -> bsdf{
+{}
+}
+
+fn @custom_curve_layer__float_float_float_float_bsdf_bsdf_float3_mdl_math(normal_reflectivity : fn(State) -> float, grazing_reflectivity : fn(State) -> float, exponent : fn(State) -> float, weight : fn(State) -> float, layer : fn(State) -> bsdf, base : fn(State) -> bsdf, normal : fn(State) -> float3,  state : State, math : mdl_math) -> bsdf{
+{}
+}
+
+fn @measured_curve_layer__fn(State) -> color_arr_float_bsdf_bsdf_float3_mdl_math(curve_values : fn(State) -> [fn(State) -> color*-1], weight : fn(State) -> float, layer : fn(State) -> bsdf, base : fn(State) -> bsdf, normal : fn(State) -> float3,  state : State, math : mdl_math) -> bsdf{
+{}
+}
+
+fn @measured_curve_factor__fn(State) -> color_arr_bsdf_mdl_math(curve_values : fn(State) -> [fn(State) -> color*-1], base : fn(State) -> bsdf,  state : State, math : mdl_math) -> bsdf{
+{}
+}
+
+fn @light_profile_power__light_profile_mdl_math(profile : fn(State) -> fn(State) -> light_profile,  state : State, math : mdl_math) -> float{
+{}
+}
+
+fn @light_profile_maximum__light_profile_mdl_math(profile : fn(State) -> fn(State) -> light_profile,  state : State, math : mdl_math) -> float{
+{}
+}
+
+fn @light_profile_isvalid__light_profile_mdl_math(profile : fn(State) -> fn(State) -> light_profile,  state : State, math : mdl_math) -> bool{
+{}
+}
+
+fn @bsdf_measurement_isvalid__bsdf_measurement_mdl_math(measurement : fn(State) -> fn(State) -> bsdf_measurement,  state : State, math : mdl_math) -> bool{
+{}
+}
+
+struct color_bsdf_component {
+    weight: fn(State) -> color,
+    component: fn(State) -> bsdf,
+}
+
+fn @color_bsdf_component__color_bsdf_mdl_math(weight: fn(State) -> color, component: fn(State) -> bsdf, state: State, math: mdl_math) -> color_bsdf_component {
+    color_bsdf_component{
+        weight: |state:State|{weight(state)},
+        component: |state:State|{component(state)},
+    }
+}
+fn @color_bsdf_component__color_bsdf_component_mdl_math(copy: fn(State) -> color_bsdf_component, state: State, math: mdl_math) -> color_bsdf_component {
+    color_bsdf_component{
+        weight: copy(state).weight,
+        component: copy(state).component,
+    }
+}
+struct color_edf_component {
+    weight: fn(State) -> fn(State) -> color,
+    component: fn(State) -> edf,
+}
+
+fn @color_edf_component__color_edf_mdl_math(weight: fn(State) -> fn(State) -> color, component: fn(State) -> edf, state: State, math: mdl_math) -> color_edf_component {
+    color_edf_component{
+        weight: |state:State|{weight(state)},
+        component: |state:State|{component(state)},
+    }
+}
+fn @color_edf_component__color_edf_component_mdl_math(copy: fn(State) -> color_edf_component, state: State, math: mdl_math) -> color_edf_component {
+    color_edf_component{
+        weight: copy(state).weight,
+        component: copy(state).component,
+    }
+}
+fn @color_normalized_mix__fn(State) -> color_bsdf_component_arr_mdl_math(components : fn(State) -> [fn(State) -> color_bsdf_component*-1],  state : State, math : mdl_math) -> bsdf{
+{}
+}
+
+fn @color_normalized_mix__fn(State) -> color_edf_component_arr_mdl_math(components : fn(State) -> [fn(State) -> color_edf_component*-1],  state : State, math : mdl_math) -> edf{
+{}
+}
+
+fn @color_clamped_mix__fn(State) -> color_bsdf_component_arr_mdl_math(components : fn(State) -> [fn(State) -> color_bsdf_component*-1],  state : State, math : mdl_math) -> bsdf{
+{}
+}
+
+fn @color_clamped_mix__fn(State) -> color_edf_component_arr_mdl_math(components : fn(State) -> [fn(State) -> color_edf_component*-1],  state : State, math : mdl_math) -> edf{
+{}
+}
+
+fn @color_weighted_layer__color_bsdf_bsdf_float3_mdl_math(weight : fn(State) -> color, layer : fn(State) -> bsdf, base : fn(State) -> bsdf, normal : fn(State) -> float3,  state : State, math : mdl_math) -> bsdf{
+{}
+}
+
+fn @fresnel_layer__float_float_bsdf_bsdf_float3_mdl_math(ior : fn(State) -> float, weight : fn(State) -> float, layer : fn(State) -> bsdf, base : fn(State) -> bsdf, normal : fn(State) -> float3,  state : State, math : mdl_math) -> bsdf{
+{}
+}
+
+fn @color_fresnel_layer__color_color_bsdf_bsdf_float3_mdl_math(ior : fn(State) -> color, weight : fn(State) -> color, layer : fn(State) -> bsdf, base : fn(State) -> bsdf, normal : fn(State) -> float3,  state : State, math : mdl_math) -> bsdf{
+{}
+}
+
+fn @color_custom_curve_layer__color_color_float_color_bsdf_bsdf_float3_mdl_math(normal_reflectivity : fn(State) -> color, grazing_reflectivity : fn(State) -> color, exponent : fn(State) -> float, weight : fn(State) -> color, layer : fn(State) -> bsdf, base : fn(State) -> bsdf, normal : fn(State) -> float3,  state : State, math : mdl_math) -> bsdf{
+{}
+}
+
+fn @color_measured_curve_layer__fn(State) -> color_arr_color_bsdf_bsdf_float3_mdl_math(curve_values : fn(State) -> [fn(State) -> color*-1], weight : fn(State) -> color, layer : fn(State) -> bsdf, base : fn(State) -> bsdf, normal : fn(State) -> float3,  state : State, math : mdl_math) -> bsdf{
+{}
+}
+
+fn @fresnel_factor__color_color_bsdf_mdl_math(ior : fn(State) -> color, extinction_coefficient : fn(State) -> color, base : fn(State) -> bsdf,  state : State, math : mdl_math) -> bsdf{
+{}
+}
+
+{
+    scatter_reflect,
+    scatter_transmit,
+    scatter_reflect_transmit,
+}*/

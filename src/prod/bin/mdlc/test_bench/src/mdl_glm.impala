@@ -1,0 +1,1102 @@
+struct float4 {
+    x: float,
+    y: float,
+    z: float,
+    w: float
+}
+
+struct float3 {
+    x: float,
+    y: float,
+    z: float
+}
+
+struct float2 {
+    x: float,
+    y: float
+}
+
+struct double4 {
+     x: double,
+     y: double,
+     z: double,
+     w: double
+ }
+
+ struct double3 {
+     x: double,
+     y: double,
+     z: double
+ }
+
+ struct double2 {
+     x: double,
+     y: double
+ }
+
+struct bool4 {
+    x: bool,
+    y: bool,
+    z: bool,
+    w: bool
+}
+
+struct bool3 {
+    x: bool,
+    y: bool,
+    z: bool
+}
+
+struct bool2 {
+    x: bool,
+    y: bool
+}
+
+struct int4 {
+    x: int,
+    y: int,
+    z: int,
+    w: int
+}
+
+struct int3 {
+    x: int,
+    y: int,
+    z: int
+}
+
+struct int2 {
+    x: int,
+    y: int
+}
+
+
+struct float2x2{
+    x: float2,
+    y: float2
+}
+
+
+struct float3x2{
+    x: float2,
+    y: float2,
+    z: float2
+}
+
+struct float4x2{
+    x: float2,
+    y: float2,
+    z: float2,
+    w: float2
+}
+
+struct float2x3{
+    x: float3,
+    y: float3
+}
+
+
+struct float3x3{
+    x: float3,
+    y: float3,
+    z: float3
+}
+
+struct float4x3{
+    x: float3,
+    y: float3,
+    z: float3,
+    w: float3
+}
+
+struct float2x4{
+    x: float4,
+    y: float4
+}
+
+
+struct float3x4{
+    x: float4,
+    y: float4,
+    z: float4
+}
+
+struct float4x4{
+    x: float4,
+    y: float4,
+    z: float4,
+    w: float4
+}
+
+
+struct double2x2{
+    x: double2,
+    y: double2
+}
+
+
+struct double3x2{
+    x: double2,
+    y: double2,
+    z: double2
+}
+
+struct double4x2{
+    x: double2,
+    y: double2,
+    z: double2,
+    w: double2
+}
+
+struct double2x3{
+    x: double3,
+    y: double3
+}
+
+
+struct double3x3{
+    x: double3,
+    y: double3,
+    z: double3
+}
+
+struct double4x3{
+    x: double3,
+    y: double3,
+    z: double3,
+    w: double3
+}
+
+struct double2x4{
+    x: double4,
+    y: double4
+}
+
+
+struct double3x4{
+    x: double4,
+    y: double4,
+    z: double4
+}
+
+struct double4x4{
+    x: double4,
+    y: double4,
+    z: double4,
+    w: double4
+}
+
+fn @float2_get(a: float2, b: int) -> float{
+    match(b){
+        0 => a.x,
+        1 => a.y,
+        _ => 0.0f
+    }
+}
+
+fn @float3_get(a: float3, b: int) -> float{
+    match(b){
+        0 => a.x,
+        1 => a.y,
+        2 => a.z,
+        _ => 0.0f
+    }
+}
+
+fn @float4_get(a: float4, b: int) -> float{
+    match(b){
+        0 => a.x,
+        1 => a.y,
+        2 => a.z,
+        3 => a.w,
+        _ => 0.0f
+    }
+}
+
+fn @double2_get(a: double2, b: int) -> double{
+    match(b){
+        0 => a.x,
+        1 => a.y,
+        _ => 0.0
+    }
+}
+
+fn @double3_get(a: double3, b: int) -> double{
+    match(b){
+        0 => a.x,
+        1 => a.y,
+        2 => a.z,
+        _ => 0.0
+    }
+}
+
+fn @double4_get(a: double4, b: int) -> double{
+    match(b){
+        0 => a.x,
+        1 => a.y,
+        2 => a.z,
+        3 => a.w,
+        _ => 0.0
+    }
+}
+
+fn @int2_get(a: int2, b: int) -> int{
+    match(b){
+        0 => a.x,
+        1 => a.y,
+        _ => 0
+    }
+}
+
+fn @int3_get(a: int3, b: int) -> int{
+    match(b){
+        0 => a.x,
+        1 => a.y,
+        2 => a.z,
+        _ => 0
+    }
+}
+
+fn @int4_get(a: int4, b: int) -> int{
+    match(b){
+        0 => a.x,
+        1 => a.y,
+        2 => a.z,
+        3 => a.w,
+        _ => 0
+    }
+}
+
+fn @bool2_get(a: bool2, b: int) -> bool{
+    match(b){
+        0 => a.x,
+        1 => a.y,
+        _ => false
+    }
+}
+
+fn @bool3_get(a: bool3, b: int) -> bool{
+    match(b){
+        0 => a.x,
+        1 => a.y,
+        2 => a.z,
+        _ => false
+    }
+}
+
+fn @bool4_get(a: bool4, b: int) -> bool{
+    match(b){
+        0 => a.x,
+        1 => a.y,
+        2 => a.z,
+        3 => a.w,
+        _ => false
+    }
+}
+
+fn @float2x2_get(a: float2x2, b: int) -> float2 {
+    match(b){
+        0 => a.x,
+        1 => a.y,
+        _ => float2{x: 0.0f, y: 0.0f}
+    }
+}
+
+fn @float3x2_get(a: float3x2, b: int) -> float2 {
+    match(b){
+        0 => a.x,
+        1 => a.y,
+        2 => a.z,
+        _ => float2{x: 0.0f, y: 0.0f}
+    }
+}
+
+fn @float4x2_get(a: float4x2, b: int) -> float2 {
+    match(b){
+        0 => a.x,
+        1 => a.y,
+        2 => a.z,
+        3 => a.w,
+        _ => float2{x: 0.0f, y: 0.0f}
+    }
+}
+
+fn @float2x3_get(a: float2x3, b: int) -> float3 {
+    match(b){
+        0 => a.x,
+        1 => a.y,
+        _ => float3{x: 0.0f, y: 0.0f, z: 0.0f}
+    }
+}
+
+fn @float3x3_get(a: float3x3, b: int) -> float3 {
+    match(b){
+        0 => a.x,
+        1 => a.y,
+        2 => a.z,
+        _ => float3{x: 0.0f, y: 0.0f, z: 0.0f}
+    }
+}
+
+fn @float4x3_get(a: float4x3, b: int) -> float3 {
+    match(b){
+        0 => a.x,
+        1 => a.y,
+        2 => a.z,
+        3 => a.w,
+        _ => float3{x: 0.0f, y: 0.0f, z: 0.0f}
+    }
+}
+
+
+fn @float2x4_get(a: float2x4, b: int) -> float4 {
+    match(b){
+        0 => a.x,
+        1 => a.y,
+        _ => float4{x: 0.0f, y: 0.0f, z: 0.0f, w: 0.0f}
+    }
+}
+
+fn @float3x4_get(a: float3x4, b: int) -> float4 {
+    match(b){
+        0 => a.x,
+        1 => a.y,
+        2 => a.z,
+        _ => float4{x: 0.0f, y: 0.0f, z: 0.0f, w: 0.0f}
+    }
+}
+
+fn @float4x4_get(a: float4x4, b: int) -> float4 {
+    match(b){
+        0 => a.x,
+        1 => a.y,
+        2 => a.z,
+        3 => a.w,
+        _ => float4{x: 0.0f, y: 0.0f, z: 0.0f, w: 0.0f}
+    }
+}
+
+
+fn @double2x2_get(a: double2x2, b: int) -> double2 {
+    match(b){
+        0 => a.x,
+        1 => a.y,
+        _ => double2{x: 0.0, y: 0.0}
+    }
+}
+
+fn @double3x2_get(a: double3x2, b: int) -> double2 {
+    match(b){
+        0 => a.x,
+        1 => a.y,
+        2 => a.z,
+        _ => double2{x: 0.0, y: 0.0}
+    }
+}
+
+fn @double4x2_get(a: double4x2, b: int) -> double2 {
+    match(b){
+        0 => a.x,
+        1 => a.y,
+        2 => a.z,
+        3 => a.w,
+        _ => double2{x: 0.0, y: 0.0}
+    }
+}
+
+fn @double2x3_get(a: double2x3, b: int) -> double3 {
+    match(b){
+        0 => a.x,
+        1 => a.y,
+        _ => double3{x: 0.0, y: 0.0, z: 0.0}
+    }
+}
+
+fn @double3x3_get(a: double3x3, b: int) -> double3 {
+    match(b){
+        0 => a.x,
+        1 => a.y,
+        2 => a.z,
+        _ => double3{x: 0.0, y: 0.0, z: 0.0}
+    }
+}
+
+fn @double4x3_get(a: double4x3, b: int) -> double3 {
+    match(b){
+        0 => a.x,
+        1 => a.y,
+        2 => a.z,
+        3 => a.w,
+        _ => double3{x: 0.0, y: 0.0, z: 0.0}
+    }
+}
+
+
+fn @double2x4_get(a: double2x4, b: int) -> double4 {
+    match(b){
+        0 => a.x,
+        1 => a.y,
+        _ => double4{x: 0.0, y: 0.0, z: 0.0, w: 0.0}
+    }
+}
+
+fn @double3x4_get(a: double3x4, b: int) -> double4 {
+    match(b){
+        0 => a.x,
+        1 => a.y,
+        2 => a.z,
+        _ => double4{x: 0.0, y: 0.0, z: 0.0, w: 0.0}
+    }
+}
+
+fn @double4x4_get(a: double4x4, b: int) -> double4 {
+    match(b){
+        0 => a.x,
+        1 => a.y,
+        2 => a.z,
+        3 => a.w,
+        _ => double4{x: 0.0, y: 0.0, z: 0.0, w: 0.0}
+    }
+}
+
+
+
+struct color {
+    r: float,
+    g: float,
+    b: float
+}
+
+fn @color_get(a: color, b: int) -> float{
+    match(b){
+        0 => a.r,
+        1 => a.g,
+        2 => a.b,
+        _ => 0.0f
+    }
+}
+
+fn @float3__float(a: float) -> float3{
+    float3{
+        x: a,
+        y: a,
+        z: a
+    }
+}
+
+fn @float3x3__float(a: float) -> float3x3{
+    float3x3{
+        x: float3__float(a),
+        y: float3__float(a),
+        z: float3__float(a),
+    }
+}
+
+fn @float4__float(a: float) -> float4{
+    float4{
+        x: a,
+        y: a,
+        z: a,
+        w: a,
+    }
+}
+
+fn @float4x4__float(a: float) -> float4x4{
+    float4x4{
+        x: float4__float(a),
+        y: float4__float(a),
+        z: float4__float(a),
+        w: float4__float(a),
+    }
+}
+
+fn @make_float2(x: float, y: float) -> float2 { float2 { x: x, y: y } }
+fn @make_float3(x: float, y: float, z: float) -> float3 { float3 { x: x, y: y, z: z } }
+fn @make_float4(x: float, y: float, z: float, w: float) -> float4 { float4 { x: x, y: y, z: z, w: w } }
+
+fn @float2_map(v: float2, f: fn(float) -> float) -> float2 { make_float2(@@f(v.x), @@f(v.y)) }
+fn @float3_map(v: float3, f: fn(float) -> float) -> float3 { make_float3(@@f(v.x), @@f(v.y), @@f(v.z)) }
+fn @float4_map(v: float4, f: fn(float) -> float) -> float4 { make_float4(@@f(v.x), @@f(v.y), @@f(v.z), @@f(v.w)) }
+
+fn @float2_zip(a: float2, b: float2, f: fn(float, float) -> float) -> float2 { make_float2(@@f(a.x, b.x), @@f(a.y, b.y)) }
+fn @float3_zip(a: float3, b: float3, f: fn(float, float) -> float) -> float3 { make_float3(@@f(a.x, b.x), @@f(a.y, b.y), @@f(a.z, b.z)) }
+fn @float4_zip(a: float4, b: float4, f: fn(float, float) -> float) -> float4 { make_float4(@@f(a.x, b.x), @@f(a.y, b.y), @@f(a.z, b.z), @@f(a.w, b.w)) }
+
+fn @make_color(r: float, g: float, b: float) -> color { color { r: r, g: g, b: b } }
+fn @color_map(v: color, f: fn(float) -> float) -> color { make_color(@@f(v.r), @@f(v.g), @@f(v.b)) }
+fn @color_zip(a: color, b: color, f: fn(float, float) -> float) -> color { make_color(@@f(a.r, b.r), @@f(a.g, b.g), @@f(a.b, b.b)) }
+
+fn @make_double2(x: double, y: double) -> double2 { double2 { x: x, y: y } }
+fn @make_double3(x: double, y: double, z: double) -> double3 { double3 { x: x, y: y, z: z } }
+fn @make_double4(x: double, y: double, z: double, w: double) -> double4 { double4 { x: x, y: y, z: z, w: w } }
+
+fn @double2_map(v: double2, f: fn(double) -> double) -> double2 { make_double2(@@f(v.x), @@f(v.y)) }
+fn @double3_map(v: double3, f: fn(double) -> double) -> double3 { make_double3(@@f(v.x), @@f(v.y), @@f(v.z)) }
+fn @double4_map(v: double4, f: fn(double) -> double) -> double4 { make_double4(@@f(v.x), @@f(v.y), @@f(v.z), @@f(v.w)) }
+
+fn @double2_zip(a: double2, b: double2, f: fn(double, double) -> double) -> double2 { make_double2(@@f(a.x, b.x), @@f(a.y, b.y)) }
+fn @double3_zip(a: double3, b: double3, f: fn(double, double) -> double) -> double3 { make_double3(@@f(a.x, b.x), @@f(a.y, b.y), @@f(a.z, b.z)) }
+fn @double4_zip(a: double4, b: double4, f: fn(double, double) -> double) -> double4 { make_double4(@@f(a.x, b.x), @@f(a.y, b.y), @@f(a.z, b.z), @@f(a.w, b.w)) }
+
+fn @make_int2(x: int, y: int) -> int2 { int2 { x: x, y: y } }
+fn @make_int3(x: int, y: int, z: int) -> int3 { int3 { x: x, y: y, z: z } }
+fn @make_int4(x: int, y: int, z: int, w: int) -> int4 { int4 { x: x, y: y, z: z, w: w } }
+
+fn @int2_map(v: int2, f: fn(int) -> int) -> int2 { make_int2(@@f(v.x), @@f(v.y)) }
+fn @int3_map(v: int3, f: fn(int) -> int) -> int3 { make_int3(@@f(v.x), @@f(v.y), @@f(v.z)) }
+fn @int4_map(v: int4, f: fn(int) -> int) -> int4 { make_int4(@@f(v.x), @@f(v.y), @@f(v.z), @@f(v.w)) }
+
+fn @int2_zip(a: int2, b: int2, f: fn(int, int) -> int) -> int2 { make_int2(@@f(a.x, b.x), @@f(a.y, b.y)) }
+fn @int3_zip(a: int3, b: int3, f: fn(int, int) -> int) -> int3 { make_int3(@@f(a.x, b.x), @@f(a.y, b.y), @@f(a.z, b.z)) }
+fn @int4_zip(a: int4, b: int4, f: fn(int, int) -> int) -> int4 { make_int4(@@f(a.x, b.x), @@f(a.y, b.y), @@f(a.z, b.z), @@f(a.w, b.w)) }
+
+fn @make_bool2(x: bool, y: bool) -> bool2 { bool2 { x: x, y: y } }
+fn @make_bool3(x: bool, y: bool, z: bool) -> bool3 { bool3 { x: x, y: y, z: z } }
+fn @make_bool4(x: bool, y: bool, z: bool, w: bool) -> bool4 { bool4 { x: x, y: y, z: z, w: w } }
+
+fn @bool2_map(v: bool2, f: fn(bool) -> bool) -> bool2 { make_bool2(@@f(v.x), @@f(v.y)) }
+fn @bool3_map(v: bool3, f: fn(bool) -> bool) -> bool3 { make_bool3(@@f(v.x), @@f(v.y), @@f(v.z)) }
+fn @bool4_map(v: bool4, f: fn(bool) -> bool) -> bool4 { make_bool4(@@f(v.x), @@f(v.y), @@f(v.z), @@f(v.w)) }
+
+fn @bool2_zip(a: bool2, b: bool2, f: fn(bool, bool) -> bool) -> bool2 { make_bool2(@@f(a.x, b.x), @@f(a.y, b.y)) }
+fn @bool3_zip(a: bool3, b: bool3, f: fn(bool, bool) -> bool) -> bool3 { make_bool3(@@f(a.x, b.x), @@f(a.y, b.y), @@f(a.z, b.z)) }
+fn @bool4_zip(a: bool4, b: bool4, f: fn(bool, bool) -> bool) -> bool4 { make_bool4(@@f(a.x, b.x), @@f(a.y, b.y), @@f(a.z, b.z), @@f(a.w, b.w)) }
+
+fn @make_float2x2(x: float2, y: float2) -> float2x2 { float2x2 { x: x, y: y } }
+fn @make_float3x2(x: float2, y: float2, z: float2) -> float3x2 { float3x2 { x: x, y: y, z: z } }
+fn @make_float4x2(x: float2, y: float2, z: float2, w: float2) -> float4x2 { float4x2 { x: x, y: y, z: z, w: w } }
+
+fn @make_float2x3(x: float3, y: float3) -> float2x3 { float2x3 { x: x, y: y } }
+fn @make_float3x3(x: float3, y: float3, z: float3) -> float3x3 { float3x3 { x: x, y: y, z: z } }
+fn @make_float4x3(x: float3, y: float3, z: float3, w: float3) -> float4x3 { float4x3 { x: x, y: y, z: z, w: w } }
+
+fn @make_float2x4(x: float4, y: float4) -> float2x4 { float2x4 { x: x, y: y } }
+fn @make_float3x4(x: float4, y: float4, z: float4) -> float3x4 { float3x4 { x: x, y: y, z: z } }
+fn @make_float4x4(x: float4, y: float4, z: float4, w: float4) -> float4x4 { float4x4 { x: x, y: y, z: z, w: w } }
+
+fn @make_double2x2(x: double2, y: double2) -> double2x2 { double2x2 { x: x, y: y } }
+fn @make_double3x2(x: double2, y: double2, z: double2) -> double3x2 { double3x2 { x: x, y: y, z: z } }
+fn @make_double4x2(x: double2, y: double2, z: double2, w: double2) -> double4x2 { double4x2 { x: x, y: y, z: z, w: w } }
+
+fn @make_double2x3(x: double3, y: double3) -> double2x3 { double2x3 { x: x, y: y } }
+fn @make_double3x3(x: double3, y: double3, z: double3) -> double3x3 { double3x3 { x: x, y: y, z: z } }
+fn @make_double4x3(x: double3, y: double3, z: double3, w: double3) -> double4x3 { double4x3 { x: x, y: y, z: z, w: w } }
+
+fn @make_double2x4(x: double4, y: double4) -> double2x4 { double2x4 { x: x, y: y } }
+fn @make_double3x4(x: double4, y: double4, z: double4) -> double3x4 { double3x4 { x: x, y: y, z: z } }
+fn @make_double4x4(x: double4, y: double4, z: double4, w: double4) -> double4x4 { double4x4 { x: x, y: y, z: z, w: w } }
+
+fn @float2x2_map(m: float2x2, f: fn(float) -> float) -> float2x2{make_float2x2(@@float2_map(m.x, f), @@float2_map(m.y, f))}
+fn @float2x3_map(m: float2x3, f: fn(float) -> float) -> float2x3{make_float2x3(@@float3_map(m.x, f), @@float3_map(m.y, f))}
+fn @float2x4_map(m: float2x4, f: fn(float) -> float) -> float2x4{make_float2x4(@@float4_map(m.x, f), @@float4_map(m.y, f))}
+
+fn @float3x2_map(m: float3x2, f: fn(float) -> float) -> float3x2{make_float3x2(@@float2_map(m.x, f), @@float2_map(m.y, f), @@float2_map(m.z, f))}
+fn @float3x3_map(m: float3x3, f: fn(float) -> float) -> float3x3{make_float3x3(@@float3_map(m.x, f), @@float3_map(m.y, f), @@float3_map(m.z, f))}
+fn @float3x4_map(m: float3x4, f: fn(float) -> float) -> float3x4{make_float3x4(@@float4_map(m.x, f), @@float4_map(m.y, f), @@float4_map(m.z, f))}
+
+fn @float4x2_map(m: float4x2, f: fn(float) -> float) -> float4x2{make_float4x2(@@float2_map(m.x, f), @@float2_map(m.y, f), @@float2_map(m.z, f), @@float2_map(m.w, f))}
+fn @float4x3_map(m: float4x3, f: fn(float) -> float) -> float4x3{make_float4x3(@@float3_map(m.x, f), @@float3_map(m.y, f), @@float3_map(m.z, f), @@float3_map(m.w, f))}
+fn @float4x4_map(m: float4x4, f: fn(float) -> float) -> float4x4{make_float4x4(@@float4_map(m.x, f), @@float4_map(m.y, f), @@float4_map(m.z, f), @@float4_map(m.w, f))}
+
+fn @double2x2_map(m: double2x2, f: fn(double) -> double) -> double2x2{make_double2x2(@@double2_map(m.x, f), @@double2_map(m.y, f))}
+fn @double2x3_map(m: double2x3, f: fn(double) -> double) -> double2x3{make_double2x3(@@double3_map(m.x, f), @@double3_map(m.y, f))}
+fn @double2x4_map(m: double2x4, f: fn(double) -> double) -> double2x4{make_double2x4(@@double4_map(m.x, f), @@double4_map(m.y, f))}
+
+fn @double3x2_map(m: double3x2, f: fn(double) -> double) -> double3x2{make_double3x2(@@double2_map(m.x, f), @@double2_map(m.y, f), @@double2_map(m.z, f))}
+fn @double3x3_map(m: double3x3, f: fn(double) -> double) -> double3x3{make_double3x3(@@double3_map(m.x, f), @@double3_map(m.y, f), @@double3_map(m.z, f))}
+fn @double3x4_map(m: double3x4, f: fn(double) -> double) -> double3x4{make_double3x4(@@double4_map(m.x, f), @@double4_map(m.y, f), @@double4_map(m.z, f))}
+
+fn @double4x2_map(m: double4x2, f: fn(double) -> double) -> double4x2{make_double4x2(@@double2_map(m.x, f), @@double2_map(m.y, f), @@double2_map(m.z, f), @@double2_map(m.w, f))}
+fn @double4x3_map(m: double4x3, f: fn(double) -> double) -> double4x3{make_double4x3(@@double3_map(m.x, f), @@double3_map(m.y, f), @@double3_map(m.z, f), @@double3_map(m.w, f))}
+fn @double4x4_map(m: double4x4, f: fn(double) -> double) -> double4x4{make_double4x4(@@double4_map(m.x, f), @@double4_map(m.y, f), @@double4_map(m.z, f), @@double4_map(m.w, f))}
+
+fn @float2_sum(x: float2) -> float{x.x + x.y}
+fn @float3_sum(x: float3) -> float{x.x + x.y + x.z}
+fn @float4_sum(x: float4) -> float{x.x + x.y + x.z + x.w}
+
+fn @double2_sum(x: double2) -> double{x.x + x.y}
+fn @double3_sum(x: double3) -> double{x.x + x.y + x.z}
+fn @double4_sum(x: double4) -> double{x.x + x.y + x.z + x.w}
+
+fn @float2x2_get_row(m: float2x2, r: int) -> float2{
+    match(r){
+        0 => make_float2(m.x.x, m.y.x),
+        _ => make_float2(m.x.y, m.y.y),
+    }
+}
+
+fn @float3x2_get_row(m: float3x2, r: int) -> float3{
+    match(r){
+        0 => make_float3(m.x.x, m.y.x, m.z.x),
+        _ => make_float3(m.x.y, m.y.y, m.z.y),
+    }
+}
+
+fn @float4x2_get_row(m: float4x2, r: int) -> float4{
+    match(r){
+        0 => make_float4(m.x.x, m.y.x, m.z.x, m.w.x),
+        _ => make_float4(m.x.y, m.y.y, m.z.y, m.w.y),
+    }
+}
+
+fn @float2x3_get_row(m: float2x3, r: int) -> float2{
+    match(r){
+        0 => make_float2(m.x.x, m.y.x),
+        1 => make_float2(m.x.y, m.y.y),
+        _ => make_float2(m.x.z, m.y.z),
+    }
+}
+
+fn @float3x3_get_row(m: float3x3, r: int) -> float3{
+    match(r){
+        0 => make_float3(m.x.x, m.y.x, m.z.x),
+        1 => make_float3(m.x.y, m.y.y, m.z.y),
+        _ => make_float3(m.x.z, m.y.z, m.z.z),
+    }
+}
+
+fn @float4x3_get_row(m: float4x3, r: int) -> float4{
+    match(r){
+        0 => make_float4(m.x.x, m.y.x, m.z.x, m.w.x),
+        1 => make_float4(m.x.y, m.y.y, m.z.y, m.w.y),
+        _ => make_float4(m.x.z, m.y.z, m.z.z, m.w.z),
+    }
+}
+
+fn @float2x4_get_row(m: float2x4, r: int) -> float2{
+    match(r){
+        0 => make_float2(m.x.x, m.y.x),
+        1 => make_float2(m.x.y, m.y.y),
+        2 => make_float2(m.x.z, m.y.z),
+        _ => make_float2(m.x.w, m.y.w),
+    }
+}
+
+fn @float3x4_get_row(m: float3x4, r: int) -> float3{
+    match(r){
+        0 => make_float3(m.x.x, m.y.x, m.z.x),
+        1 => make_float3(m.x.y, m.y.y, m.z.y),
+        2 => make_float3(m.x.z, m.y.z, m.z.z),
+        _ => make_float3(m.x.w, m.y.w, m.z.w),
+    }
+}
+
+fn @float4x4_get_row(m: float4x4, r: int) -> float4{
+    match(r){
+        0 => make_float4(m.x.x, m.y.x, m.z.x, m.w.x),
+        1 => make_float4(m.x.y, m.y.y, m.z.y, m.w.y),
+        2 => make_float4(m.x.z, m.y.z, m.z.z, m.w.z),
+        _ => make_float4(m.x.w, m.y.w, m.z.w, m.w.w),
+    }
+}
+
+fn @double2x2_get_row(m: double2x2, r: int) -> double2{
+    match(r){
+        0 => make_double2(m.x.x, m.y.x),
+        _ => make_double2(m.x.y, m.y.y),
+    }
+}
+
+fn @double3x2_get_row(m: double3x2, r: int) -> double3{
+    match(r){
+        0 => make_double3(m.x.x, m.y.x, m.z.x),
+        _ => make_double3(m.x.y, m.y.y, m.z.y),
+    }
+}
+
+fn @double4x2_get_row(m: double4x2, r: int) -> double4{
+    match(r){
+        0 => make_double4(m.x.x, m.y.x, m.z.x, m.w.x),
+        _ => make_double4(m.x.y, m.y.y, m.z.y, m.w.y),
+    }
+}
+
+fn @double2x3_get_row(m: double2x3, r: int) -> double2{
+    match(r){
+        0 => make_double2(m.x.x, m.y.x),
+        1 => make_double2(m.x.y, m.y.y),
+        _ => make_double2(m.x.z, m.y.z),
+    }
+}
+
+fn @double3x3_get_row(m: double3x3, r: int) -> double3{
+    match(r){
+        0 => make_double3(m.x.x, m.y.x, m.z.x),
+        1 => make_double3(m.x.y, m.y.y, m.z.y),
+        _ => make_double3(m.x.z, m.y.z, m.z.z),
+    }
+}
+
+fn @double4x3_get_row(m: double4x3, r: int) -> double4{
+    match(r){
+        0 => make_double4(m.x.x, m.y.x, m.z.x, m.w.x),
+        1 => make_double4(m.x.y, m.y.y, m.z.y, m.w.y),
+        _ => make_double4(m.x.z, m.y.z, m.z.z, m.w.z),
+    }
+}
+
+fn @double2x4_get_row(m: double2x4, r: int) -> double2{
+    match(r){
+        0 => make_double2(m.x.x, m.y.x),
+        1 => make_double2(m.x.y, m.y.y),
+        2 => make_double2(m.x.z, m.y.z),
+        _ => make_double2(m.x.w, m.y.w),
+    }
+}
+
+fn @double3x4_get_row(m: double3x4, r: int) -> double3{
+    match(r){
+        0 => make_double3(m.x.x, m.y.x, m.z.x),
+        1 => make_double3(m.x.y, m.y.y, m.z.y),
+        2 => make_double3(m.x.z, m.y.z, m.z.z),
+        _ => make_double3(m.x.w, m.y.w, m.z.w),
+    }
+}
+
+fn @double4x4_get_row(m: double4x4, r: int) -> double4{
+    match(r){
+        0 => make_double4(m.x.x, m.y.x, m.z.x, m.w.x),
+        1 => make_double4(m.x.y, m.y.y, m.z.y, m.w.y),
+        2 => make_double4(m.x.z, m.y.z, m.z.z, m.w.z),
+        _ => make_double4(m.x.w, m.y.w, m.z.w, m.w.w),
+    }
+}
+
+fn @float2x2_zip(m: float2x2, n: float2x2, f: fn(float,float) -> float) -> float2x2{make_float2x2(@@float2_zip(m.x, n.x, f), @@float2_zip(m.y, n.y, f))}
+fn @float2x3_zip(m: float2x3, n: float2x3, f: fn(float,float) -> float) -> float2x3{make_float2x3(@@float3_zip(m.x, n.x, f), @@float3_zip(m.y, n.y, f))}
+fn @float2x4_zip(m: float2x4, n: float2x4, f: fn(float,float) -> float) -> float2x4{make_float2x4(@@float4_zip(m.x, n.x, f), @@float4_zip(m.y, n.y, f))}
+
+fn @float3x2_zip(m: float3x2, n: float3x2, f: fn(float,float) -> float) -> float3x2{make_float3x2(@@float2_zip(m.x, n.x, f), @@float2_zip(m.y, n.y, f), @@float2_zip(m.z, n.z, f))}
+fn @float3x3_zip(m: float3x3, n: float3x3, f: fn(float,float) -> float) -> float3x3{make_float3x3(@@float3_zip(m.x, n.x, f), @@float3_zip(m.y, n.y, f), @@float3_zip(m.z, n.z, f))}
+fn @float3x4_zip(m: float3x4, n: float3x4, f: fn(float,float) -> float) -> float3x4{make_float3x4(@@float4_zip(m.x, n.x, f), @@float4_zip(m.y, n.y, f), @@float4_zip(m.z, n.z, f))}
+
+fn @float4x2_zip(m: float4x2, n: float4x2, f: fn(float,float) -> float) -> float4x2{make_float4x2(@@float2_zip(m.x, n.x, f), @@float2_zip(m.y, n.y, f), @@float2_zip(m.z, n.z, f), @@float2_zip(m.w, n.w, f))}
+fn @float4x3_zip(m: float4x3, n: float4x3, f: fn(float,float) -> float) -> float4x3{make_float4x3(@@float3_zip(m.x, n.x, f), @@float3_zip(m.y, n.y, f), @@float3_zip(m.z, n.z, f), @@float3_zip(m.w, n.w, f))}
+fn @float4x4_zip(m: float4x4, n: float4x4, f: fn(float,float) -> float) -> float4x4{make_float4x4(@@float4_zip(m.x, n.x, f), @@float4_zip(m.y, n.y, f), @@float4_zip(m.z, n.z, f), @@float4_zip(m.w, n.w, f))}
+
+fn @double2x2_zip(m: double2x2, n: double2x2, f: fn(double,double) -> double) -> double2x2{make_double2x2(@@double2_zip(m.x, n.x, f), @@double2_zip(m.y, n.y, f))}
+fn @double2x3_zip(m: double2x3, n: double2x3, f: fn(double,double) -> double) -> double2x3{make_double2x3(@@double3_zip(m.x, n.x, f), @@double3_zip(m.y, n.y, f))}
+fn @double2x4_zip(m: double2x4, n: double2x4, f: fn(double,double) -> double) -> double2x4{make_double2x4(@@double4_zip(m.x, n.x, f), @@double4_zip(m.y, n.y, f))}
+
+fn @double3x2_zip(m: double3x2, n: double3x2, f: fn(double,double) -> double) -> double3x2{make_double3x2(@@double2_zip(m.x, n.x, f), @@double2_zip(m.y, n.y, f), @@double2_zip(m.z, n.z, f))}
+fn @double3x3_zip(m: double3x3, n: double3x3, f: fn(double,double) -> double) -> double3x3{make_double3x3(@@double3_zip(m.x, n.x, f), @@double3_zip(m.y, n.y, f), @@double3_zip(m.z, n.z, f))}
+fn @double3x4_zip(m: double3x4, n: double3x4, f: fn(double,double) -> double) -> double3x4{make_double3x4(@@double4_zip(m.x, n.x, f), @@double4_zip(m.y, n.y, f), @@double4_zip(m.z, n.z, f))}
+
+fn @double4x2_zip(m: double4x2, n: double4x2, f: fn(double,double) -> double) -> double4x2{make_double4x2(@@double2_zip(m.x, n.x, f), @@double2_zip(m.y, n.y, f), @@double2_zip(m.z, n.z, f), @@double2_zip(m.w, n.w, f))}
+fn @double4x3_zip(m: double4x3, n: double4x3, f: fn(double,double) -> double) -> double4x3{make_double4x3(@@double3_zip(m.x, n.x, f), @@double3_zip(m.y, n.y, f), @@double3_zip(m.z, n.z, f), @@double3_zip(m.w, n.w, f))}
+fn @double4x4_zip(m: double4x4, n: double4x4, f: fn(double,double) -> double) -> double4x4{make_double4x4(@@double4_zip(m.x, n.x, f), @@double4_zip(m.y, n.y, f), @@double4_zip(m.z, n.z, f), @@double4_zip(m.w, n.w, f))}
+
+
+
+
+struct bool2x2{
+    x: bool2,
+    y: bool2
+}
+
+
+struct bool3x2{
+    x: bool2,
+    y: bool2,
+    z: bool2
+}
+
+struct bool4x2{
+    x: bool2,
+    y: bool2,
+    z: bool2,
+    w: bool2
+}
+
+struct bool2x3{
+    x: bool3,
+    y: bool3
+}
+
+
+struct bool3x3{
+    x: bool3,
+    y: bool3,
+    z: bool3
+}
+
+struct bool4x3{
+    x: bool3,
+    y: bool3,
+    z: bool3,
+    w: bool3
+}
+
+struct bool2x4{
+    x: bool4,
+    y: bool4
+}
+
+
+struct bool3x4{
+    x: bool4,
+    y: bool4,
+    z: bool4
+}
+
+struct bool4x4{
+    x: bool4,
+    y: bool4,
+    z: bool4,
+    w: bool4
+}
+
+fn @make_bool2x2(x: bool2, y: bool2) -> bool2x2 { bool2x2 { x: x, y: y } }
+fn @make_bool3x2(x: bool2, y: bool2, z: bool2) -> bool3x2 { bool3x2 { x: x, y: y, z: z } }
+fn @make_bool4x2(x: bool2, y: bool2, z: bool2, w: bool2) -> bool4x2 { bool4x2 { x: x, y: y, z: z, w: w } }
+
+fn @make_bool2x3(x: bool3, y: bool3) -> bool2x3 { bool2x3 { x: x, y: y } }
+fn @make_bool3x3(x: bool3, y: bool3, z: bool3) -> bool3x3 { bool3x3 { x: x, y: y, z: z } }
+fn @make_bool4x3(x: bool3, y: bool3, z: bool3, w: bool3) -> bool4x3 { bool4x3 { x: x, y: y, z: z, w: w } }
+
+fn @make_bool2x4(x: bool4, y: bool4) -> bool2x4 { bool2x4 { x: x, y: y } }
+fn @make_bool3x4(x: bool4, y: bool4, z: bool4) -> bool3x4 { bool3x4 { x: x, y: y, z: z } }
+fn @make_bool4x4(x: bool4, y: bool4, z: bool4, w: bool4) -> bool4x4 { bool4x4 { x: x, y: y, z: z, w: w } }
+
+
+
+
+
+fn @float2_map_bool(v: float2, f: fn(float) -> bool) -> bool2 { make_bool2(@@f(v.x), @@f(v.y)) }
+fn @float3_map_bool(v: float3, f: fn(float) -> bool) -> bool3 { make_bool3(@@f(v.x), @@f(v.y), @@f(v.z)) }
+fn @float4_map_bool(v: float4, f: fn(float) -> bool) -> bool4 { make_bool4(@@f(v.x), @@f(v.y), @@f(v.z), @@f(v.w)) }
+
+fn @color_map_bool(v: color, f: fn(float) -> bool) -> bool3 { make_bool3(@@f(v.r), @@f(v.g), @@f(v.b)) }
+
+fn @double2_map_bool(v: double2, f: fn(double) -> bool) -> bool2 { make_bool2(@@f(v.x), @@f(v.y)) }
+fn @double3_map_bool(v: double3, f: fn(double) -> bool) -> bool3 { make_bool3(@@f(v.x), @@f(v.y), @@f(v.z)) }
+fn @double4_map_bool(v: double4, f: fn(double) -> bool) -> bool4 { make_bool4(@@f(v.x), @@f(v.y), @@f(v.z), @@f(v.w)) }
+
+fn @int2_map_bool(v: int2, f: fn(int) -> bool) -> bool2 { make_bool2(@@f(v.x), @@f(v.y)) }
+fn @int3_map_bool(v: int3, f: fn(int) -> bool) -> bool3 { make_bool3(@@f(v.x), @@f(v.y), @@f(v.z)) }
+fn @int4_map_bool(v: int4, f: fn(int) -> bool) -> bool4 { make_bool4(@@f(v.x), @@f(v.y), @@f(v.z), @@f(v.w)) }
+
+fn @float2x2_map_bool(m: float2x2, f: fn(float) -> bool) -> bool2x2{make_bool2x2(@@float2_map_bool(m.x, f), @@float2_map_bool(m.y, f))}
+fn @float2x3_map_bool(m: float2x3, f: fn(float) -> bool) -> bool2x3{make_bool2x3(@@float3_map_bool(m.x, f), @@float3_map_bool(m.y, f))}
+fn @float2x4_map_bool(m: float2x4, f: fn(float) -> bool) -> bool2x4{make_bool2x4(@@float4_map_bool(m.x, f), @@float4_map_bool(m.y, f))}
+
+fn @float3x2_map_bool(m: float3x2, f: fn(float) -> bool) -> bool3x2{make_bool3x2(@@float2_map_bool(m.x, f), @@float2_map_bool(m.y, f), @@float2_map_bool(m.z, f))}
+fn @float3x3_map_bool(m: float3x3, f: fn(float) -> bool) -> bool3x3{make_bool3x3(@@float3_map_bool(m.x, f), @@float3_map_bool(m.y, f), @@float3_map_bool(m.z, f))}
+fn @float3x4_map_bool(m: float3x4, f: fn(float) -> bool) -> bool3x4{make_bool3x4(@@float4_map_bool(m.x, f), @@float4_map_bool(m.y, f), @@float4_map_bool(m.z, f))}
+
+fn @float4x2_map_bool(m: float4x2, f: fn(float) -> bool) -> bool4x2{make_bool4x2(@@float2_map_bool(m.x, f), @@float2_map_bool(m.y, f), @@float2_map_bool(m.z, f), @@float2_map_bool(m.w, f))}
+fn @float4x3_map_bool(m: float4x3, f: fn(float) -> bool) -> bool4x3{make_bool4x3(@@float3_map_bool(m.x, f), @@float3_map_bool(m.y, f), @@float3_map_bool(m.z, f), @@float3_map_bool(m.w, f))}
+fn @float4x4_map_bool(m: float4x4, f: fn(float) -> bool) -> bool4x4{make_bool4x4(@@float4_map_bool(m.x, f), @@float4_map_bool(m.y, f), @@float4_map_bool(m.z, f), @@float4_map_bool(m.w, f))}
+
+fn @double2x2_map_bool(m: double2x2, f: fn(double) -> bool) -> bool2x2{make_bool2x2(@@double2_map_bool(m.x, f), @@double2_map_bool(m.y, f))}
+fn @double2x3_map_bool(m: double2x3, f: fn(double) -> bool) -> bool2x3{make_bool2x3(@@double3_map_bool(m.x, f), @@double3_map_bool(m.y, f))}
+fn @double2x4_map_bool(m: double2x4, f: fn(double) -> bool) -> bool2x4{make_bool2x4(@@double4_map_bool(m.x, f), @@double4_map_bool(m.y, f))}
+
+fn @double3x2_map_bool(m: double3x2, f: fn(double) -> bool) -> bool3x2{make_bool3x2(@@double2_map_bool(m.x, f), @@double2_map_bool(m.y, f), @@double2_map_bool(m.z, f))}
+fn @double3x3_map_bool(m: double3x3, f: fn(double) -> bool) -> bool3x3{make_bool3x3(@@double3_map_bool(m.x, f), @@double3_map_bool(m.y, f), @@double3_map_bool(m.z, f))}
+fn @double3x4_map_bool(m: double3x4, f: fn(double) -> bool) -> bool3x4{make_bool3x4(@@double4_map_bool(m.x, f), @@double4_map_bool(m.y, f), @@double4_map_bool(m.z, f))}
+
+fn @double4x2_map_bool(m: double4x2, f: fn(double) -> bool) -> bool4x2{make_bool4x2(@@double2_map_bool(m.x, f), @@double2_map_bool(m.y, f), @@double2_map_bool(m.z, f), @@double2_map_bool(m.w, f))}
+fn @double4x3_map_bool(m: double4x3, f: fn(double) -> bool) -> bool4x3{make_bool4x3(@@double3_map_bool(m.x, f), @@double3_map_bool(m.y, f), @@double3_map_bool(m.z, f), @@double3_map_bool(m.w, f))}
+fn @double4x4_map_bool(m: double4x4, f: fn(double) -> bool) -> bool4x4{make_bool4x4(@@double4_map_bool(m.x, f), @@double4_map_bool(m.y, f), @@double4_map_bool(m.z, f), @@double4_map_bool(m.w, f))}
+
+
+
+
+
+
+
+
+
+fn @float2_zip_bool(a: float2, b: float2, f: fn(float, float) -> bool) -> bool2 { make_bool2(@@f(a.x, b.x), @@f(a.y, b.y)) }
+fn @float3_zip_bool(a: float3, b: float3, f: fn(float, float) -> bool) -> bool3 { make_bool3(@@f(a.x, b.x), @@f(a.y, b.y), @@f(a.z, b.z)) }
+fn @float4_zip_bool(a: float4, b: float4, f: fn(float, float) -> bool) -> bool4 { make_bool4(@@f(a.x, b.x), @@f(a.y, b.y), @@f(a.z, b.z), @@f(a.w, b.w)) }
+
+
+fn @color_zip_bool(a: color, b: color, f: fn(float, float) -> bool) -> bool3 { make_bool3(@@f(a.r, b.r), @@f(a.g, b.g), @@f(a.b, b.b)) }
+
+
+fn @double2_zip_bool(a: double2, b: double2, f: fn(double, double) -> bool) -> bool2 { make_bool2(@@f(a.x, b.x), @@f(a.y, b.y)) }
+fn @double3_zip_bool(a: double3, b: double3, f: fn(double, double) -> bool) -> bool3 { make_bool3(@@f(a.x, b.x), @@f(a.y, b.y), @@f(a.z, b.z)) }
+fn @double4_zip_bool(a: double4, b: double4, f: fn(double, double) -> bool) -> bool4 { make_bool4(@@f(a.x, b.x), @@f(a.y, b.y), @@f(a.z, b.z), @@f(a.w, b.w)) }
+
+
+fn @int2_zip_bool(a: int2, b: int2, f: fn(int, int) -> bool) -> bool2 { make_bool2(@@f(a.x, b.x), @@f(a.y, b.y)) }
+fn @int3_zip_bool(a: int3, b: int3, f: fn(int, int) -> bool) -> bool3 { make_bool3(@@f(a.x, b.x), @@f(a.y, b.y), @@f(a.z, b.z)) }
+fn @int4_zip_bool(a: int4, b: int4, f: fn(int, int) -> bool) -> bool4 { make_bool4(@@f(a.x, b.x), @@f(a.y, b.y), @@f(a.z, b.z), @@f(a.w, b.w)) }
+
+
+fn @float2x2_zip_bool(m: float2x2, n: float2x2, f: fn(float,float) -> bool) -> bool2x2{make_bool2x2(@@float2_zip_bool(m.x, n.x, f), @@float2_zip_bool(m.y, n.y, f))}
+fn @float2x3_zip_bool(m: float2x3, n: float2x3, f: fn(float,float) -> bool) -> bool2x3{make_bool2x3(@@float3_zip_bool(m.x, n.x, f), @@float3_zip_bool(m.y, n.y, f))}
+fn @float2x4_zip_bool(m: float2x4, n: float2x4, f: fn(float,float) -> bool) -> bool2x4{make_bool2x4(@@float4_zip_bool(m.x, n.x, f), @@float4_zip_bool(m.y, n.y, f))}
+
+fn @float3x2_zip_bool(m: float3x2, n: float3x2, f: fn(float,float) -> bool) -> bool3x2{make_bool3x2(@@float2_zip_bool(m.x, n.x, f), @@float2_zip_bool(m.y, n.y, f), @@float2_zip_bool(m.z, n.z, f))}
+fn @float3x3_zip_bool(m: float3x3, n: float3x3, f: fn(float,float) -> bool) -> bool3x3{make_bool3x3(@@float3_zip_bool(m.x, n.x, f), @@float3_zip_bool(m.y, n.y, f), @@float3_zip_bool(m.z, n.z, f))}
+fn @float3x4_zip_bool(m: float3x4, n: float3x4, f: fn(float,float) -> bool) -> bool3x4{make_bool3x4(@@float4_zip_bool(m.x, n.x, f), @@float4_zip_bool(m.y, n.y, f), @@float4_zip_bool(m.z, n.z, f))}
+
+fn @float4x2_zip_bool(m: float4x2, n: float4x2, f: fn(float,float) -> bool) -> bool4x2{make_bool4x2(@@float2_zip_bool(m.x, n.x, f), @@float2_zip_bool(m.y, n.y, f), @@float2_zip_bool(m.z, n.z, f), @@float2_zip_bool(m.w, n.w, f))}
+fn @float4x3_zip_bool(m: float4x3, n: float4x3, f: fn(float,float) -> bool) -> bool4x3{make_bool4x3(@@float3_zip_bool(m.x, n.x, f), @@float3_zip_bool(m.y, n.y, f), @@float3_zip_bool(m.z, n.z, f), @@float3_zip_bool(m.w, n.w, f))}
+fn @float4x4_zip_bool(m: float4x4, n: float4x4, f: fn(float,float) -> bool) -> bool4x4{make_bool4x4(@@float4_zip_bool(m.x, n.x, f), @@float4_zip_bool(m.y, n.y, f), @@float4_zip_bool(m.z, n.z, f), @@float4_zip_bool(m.w, n.w, f))}
+
+fn @double2x2_zip_bool(m: double2x2, n: double2x2, f: fn(double,double) -> bool) -> bool2x2{make_bool2x2(@@double2_zip_bool(m.x, n.x, f), @@double2_zip_bool(m.y, n.y, f))}
+fn @double2x3_zip_bool(m: double2x3, n: double2x3, f: fn(double,double) -> bool) -> bool2x3{make_bool2x3(@@double3_zip_bool(m.x, n.x, f), @@double3_zip_bool(m.y, n.y, f))}
+fn @double2x4_zip_bool(m: double2x4, n: double2x4, f: fn(double,double) -> bool) -> bool2x4{make_bool2x4(@@double4_zip_bool(m.x, n.x, f), @@double4_zip_bool(m.y, n.y, f))}
+
+fn @double3x2_zip_bool(m: double3x2, n: double3x2, f: fn(double,double) -> bool) -> bool3x2{make_bool3x2(@@double2_zip_bool(m.x, n.x, f), @@double2_zip_bool(m.y, n.y, f), @@double2_zip_bool(m.z, n.z, f))}
+fn @double3x3_zip_bool(m: double3x3, n: double3x3, f: fn(double,double) -> bool) -> bool3x3{make_bool3x3(@@double3_zip_bool(m.x, n.x, f), @@double3_zip_bool(m.y, n.y, f), @@double3_zip_bool(m.z, n.z, f))}
+fn @double3x4_zip_bool(m: double3x4, n: double3x4, f: fn(double,double) -> bool) -> bool3x4{make_bool3x4(@@double4_zip_bool(m.x, n.x, f), @@double4_zip_bool(m.y, n.y, f), @@double4_zip_bool(m.z, n.z, f))}
+
+fn @double4x2_zip_bool(m: double4x2, n: double4x2, f: fn(double,double) -> bool) -> bool4x2{make_bool4x2(@@double2_zip_bool(m.x, n.x, f), @@double2_zip_bool(m.y, n.y, f), @@double2_zip_bool(m.z, n.z, f), @@double2_zip_bool(m.w, n.w, f))}
+fn @double4x3_zip_bool(m: double4x3, n: double4x3, f: fn(double,double) -> bool) -> bool4x3{make_bool4x3(@@double3_zip_bool(m.x, n.x, f), @@double3_zip_bool(m.y, n.y, f), @@double3_zip_bool(m.z, n.z, f), @@double3_zip_bool(m.w, n.w, f))}
+fn @double4x4_zip_bool(m: double4x4, n: double4x4, f: fn(double,double) -> bool) -> bool4x4{make_bool4x4(@@double4_zip_bool(m.x, n.x, f), @@double4_zip_bool(m.y, n.y, f), @@double4_zip_bool(m.z, n.z, f), @@double4_zip_bool(m.w, n.w, f))}
+
+fn @any__bool2x2(x: bool2x2, math: mdl_math) -> bool{
+    math.any__bool2(make_bool2(
+        math.any__bool2(x.x),
+        math.any__bool2(x.y),
+    ))
+}
+
+fn @any__bool2x3(x: bool2x3, math: mdl_math) -> bool{
+    math.any__bool2(make_bool2(
+        math.any__bool3(x.x),
+        math.any__bool3(x.y),
+    ))
+}
+
+fn @any__bool2x4(x: bool2x4, math: mdl_math) -> bool{
+    math.any__bool2(make_bool2(
+        math.any__bool4(x.x),
+        math.any__bool4(x.y),
+    ))
+}
+
+fn @any__bool3x2(x: bool3x2, math: mdl_math) -> bool{
+    math.any__bool3(make_bool3(
+        math.any__bool2(x.x),
+        math.any__bool2(x.y),
+        math.any__bool2(x.z),
+    ))
+}
+
+fn @any__bool3x3(x: bool3x3, math: mdl_math) -> bool{
+    math.any__bool3(make_bool3(
+        math.any__bool3(x.x),
+        math.any__bool3(x.y),
+        math.any__bool3(x.z),
+    ))
+}
+
+fn @any__bool3x4(x: bool3x4, math: mdl_math) -> bool{
+    math.any__bool3(make_bool3(
+        math.any__bool4(x.x),
+        math.any__bool4(x.y),
+        math.any__bool4(x.z),
+    ))
+}
+
+fn @any__bool4x2(x: bool4x2, math: mdl_math) -> bool{
+    math.any__bool4(make_bool4(
+        math.any__bool2(x.x),
+        math.any__bool2(x.y),
+        math.any__bool2(x.z),
+        math.any__bool2(x.w),
+    ))
+}
+
+fn @any__bool4x3(x: bool4x3, math: mdl_math) -> bool{
+    math.any__bool4(make_bool4(
+        math.any__bool3(x.x),
+        math.any__bool3(x.y),
+        math.any__bool3(x.z),
+        math.any__bool3(x.w),
+    ))
+}
+
+fn @any__bool4x4(x: bool4x4, math: mdl_math) -> bool{
+    math.any__bool4(make_bool4(
+        math.any__bool4(x.x),
+        math.any__bool4(x.y),
+        math.any__bool4(x.z),
+        math.any__bool4(x.w),
+    ))
+}
+
+
+fn @all__bool2x2(x: bool2x2, math: mdl_math) -> bool{
+    math.all__bool2(make_bool2(
+        math.all__bool2(x.x),
+        math.all__bool2(x.y),
+    ))
+}
+
+fn @all__bool2x3(x: bool2x3, math: mdl_math) -> bool{
+    math.all__bool2(make_bool2(
+        math.all__bool3(x.x),
+        math.all__bool3(x.y),
+    ))
+}
+
+fn @all__bool2x4(x: bool2x4, math: mdl_math) -> bool{
+    math.all__bool2(make_bool2(
+        math.all__bool4(x.x),
+        math.all__bool4(x.y),
+    ))
+}
+
+fn @all__bool3x2(x: bool3x2, math: mdl_math) -> bool{
+    math.all__bool3(make_bool3(
+        math.all__bool2(x.x),
+        math.all__bool2(x.y),
+        math.all__bool2(x.z),
+    ))
+}
+
+fn @all__bool3x3(x: bool3x3, math: mdl_math) -> bool{
+    math.all__bool3(make_bool3(
+        math.all__bool3(x.x),
+        math.all__bool3(x.y),
+        math.all__bool3(x.z),
+    ))
+}
+
+fn @all__bool3x4(x: bool3x4, math: mdl_math) -> bool{
+    math.all__bool3(make_bool3(
+        math.all__bool4(x.x),
+        math.all__bool4(x.y),
+        math.all__bool4(x.z),
+    ))
+}
+
+fn @all__bool4x2(x: bool4x2, math: mdl_math) -> bool{
+    math.all__bool4(make_bool4(
+        math.all__bool2(x.x),
+        math.all__bool2(x.y),
+        math.all__bool2(x.z),
+        math.all__bool2(x.w),
+    ))
+}
+
+fn @all__bool4x3(x: bool4x3, math: mdl_math) -> bool{
+    math.all__bool4(make_bool4(
+        math.all__bool3(x.x),
+        math.all__bool3(x.y),
+        math.all__bool3(x.z),
+        math.all__bool3(x.w),
+    ))
+}
+
+fn @all__bool4x4(x: bool4x4, math: mdl_math) -> bool{
+    math.all__bool4(make_bool4(
+        math.all__bool4(x.x),
+        math.all__bool4(x.y),
+        math.all__bool4(x.z),
+        math.all__bool4(x.w),
+    ))
+}
+
+fn @as_float3(c: color) -> float3{
+    make_float3(c.r, c.g, c.b)
+}
+
+

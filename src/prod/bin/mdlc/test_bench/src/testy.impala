@@ -1,0 +1,64 @@
+
+
+
+extern
+fn hello(x_res: int, y_res: int, buffer: &mut [float3]) -> () {
+    let math = cpu_intrinsics;
+    let mmath = make_mdl_math(math);
+    let step_x = 1.0f / x_res as f32;
+    let step_y = 1.0f / y_res as f32;
+
+    let mat = summed_noise_material__color_color_double_int_bool_mapping_mode_mdl_math(
+        @|state:State|{
+            make_color(0.0f, 0.0f,0.0f)
+        },
+        @|state:State|{
+            make_color(1.0f, 1.0f,1.0f)
+        },
+        @|state:State|{
+            5.0
+        },
+        @|state:State|{
+            30
+        },
+        @|state:State|{
+            false
+        },
+        @|state:State|{
+            mapping_mode_world
+        },
+        mmath
+    );
+    
+    for y in range(0, y_res){
+        let y_pos = y as f32;
+        for x in range(0, x_res){
+            let x_pos = x as f32;
+            let stat = make_state(
+                make_float3(2.0f * x_pos * step_x - 1.0f,2.0f * y_pos * step_y - 1.0f,0.0f),
+                make_float3(0.0f,0.0f,1.0f),
+                make_float3(0.0f,0.0f,1.0f),
+                make_float3(0.0f,0.0f,0.0f),
+                1,
+                |i:int|{make_float3(x_pos * step_x,y_pos * step_y,0.0f)},
+                |i:int|{make_float3(1.0f,0.0f,0.0f)},
+                |i:int|{make_float3(0.0f,1.0f,0.0f)},
+                |i:int|{float3x3__float_mdl_math(1.0f, mmath)},
+                |i:int|{make_float3(1.0f,0.0f,0.0f)},
+                |i:int|{make_float3(0.0f,1.0f,0.0f)},
+                make_float3(0.0f,0.0f,0.0f),
+                0.0f,
+                0.0f,
+                1.0f,
+                1.0f,
+                0,
+                380.000000f,
+                780.000000f,
+                float3x3__float_mdl_math(1.0f, mmath),
+                float3x3__float_mdl_math(1.0f, mmath),
+                float3x3__float_mdl_math(1.0f, mmath),
+            );
+            buffer(y * x_res + x) = mmath.saturate__float3(float3__color_mdl_math(mat.surface.scattering.tint(stat), mmath));
+        }
+    }   
+}

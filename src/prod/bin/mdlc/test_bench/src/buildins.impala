@@ -1,0 +1,3939 @@
+fn @mul__float2_float2(x: float2, y: float2) -> float2{
+    float2_zip(x,y,|a,b|{a*b})
+}
+
+fn @mul__float3_float3(x: float3, y: float3) -> float3{
+    float3_zip(x,y,|a,b|{a*b})
+}
+
+fn @mul__float4_float4(x: float4, y: float4) -> float4{
+    float4_zip(x,y,|a,b|{a*b})
+}
+
+fn @mul__double2_double2(x: double2, y: double2) -> double2{
+    double2_zip(x,y,|a,b|{a*b})
+}
+
+fn @mul__double3_double3(x: double3, y: double3) -> double3{
+    double3_zip(x,y,|a,b|{a*b})
+}
+
+fn @mul__double4_double4(x: double4, y: double4) -> double4{
+    double4_zip(x,y,|a,b|{a*b})
+}
+
+
+fn @div__int_int_mdl_math(x : int, y : int, math : mdl_math) -> int{
+    x / y
+}
+fn @div__int2_int2_mdl_math(x : int2, y : int2, math : mdl_math) -> int2{
+    int2_zip(x,y,|a,b|{a / b})
+}
+fn @div__int_int2_mdl_math(x : int, y : int2, math : mdl_math) -> int2{
+    int2_zip(make_int2(x,x),y,|a,b|{a / b})
+}
+fn @div__int2_int_mdl_math(x : int2, y : int, math : mdl_math) -> int2{
+    int2_zip(x,make_int2(y,y),|a,b|{a / b})
+}
+fn @div__int3_int3_mdl_math(x : int3, y : int3, math : mdl_math) -> int3{
+    int3_zip(x,y,|a,b|{a / b})
+}
+fn @div__int_int3_mdl_math(x : int, y : int3, math : mdl_math) -> int3{
+    int3_zip(make_int3(x,x,x),y,|a,b|{a / b})
+}
+fn @div__int3_int_mdl_math(x : int3, y : int, math : mdl_math) -> int3{
+    int3_zip(x,make_int3(y,y,y),|a,b|{a / b})
+}
+fn @div__int4_int4_mdl_math(x : int4, y : int4, math : mdl_math) -> int4{
+    int4_zip(x,y,|a,b|{a / b})
+}
+fn @div__int_int4_mdl_math(x : int, y : int4, math : mdl_math) -> int4{
+    int4_zip(make_int4(x,x,x,x),y,|a,b|{a / b})
+}
+fn @div__int4_int_mdl_math(x : int4, y : int, math : mdl_math) -> int4{
+    int4_zip(x,make_int4(y,y,y,y),|a,b|{a / b})
+}
+fn @div__float_float_mdl_math(x : float, y : float, math : mdl_math) -> float{
+    x / y
+}
+fn @div__float2_float2_mdl_math(x : float2, y : float2, math : mdl_math) -> float2{
+    float2_zip(x,y,|a,b|{a / b})
+}
+fn @div__float_float2_mdl_math(x : float, y : float2, math : mdl_math) -> float2{
+    float2_zip(make_float2(x,x),y,|a,b|{a / b})
+}
+fn @div__float2_float_mdl_math(x : float2, y : float, math : mdl_math) -> float2{
+    float2_zip(x,make_float2(y,y),|a,b|{a / b})
+}
+fn @div__float3_float3_mdl_math(x : float3, y : float3, math : mdl_math) -> float3{
+    float3_zip(x,y,|a,b|{a / b})
+}
+fn @div__float_float3_mdl_math(x : float, y : float3, math : mdl_math) -> float3{
+    float3_zip(make_float3(x,x,x),y,|a,b|{a / b})
+}
+fn @div__float3_float_mdl_math(x : float3, y : float, math : mdl_math) -> float3{
+    float3_zip(x,make_float3(y,y,y),|a,b|{a / b})
+}
+fn @div__float4_float4_mdl_math(x : float4, y : float4, math : mdl_math) -> float4{
+    float4_zip(x,y,|a,b|{a / b})
+}
+fn @div__float_float4_mdl_math(x : float, y : float4, math : mdl_math) -> float4{
+    float4_zip(make_float4(x,x,x,x),y,|a,b|{a / b})
+}
+fn @div__float4_float_mdl_math(x : float4, y : float, math : mdl_math) -> float4{
+    float4_zip(x,make_float4(y,y,y,y),|a,b|{a / b})
+}
+fn @div__double_double_mdl_math(x : double, y : double, math : mdl_math) -> double{
+    x / y
+}
+fn @div__double2_double2_mdl_math(x : double2, y : double2, math : mdl_math) -> double2{
+    double2_zip(x,y,|a,b|{a / b})
+}
+fn @div__double_double2_mdl_math(x : double, y : double2, math : mdl_math) -> double2{
+    double2_zip(make_double2(x,x),y,|a,b|{a / b})
+}
+fn @div__double2_double_mdl_math(x : double2, y : double, math : mdl_math) -> double2{
+    double2_zip(x,make_double2(y,y),|a,b|{a / b})
+}
+fn @div__double3_double3_mdl_math(x : double3, y : double3, math : mdl_math) -> double3{
+    double3_zip(x,y,|a,b|{a / b})
+}
+fn @div__double_double3_mdl_math(x : double, y : double3, math : mdl_math) -> double3{
+    double3_zip(make_double3(x,x,x),y,|a,b|{a / b})
+}
+fn @div__double3_double_mdl_math(x : double3, y : double, math : mdl_math) -> double3{
+    double3_zip(x,make_double3(y,y,y),|a,b|{a / b})
+}
+fn @div__double4_double4_mdl_math(x : double4, y : double4, math : mdl_math) -> double4{
+    double4_zip(x,y,|a,b|{a / b})
+}
+fn @div__double_double4_mdl_math(x : double, y : double4, math : mdl_math) -> double4{
+    double4_zip(make_double4(x,x,x,x),y,|a,b|{a / b})
+}
+fn @div__double4_double_mdl_math(x : double4, y : double, math : mdl_math) -> double4{
+    double4_zip(x,make_double4(y,y,y,y),|a,b|{a / b})
+}
+fn @div__color_color_mdl_math(x : color, y : color, math : mdl_math) -> color{
+    color_zip(x,y,|a,b|{a / b})
+}
+fn @div__color_float_mdl_math(x : color, y : float, math : mdl_math) -> color{
+    color_zip(x,make_color(y,y,y), |a,b|{a / b})
+}
+
+fn @div__float2x2_float_mdl_math(x : float2x2, y : float, math : mdl_math) -> float2x2{
+    float2x2_map(x, |a|{a / y})
+}
+fn @div__float2x3_float_mdl_math(x : float2x3, y : float, math : mdl_math) -> float2x3{
+    float2x3_map(x, |a|{a / y})
+}
+fn @div__float2x4_float_mdl_math(x : float2x4, y : float, math : mdl_math) -> float2x4{
+    float2x4_map(x, |a|{a / y})
+}
+fn @div__float3x2_float_mdl_math(x : float3x2, y : float, math : mdl_math) -> float3x2{
+    float3x2_map(x, |a|{a / y})
+}
+fn @div__float3x3_float_mdl_math(x : float3x3, y : float, math : mdl_math) -> float3x3{
+    float3x3_map(x, |a|{a / y})
+}
+fn @div__float3x4_float_mdl_math(x : float3x4, y : float, math : mdl_math) -> float3x4{
+    float3x4_map(x, |a|{a / y})
+}
+fn @div__float4x2_float_mdl_math(x : float4x2, y : float, math : mdl_math) -> float4x2{
+    float4x2_map(x, |a|{a / y})
+}
+fn @div__float4x3_float_mdl_math(x : float4x3, y : float, math : mdl_math) -> float4x3{
+    float4x3_map(x, |a|{a / y})
+}
+fn @div__float4x4_float_mdl_math(x : float4x4, y : float, math : mdl_math) -> float4x4{
+    float4x4_map(x, |a|{a / y})
+}
+fn @div__double2x2_double_mdl_math(x : double2x2, y : double, math : mdl_math) -> double2x2{
+    double2x2_map(x, |a|{a / y})
+}
+fn @div__double2x3_double_mdl_math(x : double2x3, y : double, math : mdl_math) -> double2x3{
+    double2x3_map(x, |a|{a / y})
+}
+fn @div__double2x4_double_mdl_math(x : double2x4, y : double, math : mdl_math) -> double2x4{
+    double2x4_map(x, |a|{a / y})
+}
+fn @div__double3x2_double_mdl_math(x : double3x2, y : double, math : mdl_math) -> double3x2{
+    double3x2_map(x, |a|{a / y})
+}
+fn @div__double3x3_double_mdl_math(x : double3x3, y : double, math : mdl_math) -> double3x3{
+    double3x3_map(x, |a|{a / y})
+}
+fn @div__double3x4_double_mdl_math(x : double3x4, y : double, math : mdl_math) -> double3x4{
+    double3x4_map(x, |a|{a / y})
+}
+fn @div__double4x2_double_mdl_math(x : double4x2, y : double, math : mdl_math) -> double4x2{
+    double4x2_map(x, |a|{a / y})
+}
+fn @div__double4x3_double_mdl_math(x : double4x3, y : double, math : mdl_math) -> double4x3{
+    double4x3_map(x, |a|{a / y})
+}
+fn @div__double4x4_double_mdl_math(x : double4x4, y : double, math : mdl_math) -> double4x4{
+    double4x4_map(x, |a|{a / y})
+}   
+fn @neg__int_mdl_math(x : int, math : mdl_math) -> int{
+    -math.abs__int(x)
+}
+fn @neg__int2_mdl_math(x : int2, math : mdl_math) -> int2{
+    int2_map(x, |a|{-math.abs__int(a)})
+}
+fn @neg__int3_mdl_math(x : int3, math : mdl_math) -> int3{
+    int3_map(x, |a|{-math.abs__int(a)})
+}
+fn @neg__int4_mdl_math(x : int4, math : mdl_math) -> int4{
+    int4_map(x, |a|{-math.abs__int(a)})
+}
+fn @neg__float_mdl_math(x : float, math : mdl_math) -> float{
+    -math.abs__float(x)
+}
+fn @neg__float2_mdl_math(x : float2, math : mdl_math) -> float2{
+    float2_map(x, |a|{-math.abs__float(a)})
+}
+fn @neg__float3_mdl_math(x : float3, math : mdl_math) -> float3{
+    float3_map(x, |a|{-math.abs__float(a)})
+}
+fn @neg__float4_mdl_math(x : float4, math : mdl_math) -> float4{
+    float4_map(x, |a|{-math.abs__float(a)})
+}
+fn @neg__double_mdl_math(x : double, math : mdl_math) -> double{
+    -math.abs__double(x)
+}
+fn @neg__double2_mdl_math(x : double2, math : mdl_math) -> double2{
+    double2_map(x, |a|{-math.abs__double(a)})
+}
+fn @neg__double3_mdl_math(x : double3, math : mdl_math) -> double3{
+    double3_map(x, |a|{-math.abs__double(a)})
+}
+fn @neg__double4_mdl_math(x : double4, math : mdl_math) -> double4{
+    double4_map(x, |a|{-math.abs__double(a)})
+}
+fn @neg__color_mdl_math(x : color, math : mdl_math) -> color{
+    color_map(x, |a|{-math.abs__float(a)})
+}
+fn @neg__float2x2_mdl_math(x : float2x2, math : mdl_math) -> float2x2{
+    float2x2_map(x, |a|{-math.abs__float(a)})
+}
+fn @neg__float2x3_mdl_math(x : float2x3, math : mdl_math) -> float2x3{
+    float2x3_map(x, |a|{-math.abs__float(a)})
+}
+fn @neg__float2x4_mdl_math(x : float2x4, math : mdl_math) -> float2x4{
+    float2x4_map(x, |a|{-math.abs__float(a)})
+}
+fn @neg__float3x2_mdl_math(x : float3x2, math : mdl_math) -> float3x2{
+    float3x2_map(x, |a|{-math.abs__float(a)})
+}
+fn @neg__float3x3_mdl_math(x : float3x3, math : mdl_math) -> float3x3{
+    float3x3_map(x, |a|{-math.abs__float(a)})
+}
+fn @neg__float3x4_mdl_math(x : float3x4, math : mdl_math) -> float3x4{
+    float3x4_map(x, |a|{-math.abs__float(a)})
+}
+fn @neg__float4x2_mdl_math(x : float4x2, math : mdl_math) -> float4x2{
+    float4x2_map(x, |a|{-math.abs__float(a)})
+}
+fn @neg__float4x3_mdl_math(x : float4x3, math : mdl_math) -> float4x3{
+    float4x3_map(x, |a|{-math.abs__float(a)})
+}
+fn @neg__float4x4_mdl_math(x : float4x4, math : mdl_math) -> float4x4{
+    float4x4_map(x, |a|{-math.abs__float(a)})
+}
+fn @neg__double2x2_mdl_math(x : double2x2, math : mdl_math) -> double2x2{
+    double2x2_map(x, |a|{-math.abs__double(a)})
+}
+fn @neg__double2x3_mdl_math(x : double2x3, math : mdl_math) -> double2x3{
+    double2x3_map(x, |a|{-math.abs__double(a)})
+}
+fn @neg__double2x4_mdl_math(x : double2x4, math : mdl_math) -> double2x4{
+    double2x4_map(x, |a|{-math.abs__double(a)})
+}
+fn @neg__double3x2_mdl_math(x : double3x2, math : mdl_math) -> double3x2{
+    double3x2_map(x, |a|{-math.abs__double(a)})
+}
+fn @neg__double3x3_mdl_math(x : double3x3, math : mdl_math) -> double3x3{
+    double3x3_map(x, |a|{-math.abs__double(a)})
+}
+fn @neg__double3x4_mdl_math(x : double3x4, math : mdl_math) -> double3x4{
+    double3x4_map(x, |a|{-math.abs__double(a)})
+}
+fn @neg__double4x2_mdl_math(x : double4x2, math : mdl_math) -> double4x2{
+    double4x2_map(x, |a|{-math.abs__double(a)})
+}
+fn @neg__double4x3_mdl_math(x : double4x3, math : mdl_math) -> double4x3{
+    double4x3_map(x, |a|{-math.abs__double(a)})
+}
+fn @neg__double4x4_mdl_math(x : double4x4, math : mdl_math) -> double4x4{
+    double4x4_map(x, |a|{-math.abs__double(a)})
+}
+
+fn @pos__int_mdl_math(x : int, math : mdl_math) -> int{
+    math.abs__int(x)
+}
+fn @pos__int2_mdl_math(x : int2, math : mdl_math) -> int2{
+    int2_map(x, |a|{math.abs__int(a)})
+}
+fn @pos__int3_mdl_math(x : int3, math : mdl_math) -> int3{
+    int3_map(x, |a|{math.abs__int(a)})
+}
+fn @pos__int4_mdl_math(x : int4, math : mdl_math) -> int4{
+    int4_map(x, |a|{math.abs__int(a)})
+}
+fn @pos__float_mdl_math(x : float, math : mdl_math) -> float{
+    math.abs__float(x)
+}
+fn @pos__float2_mdl_math(x : float2, math : mdl_math) -> float2{
+    float2_map(x, |a|{math.abs__float(a)})
+}
+fn @pos__float3_mdl_math(x : float3, math : mdl_math) -> float3{
+    float3_map(x, |a|{math.abs__float(a)})
+}
+fn @pos__float4_mdl_math(x : float4, math : mdl_math) -> float4{
+    float4_map(x, |a|{math.abs__float(a)})
+}
+fn @pos__double_mdl_math(x : double, math : mdl_math) -> double{
+    math.abs__double(x)
+}
+fn @pos__double2_mdl_math(x : double2, math : mdl_math) -> double2{
+    double2_map(x, |a|{math.abs__double(a)})
+}
+fn @pos__double3_mdl_math(x : double3, math : mdl_math) -> double3{
+    double3_map(x, |a|{math.abs__double(a)})
+}
+fn @pos__double4_mdl_math(x : double4, math : mdl_math) -> double4{
+    double4_map(x, |a|{math.abs__double(a)})
+}
+fn @pos__color_mdl_math(x : color, math : mdl_math) -> color{
+    color_map(x, |a|{math.abs__float(a)})
+}
+fn @pos__float2x2_mdl_math(x : float2x2, math : mdl_math) -> float2x2{
+    float2x2_map(x, |a|{math.abs__float(a)})
+}
+fn @pos__float2x3_mdl_math(x : float2x3, math : mdl_math) -> float2x3{
+    float2x3_map(x, |a|{math.abs__float(a)})
+}
+fn @pos__float2x4_mdl_math(x : float2x4, math : mdl_math) -> float2x4{
+    float2x4_map(x, |a|{math.abs__float(a)})
+}
+fn @pos__float3x2_mdl_math(x : float3x2, math : mdl_math) -> float3x2{
+    float3x2_map(x, |a|{math.abs__float(a)})
+}
+fn @pos__float3x3_mdl_math(x : float3x3, math : mdl_math) -> float3x3{
+    float3x3_map(x, |a|{math.abs__float(a)})
+}
+fn @pos__float3x4_mdl_math(x : float3x4, math : mdl_math) -> float3x4{
+    float3x4_map(x, |a|{math.abs__float(a)})
+}
+fn @pos__float4x2_mdl_math(x : float4x2, math : mdl_math) -> float4x2{
+    float4x2_map(x, |a|{math.abs__float(a)})
+}
+fn @pos__float4x3_mdl_math(x : float4x3, math : mdl_math) -> float4x3{
+    float4x3_map(x, |a|{math.abs__float(a)})
+}
+fn @pos__float4x4_mdl_math(x : float4x4, math : mdl_math) -> float4x4{
+    float4x4_map(x, |a|{math.abs__float(a)})
+}
+fn @pos__double2x2_mdl_math(x : double2x2, math : mdl_math) -> double2x2{
+    double2x2_map(x, |a|{math.abs__double(a)})
+}
+fn @pos__double2x3_mdl_math(x : double2x3, math : mdl_math) -> double2x3{
+    double2x3_map(x, |a|{math.abs__double(a)})
+}
+fn @pos__double2x4_mdl_math(x : double2x4, math : mdl_math) -> double2x4{
+    double2x4_map(x, |a|{math.abs__double(a)})
+}
+fn @pos__double3x2_mdl_math(x : double3x2, math : mdl_math) -> double3x2{
+    double3x2_map(x, |a|{math.abs__double(a)})
+}
+fn @pos__double3x3_mdl_math(x : double3x3, math : mdl_math) -> double3x3{
+    double3x3_map(x, |a|{math.abs__double(a)})
+}
+fn @pos__double3x4_mdl_math(x : double3x4, math : mdl_math) -> double3x4{
+    double3x4_map(x, |a|{math.abs__double(a)})
+}
+fn @pos__double4x2_mdl_math(x : double4x2, math : mdl_math) -> double4x2{
+    double4x2_map(x, |a|{math.abs__double(a)})
+}
+fn @pos__double4x3_mdl_math(x : double4x3, math : mdl_math) -> double4x3{
+    double4x3_map(x, |a|{math.abs__double(a)})
+}
+fn @pos__double4x4_mdl_math(x : double4x4, math : mdl_math) -> double4x4{
+    double4x4_map(x, |a|{math.abs__double(a)})
+}   
+
+fn @pre_dec__int_mdl_math(x : &mut int, math : mdl_math) -> int{
+    *x -= 1;
+    *x
+}
+fn @pre_dec__int2_mdl_math(x : &mut int2, math : mdl_math) -> int2{
+    *x = int2_map(*x, |a|{a-1});
+    *x
+}
+fn @pre_dec__int3_mdl_math(x : &mut int3, math : mdl_math) -> int3{
+    *x = int3_map(*x, |a|{a-1});
+    *x
+}
+fn @pre_dec__int4_mdl_math(x : &mut int4, math : mdl_math) -> int4{
+    *x = int4_map(*x, |a|{a-1});
+    *x
+}
+fn @pre_dec__float_mdl_math(x : &mut float, math : mdl_math) -> float{
+    *x -= 1.0f;
+    *x
+}
+fn @pre_dec__float2_mdl_math(x : &mut float2, math : mdl_math) -> float2{
+    *x = float2_map(*x, |a|{a-1.0f});
+    *x
+}
+fn @pre_dec__float3_mdl_math(x : &mut float3, math : mdl_math) -> float3{
+    *x = float3_map(*x, |a|{a-1.0f});
+    *x
+}
+fn @pre_dec__float4_mdl_math(x : &mut float4, math : mdl_math) -> float4{
+    *x = float4_map(*x, |a|{a-1.0f});
+    *x
+}
+fn @pre_dec__double_mdl_math(x : &mut double, math : mdl_math) -> double{
+    *x -= 1.0;
+    *x
+}
+fn @pre_dec__double2_mdl_math(x : &mut double2, math : mdl_math) -> double2{
+    *x = double2_map(*x, |a|{a-1.0});
+    *x
+}
+fn @pre_dec__double3_mdl_math(x : &mut double3, math : mdl_math) -> double3{
+    *x = double3_map(*x, |a|{a-1.0});
+    *x
+}
+fn @pre_dec__double4_mdl_math(x : &mut double4, math : mdl_math) -> double4{
+    *x = double4_map(*x, |a|{a-1.0});
+    *x
+}
+fn @post_inc__int_mdl_math(x : &mut int, math : mdl_math) -> int{
+    let temp = *x;
+    *x += 1;
+    temp
+}
+fn @post_inc__int2_mdl_math(x : &mut int2, math : mdl_math) -> int2{
+    let temp = *x;
+    *x = int2_map(*x, |a|{a+1});
+    temp
+}
+fn @post_inc__int3_mdl_math(x : &mut int3, math : mdl_math) -> int3{
+    let temp = *x;
+    *x = int3_map(*x, |a|{a+1});
+    temp
+}
+fn @post_inc__int4_mdl_math(x : &mut int4, math : mdl_math) -> int4{
+    let temp = *x;
+    *x = int4_map(*x, |a|{a+1});
+    temp
+}
+fn @post_inc__float_mdl_math(x : &mut float, math : mdl_math) -> float{
+    let temp = *x;
+    *x += 1.0f;
+    temp
+}
+fn @post_inc__float2_mdl_math(x : &mut float2, math : mdl_math) -> float2{
+    let temp = *x;
+    *x = float2_map(*x, |a|{a+1.0f});
+    temp
+}
+fn @post_inc__float3_mdl_math(x : &mut float3, math : mdl_math) -> float3{
+    let temp = *x;
+    *x = float3_map(*x, |a|{a+1.0f});
+    temp
+}
+fn @post_inc__float4_mdl_math(x : &mut float4, math : mdl_math) -> float4{
+    let temp = *x;
+    *x = float4_map(*x, |a|{a+1.0f});
+    temp
+}
+fn @post_inc__double_mdl_math(x : &mut double, math : mdl_math) -> double{
+    let temp = *x;
+    *x += 1.0;
+    temp
+}
+fn @post_inc__double2_mdl_math(x : &mut double2, math : mdl_math) -> double2{
+    let temp = *x;
+    *x = double2_map(*x, |a|{a+1.0});
+    temp
+}
+fn @post_inc__double3_mdl_math(x : &mut double3, math : mdl_math) -> double3{
+    let temp = *x;
+    *x = double3_map(*x, |a|{a+1.0});
+    temp
+}
+fn @post_inc__double4_mdl_math(x : &mut double4, math : mdl_math) -> double4{
+    let temp = *x;
+    *x = double4_map(*x, |a|{a+1.0});
+    temp
+}
+fn @post_dec__int_mdl_math(x : &mut int, math : mdl_math) -> int{
+    let temp = *x;
+    *x -= 1;
+    temp
+}
+fn @post_dec__int2_mdl_math(x : &mut int2, math : mdl_math) -> int2{
+    let temp = *x;
+    *x = int2_map(*x, |a|{a-1});
+    temp
+}
+fn @post_dec__int3_mdl_math(x : &mut int3, math : mdl_math) -> int3{
+    let temp = *x;
+    *x = int3_map(*x, |a|{a-1});
+    temp
+}
+fn @post_dec__int4_mdl_math(x : &mut int4, math : mdl_math) -> int4{
+    let temp = *x;
+    *x = int4_map(*x, |a|{a-1});
+    temp
+}
+fn @post_dec__float_mdl_math(x : &mut float, math : mdl_math) -> float{
+    let temp = *x;
+    *x -= 1.0f;
+    temp
+}
+fn @post_dec__float2_mdl_math(x : &mut float2, math : mdl_math) -> float2{
+    let temp = *x;
+    *x = float2_map(*x, |a|{a-1.0f});
+    temp
+}
+fn @post_dec__float3_mdl_math(x : &mut float3, math : mdl_math) -> float3{
+    let temp = *x;
+    *x = float3_map(*x, |a|{a-1.0f});
+    temp
+}
+fn @post_dec__float4_mdl_math(x : &mut float4, math : mdl_math) -> float4{
+    let temp = *x;
+    *x = float4_map(*x, |a|{a-1.0f});
+    temp
+}
+fn @post_dec__double_mdl_math(x : &mut double, math : mdl_math) -> double{
+    let temp = *x;
+    *x -= 1.0;
+    temp
+}
+fn @post_dec__double2_mdl_math(x : &mut double2, math : mdl_math) -> double2{
+    let temp = *x;
+    *x = double2_map(*x, |a|{a-1.0});
+    temp
+}
+fn @post_dec__double3_mdl_math(x : &mut double3, math : mdl_math) -> double3{
+    let temp = *x;
+    *x = double3_map(*x, |a|{a-1.0});
+    temp
+}
+fn @post_dec__double4_mdl_math(x : &mut double4, math : mdl_math) -> double4{
+    let temp = *x;
+    *x = double4_map(*x, |a|{a-1.0});
+    temp
+}
+fn @pre_inc__int_mdl_math(x : &mut int, math : mdl_math) -> int{
+    *x += 1;
+    *x
+}
+fn @pre_inc__int2_mdl_math(x : &mut int2, math : mdl_math) -> int2{
+    *x = int2_map(*x, |a|{a+1});
+    *x
+}
+fn @pre_inc__int3_mdl_math(x : &mut int3, math : mdl_math) -> int3{
+    *x = int3_map(*x, |a|{a+1});
+    *x
+}
+fn @pre_inc__int4_mdl_math(x : &mut int4, math : mdl_math) -> int4{
+    *x = int4_map(*x, |a|{a+1});
+    *x
+}
+fn @pre_inc__float_mdl_math(x : &mut float, math : mdl_math) -> float{
+    *x += 1.0f;
+    *x
+}
+fn @pre_inc__float2_mdl_math(x : &mut float2, math : mdl_math) -> float2{
+    *x = float2_map(*x, |a|{a+1.0f});
+    *x
+}
+fn @pre_inc__float3_mdl_math(x : &mut float3, math : mdl_math) -> float3{
+    *x = float3_map(*x, |a|{a+1.0f});
+    *x
+}
+fn @pre_inc__float4_mdl_math(x : &mut float4, math : mdl_math) -> float4{
+    *x = float4_map(*x, |a|{a+1.0f});
+    *x
+}
+fn @pre_inc__double_mdl_math(x : &mut double, math : mdl_math) -> double{
+    *x += 1.0;
+    *x
+}
+fn @pre_inc__double2_mdl_math(x : &mut double2, math : mdl_math) -> double2{
+    *x = double2_map(*x, |a|{a+1.0});
+    *x
+}
+fn @pre_inc__double3_mdl_math(x : &mut double3, math : mdl_math) -> double3{
+    *x = double3_map(*x, |a|{a+1.0});
+    *x
+}
+fn @pre_inc__double4_mdl_math(x : &mut double4, math : mdl_math) -> double4{
+    *x = double4_map(*x, |a|{a+1.0});
+    *x
+}
+fn @bit_xor__int_int_mdl_math(x : int, y : int, math : mdl_math) -> int{
+    x ^ y
+}
+fn @bit_xor__int2_int2_mdl_math(x : int2, y : int2, math : mdl_math) -> int2{
+    int2_zip(x,y,|a,b|{a ^ b})
+}
+fn @bit_xor__int_int2_mdl_math(x : int, y : int2, math : mdl_math) -> int2{
+    int2_map(y,|b|{x ^ b})
+}
+fn @bit_xor__int2_int_mdl_math(x : int2, y : int, math : mdl_math) -> int2{
+    int2_map(x,|a|{a ^ y})
+}
+fn @bit_xor__int3_int3_mdl_math(x : int3, y : int3, math : mdl_math) -> int3{
+    int3_zip(x,y,|a,b|{a ^ b})
+}
+fn @bit_xor__int_int3_mdl_math(x : int, y : int3, math : mdl_math) -> int3{
+    int3_map(y,|b|{x ^ b})
+}
+fn @bit_xor__int3_int_mdl_math(x : int3, y : int, math : mdl_math) -> int3{
+    int3_map(x,|a|{a ^ y})
+}
+fn @bit_xor__int4_int4_mdl_math(x : int4, y : int4, math : mdl_math) -> int4{
+    int4_zip(x,y,|a,b|{a ^ b})
+}
+fn @bit_xor__int_int4_mdl_math(x : int, y : int4, math : mdl_math) -> int4{
+    int4_map(y,|b|{x ^ b})
+}
+fn @bit_xor__int4_int_mdl_math(x : int4, y : int, math : mdl_math) -> int4{
+    int4_map(x,|a|{a ^ y})
+}
+fn @bit_or__int_int_mdl_math(x : int, y : int, math : mdl_math) -> int{
+    x | y
+}
+fn @bit_or__int2_int2_mdl_math(x : int2, y : int2, math : mdl_math) -> int2{
+    int2_zip(x,y,|a,b|{a | b})
+}
+fn @bit_or__int_int2_mdl_math(x : int, y : int2, math : mdl_math) -> int2{
+    int2_map(y,|b|{x | b})
+}
+fn @bit_or__int2_int_mdl_math(x : int2, y : int, math : mdl_math) -> int2{
+    int2_map(x,|a|{a | y})
+}
+fn @bit_or__int3_int3_mdl_math(x : int3, y : int3, math : mdl_math) -> int3{
+    int3_zip(x,y,|a,b|{a | b})
+}
+fn @bit_or__int_int3_mdl_math(x : int, y : int3, math : mdl_math) -> int3{
+    int3_map(y,|b|{x | b})
+}
+fn @bit_or__int3_int_mdl_math(x : int3, y : int, math : mdl_math) -> int3{
+    int3_map(x,|a|{a | y})
+}
+fn @bit_or__int4_int4_mdl_math(x : int4, y : int4, math : mdl_math) -> int4{
+    int4_zip(x,y,|a,b|{a | b})
+}
+fn @bit_or__int_int4_mdl_math(x : int, y : int4, math : mdl_math) -> int4{
+    int4_map(y,|b|{x | b})
+}
+fn @bit_or__int4_int_mdl_math(x : int4, y : int, math : mdl_math) -> int4{
+    int4_map(x,|a|{a | y})
+}
+fn @bit_and__int_int_mdl_math(x : int, y : int, math : mdl_math) -> int{
+    x & y
+}
+fn @bit_and__int2_int2_mdl_math(x : int2, y : int2, math : mdl_math) -> int2{
+    int2_zip(x,y,|a,b|{a & b})
+}
+fn @bit_and__int_int2_mdl_math(x : int, y : int2, math : mdl_math) -> int2{
+    int2_map(y,|b|{x & b})
+}
+fn @bit_and__int2_int_mdl_math(x : int2, y : int, math : mdl_math) -> int2{
+    int2_map(x,|a|{a & y})
+}
+fn @bit_and__int3_int3_mdl_math(x : int3, y : int3, math : mdl_math) -> int3{
+    int3_zip(x,y,|a,b|{a & b})
+}
+fn @bit_and__int_int3_mdl_math(x : int, y : int3, math : mdl_math) -> int3{
+    int3_map(y,|b|{x & b})
+}
+fn @bit_and__int3_int_mdl_math(x : int3, y : int, math : mdl_math) -> int3{
+    int3_map(x,|a|{a & y})
+}
+fn @bit_and__int4_int4_mdl_math(x : int4, y : int4, math : mdl_math) -> int4{
+    int4_zip(x,y,|a,b|{a & b})
+}
+fn @bit_and__int_int4_mdl_math(x : int, y : int4, math : mdl_math) -> int4{
+    int4_map(y,|b|{x & b})
+}
+fn @bit_and__int4_int_mdl_math(x : int4, y : int, math : mdl_math) -> int4{
+    int4_map(x,|a|{a & y})
+}
+fn @bit_comp__int_mdl_math(x : int, math : mdl_math) -> int{
+    !x
+}
+fn @bit_comp__int2_mdl_math(x : int2, math : mdl_math) -> int2{
+    int2_map(x, |a|{!a})
+}
+fn @bit_comp__int3_mdl_math(x : int3, math : mdl_math) -> int3{
+    int3_map(x, |a|{!a})
+}
+fn @bit_comp__int4_mdl_math(x : int4, math : mdl_math) -> int4{
+    int4_map(x, |a|{!a})
+}
+/*
+fn @ushift_r__int_int_mdl_math(x : int, y : int, math : mdl_math) -> int;
+fn @ushift_r__int2_int2_mdl_math(x : int2, y : int2, math : mdl_math) -> int2;
+fn @ushift_r__int_int2_mdl_math(x : int, y : int2, math : mdl_math) -> int2;
+fn @ushift_r__int2_int_mdl_math(x : int2, y : int, math : mdl_math) -> int2;
+fn @ushift_r__int3_int3_mdl_math(x : int3, y : int3, math : mdl_math) -> int3;
+fn @ushift_r__int_int3_mdl_math(x : int, y : int3, math : mdl_math) -> int3;
+fn @ushift_r__int3_int_mdl_math(x : int3, y : int, math : mdl_math) -> int3;
+fn @ushift_r__int4_int4_mdl_math(x : int4, y : int4, math : mdl_math) -> int4;
+fn @ushift_r__int_int4_mdl_math(x : int, y : int4, math : mdl_math) -> int4;
+fn @ushift_r__int4_int_mdl_math(x : int4, y : int, math : mdl_math) -> int4;
+*/
+fn @shift_r__int_int_mdl_math(x : int, y : int, math : mdl_math) -> int{
+    x >> y
+}
+fn @shift_r__int2_int2_mdl_math(x : int2, y : int2, math : mdl_math) -> int2{
+    int2_zip(x,y,|a,b|{a >> b})
+}
+fn @shift_r__int_int2_mdl_math(x : int, y : int2, math : mdl_math) -> int2{
+    int2_map(y,|b|{x >> b})
+}
+fn @shift_r__int2_int_mdl_math(x : int2, y : int, math : mdl_math) -> int2{
+    int2_map(x,|a|{a >> y})
+}
+fn @shift_r__int3_int3_mdl_math(x : int3, y : int3, math : mdl_math) -> int3{
+    int3_zip(x,y,|a,b|{a >> b})
+}
+fn @shift_r__int_int3_mdl_math(x : int, y : int3, math : mdl_math) -> int3{
+    int3_map(y,|b|{x >> b})
+}
+fn @shift_r__int3_int_mdl_math(x : int3, y : int, math : mdl_math) -> int3{
+    int3_map(x,|a|{a >> y})
+}
+fn @shift_r__int4_int4_mdl_math(x : int4, y : int4, math : mdl_math) -> int4{
+    int4_zip(x,y,|a,b|{a >> b})
+}
+fn @shift_r__int_int4_mdl_math(x : int, y : int4, math : mdl_math) -> int4{
+    int4_map(y,|b|{x >> b})
+}
+fn @shift_r__int4_int_mdl_math(x : int4, y : int, math : mdl_math) -> int4{
+    int4_map(x,|a|{a >> y})
+}
+fn @shift_l__int_int_mdl_math(x : int, y : int, math : mdl_math) -> int{
+    x << y
+}
+fn @shift_l__int2_int2_mdl_math(x : int2, y : int2, math : mdl_math) -> int2{
+    int2_zip(x,y,|a,b|{a << b})
+}
+fn @shift_l__int_int2_mdl_math(x : int, y : int2, math : mdl_math) -> int2{
+    int2_map(y,|b|{x << b})
+}
+fn @shift_l__int2_int_mdl_math(x : int2, y : int, math : mdl_math) -> int2{
+    int2_map(x,|a|{a << y})
+}
+fn @shift_l__int3_int3_mdl_math(x : int3, y : int3, math : mdl_math) -> int3{
+    int3_zip(x,y,|a,b|{a << b})
+}
+fn @shift_l__int_int3_mdl_math(x : int, y : int3, math : mdl_math) -> int3{
+    int3_map(y,|b|{x << b})
+}
+fn @shift_l__int3_int_mdl_math(x : int3, y : int, math : mdl_math) -> int3{
+    int3_map(x,|a|{a << y})
+}
+fn @shift_l__int4_int4_mdl_math(x : int4, y : int4, math : mdl_math) -> int4{
+    int4_zip(x,y,|a,b|{a << b})
+}
+fn @shift_l__int_int4_mdl_math(x : int, y : int4, math : mdl_math) -> int4{
+    int4_map(y,|b|{x << b})
+}
+fn @shift_l__int4_int_mdl_math(x : int4, y : int, math : mdl_math) -> int4{
+    int4_map(x,|a|{a << y})
+}
+fn @mod__int_int_mdl_math(x : int, y : int, math : mdl_math) -> int{
+    x % y
+}
+fn @mod__int2_int2_mdl_math(x : int2, y : int2, math : mdl_math) -> int2{
+    int2_zip(x,y,|a,b|{a % b})
+}
+fn @mod__int_int2_mdl_math(x : int, y : int2, math : mdl_math) -> int2{
+    int2_map(y,|b|{x % b})
+}
+fn @mod__int2_int_mdl_math(x : int2, y : int, math : mdl_math) -> int2{
+    int2_map(x,|a|{a % y})
+}
+fn @mod__int3_int3_mdl_math(x : int3, y : int3, math : mdl_math) -> int3{
+    int3_zip(x,y,|a,b|{a % b})
+}
+fn @mod__int_int3_mdl_math(x : int, y : int3, math : mdl_math) -> int3{
+    int3_map(y,|b|{x % b})
+}
+fn @mod__int3_int_mdl_math(x : int3, y : int, math : mdl_math) -> int3{
+    int3_map(x,|a|{a % y})
+}
+fn @mod__int4_int4_mdl_math(x : int4, y : int4, math : mdl_math) -> int4{
+    int4_zip(x,y,|a,b|{a % b})
+}
+fn @mod__int_int4_mdl_math(x : int, y : int4, math : mdl_math) -> int4{
+    int4_map(y,|b|{x % b})
+}
+fn @mod__int4_int_mdl_math(x : int4, y : int, math : mdl_math) -> int4{
+    int4_map(x,|a|{a % y})
+}
+fn @or__bool_bool_mdl_math(x : bool, y : bool, math : mdl_math) -> bool{
+    x || y
+}
+fn @or__bool2_bool2_mdl_math(x : bool2, y : bool2, math : mdl_math) -> bool2{
+    bool2_zip(x,y,|a,b|{a || b})
+}
+fn @or__bool_bool2_mdl_math(x : bool, y : bool2, math : mdl_math) -> bool2{
+    bool2_map(y,|b|{x || b})
+}
+fn @or__bool2_bool_mdl_math(x : bool2, y : bool, math : mdl_math) -> bool2{
+    bool2_map(x,|a|{a || y})
+}
+fn @or__bool3_bool3_mdl_math(x : bool3, y : bool3, math : mdl_math) -> bool3{
+    bool3_zip(x,y,|a,b|{a || b})
+}
+fn @or__bool_bool3_mdl_math(x : bool, y : bool3, math : mdl_math) -> bool3{
+    bool3_map(y,|b|{x || b})
+}
+fn @or__bool3_bool_mdl_math(x : bool3, y : bool, math : mdl_math) -> bool3{
+    bool3_map(x,|a|{a || y})
+}
+fn @or__bool4_bool4_mdl_math(x : bool4, y : bool4, math : mdl_math) -> bool4{
+    bool4_zip(x,y,|a,b|{a || b})
+}
+fn @or__bool_bool4_mdl_math(x : bool, y : bool4, math : mdl_math) -> bool4{
+    bool4_map(y,|b|{x || b})
+}
+fn @or__bool4_bool_mdl_math(x : bool4, y : bool, math : mdl_math) -> bool4{
+    bool4_map(x,|a|{a || y})
+}
+fn @and__bool_bool_mdl_math(x : bool, y : bool, math : mdl_math) -> bool{
+    x && y
+}
+fn @and__bool2_bool2_mdl_math(x : bool2, y : bool2, math : mdl_math) -> bool2{
+    bool2_zip(x,y,|a,b|{a && b})
+}
+fn @and__bool_bool2_mdl_math(x : bool, y : bool2, math : mdl_math) -> bool2{
+    bool2_map(y,|b|{x && b})
+}
+fn @and__bool2_bool_mdl_math(x : bool2, y : bool, math : mdl_math) -> bool2{
+    bool2_map(x,|a|{a && y})
+}
+fn @and__bool3_bool3_mdl_math(x : bool3, y : bool3, math : mdl_math) -> bool3{
+    bool3_zip(x,y,|a,b|{a && b})
+}
+fn @and__bool_bool3_mdl_math(x : bool, y : bool3, math : mdl_math) -> bool3{
+    bool3_map(y,|b|{x && b})
+}
+fn @and__bool3_bool_mdl_math(x : bool3, y : bool, math : mdl_math) -> bool3{
+    bool3_map(x,|a|{a && y})
+}
+fn @and__bool4_bool4_mdl_math(x : bool4, y : bool4, math : mdl_math) -> bool4{
+    bool4_zip(x,y,|a,b|{a && b})
+}
+fn @and__bool_bool4_mdl_math(x : bool, y : bool4, math : mdl_math) -> bool4{
+    bool4_map(y,|b|{x && b})
+}
+fn @and__bool4_bool_mdl_math(x : bool4, y : bool, math : mdl_math) -> bool4{
+    bool4_map(x,|a|{a && y})
+}
+fn @not__bool_mdl_math(x : bool, math : mdl_math) -> bool{
+    !x
+}
+fn @not__bool2_mdl_math(x : bool2, math : mdl_math) -> bool2{
+    bool2_map(x, |a|{!a})
+}
+fn @not__bool3_mdl_math(x : bool3, math : mdl_math) -> bool3{
+    bool3_map(x, |a|{!a})
+}
+fn @not__bool4_mdl_math(x : bool4, math : mdl_math) -> bool4{
+    bool4_map(x, |a|{!a})
+}
+
+fn @mul__float2x2_float2x2_mdl_math(x : float2x2, y : float2x2, math : mdl_math) -> float2x2{
+    make_float2x2(
+        make_float2(float2_sum(mul__float2_float2(float2x2_get_row(x, 0), y.x)), float2_sum(mul__float2_float2(float2x2_get_row(x, 1), y.x))),
+        make_float2(float2_sum(mul__float2_float2(float2x2_get_row(x, 0), y.y)), float2_sum(mul__float2_float2(float2x2_get_row(x, 1), y.y))),
+    )
+}
+fn @mul__float2x2_float3x2_mdl_math(x : float2x2, y : float3x2, math : mdl_math) -> float3x2{
+    make_float3x2(
+        make_float2(float2_sum(mul__float2_float2(float2x2_get_row(x, 0), y.x)), float2_sum(mul__float2_float2(float2x2_get_row(x, 1), y.x))),
+        make_float2(float2_sum(mul__float2_float2(float2x2_get_row(x, 0), y.y)), float2_sum(mul__float2_float2(float2x2_get_row(x, 1), y.y))),
+        make_float2(float2_sum(mul__float2_float2(float2x2_get_row(x, 0), y.z)), float2_sum(mul__float2_float2(float2x2_get_row(x, 1), y.z))),
+    )
+}
+fn @mul__float2x2_float4x2_mdl_math(x : float2x2, y : float4x2, math : mdl_math) -> float4x2{
+    make_float4x2(
+        make_float2(float2_sum(mul__float2_float2(float2x2_get_row(x, 0), y.x)), float2_sum(mul__float2_float2(float2x2_get_row(x, 1), y.x))),
+        make_float2(float2_sum(mul__float2_float2(float2x2_get_row(x, 0), y.y)), float2_sum(mul__float2_float2(float2x2_get_row(x, 1), y.y))),
+        make_float2(float2_sum(mul__float2_float2(float2x2_get_row(x, 0), y.z)), float2_sum(mul__float2_float2(float2x2_get_row(x, 1), y.z))),
+        make_float2(float2_sum(mul__float2_float2(float2x2_get_row(x, 0), y.w)), float2_sum(mul__float2_float2(float2x2_get_row(x, 1), y.w))),
+    )
+}
+
+fn @mul__float3x2_float2x3_mdl_math(x : float3x2, y : float2x3, math : mdl_math) -> float2x2{
+    make_float2x2(
+        make_float2(float3_sum(mul__float3_float3(float3x2_get_row(x, 0), y.x)), float3_sum(mul__float3_float3(float3x2_get_row(x, 1), y.x))),
+        make_float2(float3_sum(mul__float3_float3(float3x2_get_row(x, 0), y.y)), float3_sum(mul__float3_float3(float3x2_get_row(x, 1), y.y))),
+    )
+}
+fn @mul__float3x2_float3x3_mdl_math(x : float3x2, y : float3x3, math : mdl_math) -> float3x2{
+    make_float3x2(
+        make_float2(float3_sum(mul__float3_float3(float3x2_get_row(x, 0), y.x)), float3_sum(mul__float3_float3(float3x2_get_row(x, 1), y.x))),
+        make_float2(float3_sum(mul__float3_float3(float3x2_get_row(x, 0), y.y)), float3_sum(mul__float3_float3(float3x2_get_row(x, 1), y.y))),
+        make_float2(float3_sum(mul__float3_float3(float3x2_get_row(x, 0), y.z)), float3_sum(mul__float3_float3(float3x2_get_row(x, 1), y.z))),
+    )
+}
+fn @mul__float3x2_float4x3_mdl_math(x : float3x2, y : float4x3, math : mdl_math) -> float4x2{
+    make_float4x2(
+        make_float2(float3_sum(mul__float3_float3(float3x2_get_row(x, 0), y.x)), float3_sum(mul__float3_float3(float3x2_get_row(x, 1), y.x))),
+        make_float2(float3_sum(mul__float3_float3(float3x2_get_row(x, 0), y.y)), float3_sum(mul__float3_float3(float3x2_get_row(x, 1), y.y))),
+        make_float2(float3_sum(mul__float3_float3(float3x2_get_row(x, 0), y.z)), float3_sum(mul__float3_float3(float3x2_get_row(x, 1), y.z))),
+        make_float2(float3_sum(mul__float3_float3(float3x2_get_row(x, 0), y.w)), float3_sum(mul__float3_float3(float3x2_get_row(x, 1), y.w))),
+    )
+}
+fn @mul__float4x2_float2x4_mdl_math(x : float4x2, y : float2x4, math : mdl_math) -> float2x2{
+    make_float2x2(
+        make_float2(float4_sum(mul__float4_float4(float4x2_get_row(x, 0), y.x)), float4_sum(mul__float4_float4(float4x2_get_row(x, 1), y.x))),
+        make_float2(float4_sum(mul__float4_float4(float4x2_get_row(x, 0), y.y)), float4_sum(mul__float4_float4(float4x2_get_row(x, 1), y.y))),
+    )
+}
+fn @mul__float4x2_float3x4_mdl_math(x : float4x2, y : float3x4, math : mdl_math) -> float3x2{
+    make_float3x2(
+        make_float2(float4_sum(mul__float4_float4(float4x2_get_row(x, 0), y.x)), float4_sum(mul__float4_float4(float4x2_get_row(x, 1), y.x))),
+        make_float2(float4_sum(mul__float4_float4(float4x2_get_row(x, 0), y.y)), float4_sum(mul__float4_float4(float4x2_get_row(x, 1), y.y))),
+        make_float2(float4_sum(mul__float4_float4(float4x2_get_row(x, 0), y.z)), float4_sum(mul__float4_float4(float4x2_get_row(x, 1), y.z))),
+    )
+}
+fn @mul__float4x2_float4x4_mdl_math(x : float4x2, y : float4x4, math : mdl_math) -> float4x2{
+    make_float4x2(
+        make_float2(float4_sum(mul__float4_float4(float4x2_get_row(x, 0), y.x)), float4_sum(mul__float4_float4(float4x2_get_row(x, 1), y.x))),
+        make_float2(float4_sum(mul__float4_float4(float4x2_get_row(x, 0), y.y)), float4_sum(mul__float4_float4(float4x2_get_row(x, 1), y.y))),
+        make_float2(float4_sum(mul__float4_float4(float4x2_get_row(x, 0), y.z)), float4_sum(mul__float4_float4(float4x2_get_row(x, 1), y.z))),
+        make_float2(float4_sum(mul__float4_float4(float4x2_get_row(x, 0), y.w)), float4_sum(mul__float4_float4(float4x2_get_row(x, 1), y.w))),
+    )
+}
+fn @mul__float2x3_float2x2_mdl_math(x : float2x3, y : float2x2, math : mdl_math) -> float2x3{
+    make_float2x3(
+        make_float3(
+            float2_sum(mul__float2_float2(float2x3_get_row(x, 0), y.x)), 
+            float2_sum(mul__float2_float2(float2x3_get_row(x, 1), y.x)),
+            float2_sum(mul__float2_float2(float2x3_get_row(x, 2), y.x)),
+        ),
+        make_float3(
+            float2_sum(mul__float2_float2(float2x3_get_row(x, 0), y.y)), 
+            float2_sum(mul__float2_float2(float2x3_get_row(x, 1), y.y)),
+            float2_sum(mul__float2_float2(float2x3_get_row(x, 2), y.y)),
+        ),
+    )
+}
+fn @mul__float2x3_float3x2_mdl_math(x : float2x3, y : float3x2, math : mdl_math) -> float3x3{
+    make_float3x3(
+        make_float3(
+            float2_sum(mul__float2_float2(float2x3_get_row(x, 0), y.x)), 
+            float2_sum(mul__float2_float2(float2x3_get_row(x, 1), y.x)),
+            float2_sum(mul__float2_float2(float2x3_get_row(x, 2), y.x)),
+        ),
+        make_float3(
+            float2_sum(mul__float2_float2(float2x3_get_row(x, 0), y.y)), 
+            float2_sum(mul__float2_float2(float2x3_get_row(x, 1), y.y)),
+            float2_sum(mul__float2_float2(float2x3_get_row(x, 2), y.y)),
+        ),
+        make_float3(
+            float2_sum(mul__float2_float2(float2x3_get_row(x, 0), y.z)), 
+            float2_sum(mul__float2_float2(float2x3_get_row(x, 1), y.z)),
+            float2_sum(mul__float2_float2(float2x3_get_row(x, 2), y.z)),
+        ),
+    )
+}
+fn @mul__float2x3_float4x2_mdl_math(x : float2x3, y : float4x2, math : mdl_math) -> float4x3{
+    make_float4x3(
+        make_float3(
+            float2_sum(mul__float2_float2(float2x3_get_row(x, 0), y.x)), 
+            float2_sum(mul__float2_float2(float2x3_get_row(x, 1), y.x)),
+            float2_sum(mul__float2_float2(float2x3_get_row(x, 2), y.x)),
+        ),
+        make_float3(
+            float2_sum(mul__float2_float2(float2x3_get_row(x, 0), y.y)), 
+            float2_sum(mul__float2_float2(float2x3_get_row(x, 1), y.y)),
+            float2_sum(mul__float2_float2(float2x3_get_row(x, 2), y.y)),
+        ),
+        make_float3(
+            float2_sum(mul__float2_float2(float2x3_get_row(x, 0), y.z)), 
+            float2_sum(mul__float2_float2(float2x3_get_row(x, 1), y.z)),
+            float2_sum(mul__float2_float2(float2x3_get_row(x, 2), y.z)),
+        ),
+        make_float3(
+            float2_sum(mul__float2_float2(float2x3_get_row(x, 0), y.w)), 
+            float2_sum(mul__float2_float2(float2x3_get_row(x, 1), y.w)),
+            float2_sum(mul__float2_float2(float2x3_get_row(x, 2), y.w)),
+        ),
+    )
+}
+fn @mul__float3x3_float2x3_mdl_math(x : float3x3, y : float2x3, math : mdl_math) -> float2x3{
+    make_float2x3(
+        make_float3(
+            float3_sum(mul__float3_float3(float3x3_get_row(x, 0), y.x)), 
+            float3_sum(mul__float3_float3(float3x3_get_row(x, 1), y.x)),
+            float3_sum(mul__float3_float3(float3x3_get_row(x, 2), y.x)),
+        ),
+        make_float3(
+            float3_sum(mul__float3_float3(float3x3_get_row(x, 0), y.y)), 
+            float3_sum(mul__float3_float3(float3x3_get_row(x, 1), y.y)),
+            float3_sum(mul__float3_float3(float3x3_get_row(x, 2), y.y)),
+        ),
+    )
+}
+fn @mul__float3x3_float3x3_mdl_math(x : float3x3, y : float3x3, math : mdl_math) -> float3x3{
+    make_float3x3(
+        make_float3(
+            float3_sum(mul__float3_float3(float3x3_get_row(x, 0), y.x)), 
+            float3_sum(mul__float3_float3(float3x3_get_row(x, 1), y.x)),
+            float3_sum(mul__float3_float3(float3x3_get_row(x, 2), y.x)),
+        ),
+        make_float3(
+            float3_sum(mul__float3_float3(float3x3_get_row(x, 0), y.y)), 
+            float3_sum(mul__float3_float3(float3x3_get_row(x, 1), y.y)),
+            float3_sum(mul__float3_float3(float3x3_get_row(x, 2), y.y)),
+        ),
+        make_float3(
+            float3_sum(mul__float3_float3(float3x3_get_row(x, 0), y.z)), 
+            float3_sum(mul__float3_float3(float3x3_get_row(x, 1), y.z)),
+            float3_sum(mul__float3_float3(float3x3_get_row(x, 2), y.z)),
+        ),
+    )
+}
+fn @mul__float3x3_float4x3_mdl_math(x : float3x3, y : float4x3, math : mdl_math) -> float4x3{
+    make_float4x3(
+        make_float3(
+            float3_sum(mul__float3_float3(float3x3_get_row(x, 0), y.x)), 
+            float3_sum(mul__float3_float3(float3x3_get_row(x, 1), y.x)),
+            float3_sum(mul__float3_float3(float3x3_get_row(x, 2), y.x)),
+        ),
+        make_float3(
+            float3_sum(mul__float3_float3(float3x3_get_row(x, 0), y.y)), 
+            float3_sum(mul__float3_float3(float3x3_get_row(x, 1), y.y)),
+            float3_sum(mul__float3_float3(float3x3_get_row(x, 2), y.y)),
+        ),
+        make_float3(
+            float3_sum(mul__float3_float3(float3x3_get_row(x, 0), y.z)), 
+            float3_sum(mul__float3_float3(float3x3_get_row(x, 1), y.z)),
+            float3_sum(mul__float3_float3(float3x3_get_row(x, 2), y.z)),
+        ),
+        make_float3(
+            float3_sum(mul__float3_float3(float3x3_get_row(x, 0), y.w)), 
+            float3_sum(mul__float3_float3(float3x3_get_row(x, 1), y.w)),
+            float3_sum(mul__float3_float3(float3x3_get_row(x, 2), y.w)),
+        ),
+    )
+}
+fn @mul__float4x3_float2x4_mdl_math(x : float4x3, y : float2x4, math : mdl_math) -> float2x3{
+    make_float2x3(
+        make_float3(
+            float4_sum(mul__float4_float4(float4x3_get_row(x, 0), y.x)), 
+            float4_sum(mul__float4_float4(float4x3_get_row(x, 1), y.x)),
+            float4_sum(mul__float4_float4(float4x3_get_row(x, 2), y.x)),
+        ),
+        make_float3(
+            float4_sum(mul__float4_float4(float4x3_get_row(x, 0), y.y)), 
+            float4_sum(mul__float4_float4(float4x3_get_row(x, 1), y.y)),
+            float4_sum(mul__float4_float4(float4x3_get_row(x, 2), y.y)),
+        ),
+    )
+}
+fn @mul__float4x3_float3x4_mdl_math(x : float4x3, y : float3x4, math : mdl_math) -> float3x3{
+    make_float3x3(
+        make_float3(
+            float4_sum(mul__float4_float4(float4x3_get_row(x, 0), y.x)), 
+            float4_sum(mul__float4_float4(float4x3_get_row(x, 1), y.x)),
+            float4_sum(mul__float4_float4(float4x3_get_row(x, 2), y.x)),
+        ),
+        make_float3(
+            float4_sum(mul__float4_float4(float4x3_get_row(x, 0), y.y)), 
+            float4_sum(mul__float4_float4(float4x3_get_row(x, 1), y.y)),
+            float4_sum(mul__float4_float4(float4x3_get_row(x, 2), y.y)),
+        ),
+        make_float3(
+            float4_sum(mul__float4_float4(float4x3_get_row(x, 0), y.z)), 
+            float4_sum(mul__float4_float4(float4x3_get_row(x, 1), y.z)),
+            float4_sum(mul__float4_float4(float4x3_get_row(x, 2), y.z)),
+        ),
+    )
+}
+fn @mul__float4x3_float4x4_mdl_math(x : float4x3, y : float4x4, math : mdl_math) -> float4x3{
+    make_float4x3(
+        make_float3(
+            float4_sum(mul__float4_float4(float4x3_get_row(x, 0), y.x)), 
+            float4_sum(mul__float4_float4(float4x3_get_row(x, 1), y.x)),
+            float4_sum(mul__float4_float4(float4x3_get_row(x, 2), y.x)),
+        ),
+        make_float3(
+            float4_sum(mul__float4_float4(float4x3_get_row(x, 0), y.y)), 
+            float4_sum(mul__float4_float4(float4x3_get_row(x, 1), y.y)),
+            float4_sum(mul__float4_float4(float4x3_get_row(x, 2), y.y)),
+        ),
+        make_float3(
+            float4_sum(mul__float4_float4(float4x3_get_row(x, 0), y.z)), 
+            float4_sum(mul__float4_float4(float4x3_get_row(x, 1), y.z)),
+            float4_sum(mul__float4_float4(float4x3_get_row(x, 2), y.z)),
+        ),
+        make_float3(
+            float4_sum(mul__float4_float4(float4x3_get_row(x, 0), y.w)), 
+            float4_sum(mul__float4_float4(float4x3_get_row(x, 1), y.w)),
+            float4_sum(mul__float4_float4(float4x3_get_row(x, 2), y.w)),
+        ),
+    )
+}
+fn @mul__float2x4_float2x2_mdl_math(x : float2x4, y : float2x2, math : mdl_math) -> float2x4{
+    make_float2x4(
+        make_float4(
+            float2_sum(mul__float2_float2(float2x4_get_row(x, 0), y.x)), 
+            float2_sum(mul__float2_float2(float2x4_get_row(x, 1), y.x)),
+            float2_sum(mul__float2_float2(float2x4_get_row(x, 2), y.x)),
+            float2_sum(mul__float2_float2(float2x4_get_row(x, 3), y.x)),
+        ),
+        make_float4(
+            float2_sum(mul__float2_float2(float2x4_get_row(x, 0), y.y)), 
+            float2_sum(mul__float2_float2(float2x4_get_row(x, 1), y.y)),
+            float2_sum(mul__float2_float2(float2x4_get_row(x, 2), y.y)),
+            float2_sum(mul__float2_float2(float2x4_get_row(x, 3), y.y)),
+        ),
+    )
+}
+fn @mul__float2x4_float3x2_mdl_math(x : float2x4, y : float3x2, math : mdl_math) -> float3x4{
+    make_float3x4(
+        make_float4(
+            float2_sum(mul__float2_float2(float2x4_get_row(x, 0), y.x)), 
+            float2_sum(mul__float2_float2(float2x4_get_row(x, 1), y.x)),
+            float2_sum(mul__float2_float2(float2x4_get_row(x, 2), y.x)),
+            float2_sum(mul__float2_float2(float2x4_get_row(x, 3), y.x)),
+        ),
+        make_float4(
+            float2_sum(mul__float2_float2(float2x4_get_row(x, 0), y.y)), 
+            float2_sum(mul__float2_float2(float2x4_get_row(x, 1), y.y)),
+            float2_sum(mul__float2_float2(float2x4_get_row(x, 2), y.y)),
+            float2_sum(mul__float2_float2(float2x4_get_row(x, 3), y.y)),
+        ),
+        make_float4(
+            float2_sum(mul__float2_float2(float2x4_get_row(x, 0), y.z)), 
+            float2_sum(mul__float2_float2(float2x4_get_row(x, 1), y.z)),
+            float2_sum(mul__float2_float2(float2x4_get_row(x, 2), y.z)),
+            float2_sum(mul__float2_float2(float2x4_get_row(x, 3), y.z)),
+        ),
+    )
+}
+fn @mul__float2x4_float4x2_mdl_math(x : float2x4, y : float4x2, math : mdl_math) -> float4x4{
+    make_float4x4(
+        make_float4(
+            float2_sum(mul__float2_float2(float2x4_get_row(x, 0), y.x)), 
+            float2_sum(mul__float2_float2(float2x4_get_row(x, 1), y.x)),
+            float2_sum(mul__float2_float2(float2x4_get_row(x, 2), y.x)),
+            float2_sum(mul__float2_float2(float2x4_get_row(x, 3), y.x)),
+        ),
+        make_float4(
+            float2_sum(mul__float2_float2(float2x4_get_row(x, 0), y.y)), 
+            float2_sum(mul__float2_float2(float2x4_get_row(x, 1), y.y)),
+            float2_sum(mul__float2_float2(float2x4_get_row(x, 2), y.y)),
+            float2_sum(mul__float2_float2(float2x4_get_row(x, 3), y.y)),
+        ),
+        make_float4(
+            float2_sum(mul__float2_float2(float2x4_get_row(x, 0), y.z)), 
+            float2_sum(mul__float2_float2(float2x4_get_row(x, 1), y.z)),
+            float2_sum(mul__float2_float2(float2x4_get_row(x, 2), y.z)),
+            float2_sum(mul__float2_float2(float2x4_get_row(x, 3), y.z)),
+        ),
+        make_float4(
+            float2_sum(mul__float2_float2(float2x4_get_row(x, 0), y.w)), 
+            float2_sum(mul__float2_float2(float2x4_get_row(x, 1), y.w)),
+            float2_sum(mul__float2_float2(float2x4_get_row(x, 2), y.w)),
+            float2_sum(mul__float2_float2(float2x4_get_row(x, 3), y.w)),
+        ),
+    )
+}
+fn @mul__float3x4_float2x3_mdl_math(x : float3x4, y : float2x3, math : mdl_math) -> float2x4{
+    make_float2x4(
+        make_float4(
+            float3_sum(mul__float3_float3(float3x4_get_row(x, 0), y.x)), 
+            float3_sum(mul__float3_float3(float3x4_get_row(x, 1), y.x)),
+            float3_sum(mul__float3_float3(float3x4_get_row(x, 2), y.x)),
+            float3_sum(mul__float3_float3(float3x4_get_row(x, 3), y.x)),
+        ),
+        make_float4(
+            float3_sum(mul__float3_float3(float3x4_get_row(x, 0), y.y)), 
+            float3_sum(mul__float3_float3(float3x4_get_row(x, 1), y.y)),
+            float3_sum(mul__float3_float3(float3x4_get_row(x, 2), y.y)),
+            float3_sum(mul__float3_float3(float3x4_get_row(x, 3), y.y)),
+        ),
+    )
+}
+fn @mul__float3x4_float3x3_mdl_math(x : float3x4, y : float3x3, math : mdl_math) -> float3x4{
+    make_float3x4(
+        make_float4(
+            float3_sum(mul__float3_float3(float3x4_get_row(x, 0), y.x)), 
+            float3_sum(mul__float3_float3(float3x4_get_row(x, 1), y.x)),
+            float3_sum(mul__float3_float3(float3x4_get_row(x, 2), y.x)),
+            float3_sum(mul__float3_float3(float3x4_get_row(x, 3), y.x)),
+        ),
+        make_float4(
+            float3_sum(mul__float3_float3(float3x4_get_row(x, 0), y.y)), 
+            float3_sum(mul__float3_float3(float3x4_get_row(x, 1), y.y)),
+            float3_sum(mul__float3_float3(float3x4_get_row(x, 2), y.y)),
+            float3_sum(mul__float3_float3(float3x4_get_row(x, 3), y.y)),
+        ),
+        make_float4(
+            float3_sum(mul__float3_float3(float3x4_get_row(x, 0), y.z)), 
+            float3_sum(mul__float3_float3(float3x4_get_row(x, 1), y.z)),
+            float3_sum(mul__float3_float3(float3x4_get_row(x, 2), y.z)),
+            float3_sum(mul__float3_float3(float3x4_get_row(x, 3), y.z)),
+        ),
+    )
+}
+fn @mul__float3x4_float4x3_mdl_math(x : float3x4, y : float4x3, math : mdl_math) -> float4x4{
+    make_float4x4(
+        make_float4(
+            float3_sum(mul__float3_float3(float3x4_get_row(x, 0), y.x)), 
+            float3_sum(mul__float3_float3(float3x4_get_row(x, 1), y.x)),
+            float3_sum(mul__float3_float3(float3x4_get_row(x, 2), y.x)),
+            float3_sum(mul__float3_float3(float3x4_get_row(x, 3), y.x)),
+        ),
+        make_float4(
+            float3_sum(mul__float3_float3(float3x4_get_row(x, 0), y.y)), 
+            float3_sum(mul__float3_float3(float3x4_get_row(x, 1), y.y)),
+            float3_sum(mul__float3_float3(float3x4_get_row(x, 2), y.y)),
+            float3_sum(mul__float3_float3(float3x4_get_row(x, 3), y.y)),
+        ),
+        make_float4(
+            float3_sum(mul__float3_float3(float3x4_get_row(x, 0), y.z)), 
+            float3_sum(mul__float3_float3(float3x4_get_row(x, 1), y.z)),
+            float3_sum(mul__float3_float3(float3x4_get_row(x, 2), y.z)),
+            float3_sum(mul__float3_float3(float3x4_get_row(x, 3), y.z)),
+        ),
+        make_float4(
+            float3_sum(mul__float3_float3(float3x4_get_row(x, 0), y.w)), 
+            float3_sum(mul__float3_float3(float3x4_get_row(x, 1), y.w)),
+            float3_sum(mul__float3_float3(float3x4_get_row(x, 2), y.w)),
+            float3_sum(mul__float3_float3(float3x4_get_row(x, 3), y.w)),
+        ),
+    )
+}
+fn @mul__float4x4_float2x4_mdl_math(x : float4x4, y : float2x4, math : mdl_math) -> float2x4{
+    make_float2x4(
+        make_float4(
+            float4_sum(mul__float4_float4(float4x4_get_row(x, 0), y.x)), 
+            float4_sum(mul__float4_float4(float4x4_get_row(x, 1), y.x)),
+            float4_sum(mul__float4_float4(float4x4_get_row(x, 2), y.x)),
+            float4_sum(mul__float4_float4(float4x4_get_row(x, 3), y.x)),
+        ),
+        make_float4(
+            float4_sum(mul__float4_float4(float4x4_get_row(x, 0), y.y)), 
+            float4_sum(mul__float4_float4(float4x4_get_row(x, 1), y.y)),
+            float4_sum(mul__float4_float4(float4x4_get_row(x, 2), y.y)),
+            float4_sum(mul__float4_float4(float4x4_get_row(x, 3), y.y)),
+        ),
+    )
+}
+fn @mul__float4x4_float3x4_mdl_math(x : float4x4, y : float3x4, math : mdl_math) -> float3x4{
+    make_float3x4(
+        make_float4(
+            float4_sum(mul__float4_float4(float4x4_get_row(x, 0), y.x)), 
+            float4_sum(mul__float4_float4(float4x4_get_row(x, 1), y.x)),
+            float4_sum(mul__float4_float4(float4x4_get_row(x, 2), y.x)),
+            float4_sum(mul__float4_float4(float4x4_get_row(x, 3), y.x)),
+        ),
+        make_float4(
+            float4_sum(mul__float4_float4(float4x4_get_row(x, 0), y.y)), 
+            float4_sum(mul__float4_float4(float4x4_get_row(x, 1), y.y)),
+            float4_sum(mul__float4_float4(float4x4_get_row(x, 2), y.y)),
+            float4_sum(mul__float4_float4(float4x4_get_row(x, 3), y.y)),
+        ),
+        make_float4(
+            float4_sum(mul__float4_float4(float4x4_get_row(x, 0), y.z)), 
+            float4_sum(mul__float4_float4(float4x4_get_row(x, 1), y.z)),
+            float4_sum(mul__float4_float4(float4x4_get_row(x, 2), y.z)),
+            float4_sum(mul__float4_float4(float4x4_get_row(x, 3), y.z)),
+        ),
+    )
+}
+fn @mul__float4x4_float4x4_mdl_math(x : float4x4, y : float4x4, math : mdl_math) -> float4x4{
+    make_float4x4(
+        make_float4(
+            float4_sum(mul__float4_float4(float4x4_get_row(x, 0), y.x)), 
+            float4_sum(mul__float4_float4(float4x4_get_row(x, 1), y.x)),
+            float4_sum(mul__float4_float4(float4x4_get_row(x, 2), y.x)),
+            float4_sum(mul__float4_float4(float4x4_get_row(x, 3), y.x)),
+        ),
+        make_float4(
+            float4_sum(mul__float4_float4(float4x4_get_row(x, 0), y.y)), 
+            float4_sum(mul__float4_float4(float4x4_get_row(x, 1), y.y)),
+            float4_sum(mul__float4_float4(float4x4_get_row(x, 2), y.y)),
+            float4_sum(mul__float4_float4(float4x4_get_row(x, 3), y.y)),
+        ),
+        make_float4(
+            float4_sum(mul__float4_float4(float4x4_get_row(x, 0), y.z)), 
+            float4_sum(mul__float4_float4(float4x4_get_row(x, 1), y.z)),
+            float4_sum(mul__float4_float4(float4x4_get_row(x, 2), y.z)),
+            float4_sum(mul__float4_float4(float4x4_get_row(x, 3), y.z)),
+        ),
+        make_float4(
+            float4_sum(mul__float4_float4(float4x4_get_row(x, 0), y.w)), 
+            float4_sum(mul__float4_float4(float4x4_get_row(x, 1), y.w)),
+            float4_sum(mul__float4_float4(float4x4_get_row(x, 2), y.w)),
+            float4_sum(mul__float4_float4(float4x4_get_row(x, 3), y.w)),
+        ),
+    )
+}
+
+
+fn @mul__double2x2_double2x2_mdl_math(x : double2x2, y : double2x2, math : mdl_math) -> double2x2{
+    make_double2x2(
+        make_double2(double2_sum(mul__double2_double2(double2x2_get_row(x, 0), y.x)), double2_sum(mul__double2_double2(double2x2_get_row(x, 1), y.x))),
+        make_double2(double2_sum(mul__double2_double2(double2x2_get_row(x, 0), y.y)), double2_sum(mul__double2_double2(double2x2_get_row(x, 1), y.y))),
+    )
+}
+fn @mul__double2x2_double3x2_mdl_math(x : double2x2, y : double3x2, math : mdl_math) -> double3x2{
+    make_double3x2(
+        make_double2(double2_sum(mul__double2_double2(double2x2_get_row(x, 0), y.x)), double2_sum(mul__double2_double2(double2x2_get_row(x, 1), y.x))),
+        make_double2(double2_sum(mul__double2_double2(double2x2_get_row(x, 0), y.y)), double2_sum(mul__double2_double2(double2x2_get_row(x, 1), y.y))),
+        make_double2(double2_sum(mul__double2_double2(double2x2_get_row(x, 0), y.z)), double2_sum(mul__double2_double2(double2x2_get_row(x, 1), y.z))),
+    )
+}
+fn @mul__double2x2_double4x2_mdl_math(x : double2x2, y : double4x2, math : mdl_math) -> double4x2{
+    make_double4x2(
+        make_double2(double2_sum(mul__double2_double2(double2x2_get_row(x, 0), y.x)), double2_sum(mul__double2_double2(double2x2_get_row(x, 1), y.x))),
+        make_double2(double2_sum(mul__double2_double2(double2x2_get_row(x, 0), y.y)), double2_sum(mul__double2_double2(double2x2_get_row(x, 1), y.y))),
+        make_double2(double2_sum(mul__double2_double2(double2x2_get_row(x, 0), y.z)), double2_sum(mul__double2_double2(double2x2_get_row(x, 1), y.z))),
+        make_double2(double2_sum(mul__double2_double2(double2x2_get_row(x, 0), y.w)), double2_sum(mul__double2_double2(double2x2_get_row(x, 1), y.w))),
+    )
+}
+
+fn @mul__double3x2_double2x3_mdl_math(x : double3x2, y : double2x3, math : mdl_math) -> double2x2{
+    make_double2x2(
+        make_double2(double3_sum(mul__double3_double3(double3x2_get_row(x, 0), y.x)), double3_sum(mul__double3_double3(double3x2_get_row(x, 1), y.x))),
+        make_double2(double3_sum(mul__double3_double3(double3x2_get_row(x, 0), y.y)), double3_sum(mul__double3_double3(double3x2_get_row(x, 1), y.y))),
+    )
+}
+fn @mul__double3x2_double3x3_mdl_math(x : double3x2, y : double3x3, math : mdl_math) -> double3x2{
+    make_double3x2(
+        make_double2(double3_sum(mul__double3_double3(double3x2_get_row(x, 0), y.x)), double3_sum(mul__double3_double3(double3x2_get_row(x, 1), y.x))),
+        make_double2(double3_sum(mul__double3_double3(double3x2_get_row(x, 0), y.y)), double3_sum(mul__double3_double3(double3x2_get_row(x, 1), y.y))),
+        make_double2(double3_sum(mul__double3_double3(double3x2_get_row(x, 0), y.z)), double3_sum(mul__double3_double3(double3x2_get_row(x, 1), y.z))),
+    )
+}
+fn @mul__double3x2_double4x3_mdl_math(x : double3x2, y : double4x3, math : mdl_math) -> double4x2{
+    make_double4x2(
+        make_double2(double3_sum(mul__double3_double3(double3x2_get_row(x, 0), y.x)), double3_sum(mul__double3_double3(double3x2_get_row(x, 1), y.x))),
+        make_double2(double3_sum(mul__double3_double3(double3x2_get_row(x, 0), y.y)), double3_sum(mul__double3_double3(double3x2_get_row(x, 1), y.y))),
+        make_double2(double3_sum(mul__double3_double3(double3x2_get_row(x, 0), y.z)), double3_sum(mul__double3_double3(double3x2_get_row(x, 1), y.z))),
+        make_double2(double3_sum(mul__double3_double3(double3x2_get_row(x, 0), y.w)), double3_sum(mul__double3_double3(double3x2_get_row(x, 1), y.w))),
+    )
+}
+fn @mul__double4x2_double2x4_mdl_math(x : double4x2, y : double2x4, math : mdl_math) -> double2x2{
+    make_double2x2(
+        make_double2(double4_sum(mul__double4_double4(double4x2_get_row(x, 0), y.x)), double4_sum(mul__double4_double4(double4x2_get_row(x, 1), y.x))),
+        make_double2(double4_sum(mul__double4_double4(double4x2_get_row(x, 0), y.y)), double4_sum(mul__double4_double4(double4x2_get_row(x, 1), y.y))),
+    )
+}
+fn @mul__double4x2_double3x4_mdl_math(x : double4x2, y : double3x4, math : mdl_math) -> double3x2{
+    make_double3x2(
+        make_double2(double4_sum(mul__double4_double4(double4x2_get_row(x, 0), y.x)), double4_sum(mul__double4_double4(double4x2_get_row(x, 1), y.x))),
+        make_double2(double4_sum(mul__double4_double4(double4x2_get_row(x, 0), y.y)), double4_sum(mul__double4_double4(double4x2_get_row(x, 1), y.y))),
+        make_double2(double4_sum(mul__double4_double4(double4x2_get_row(x, 0), y.z)), double4_sum(mul__double4_double4(double4x2_get_row(x, 1), y.z))),
+    )
+}
+fn @mul__double4x2_double4x4_mdl_math(x : double4x2, y : double4x4, math : mdl_math) -> double4x2{
+    make_double4x2(
+        make_double2(double4_sum(mul__double4_double4(double4x2_get_row(x, 0), y.x)), double4_sum(mul__double4_double4(double4x2_get_row(x, 1), y.x))),
+        make_double2(double4_sum(mul__double4_double4(double4x2_get_row(x, 0), y.y)), double4_sum(mul__double4_double4(double4x2_get_row(x, 1), y.y))),
+        make_double2(double4_sum(mul__double4_double4(double4x2_get_row(x, 0), y.z)), double4_sum(mul__double4_double4(double4x2_get_row(x, 1), y.z))),
+        make_double2(double4_sum(mul__double4_double4(double4x2_get_row(x, 0), y.w)), double4_sum(mul__double4_double4(double4x2_get_row(x, 1), y.w))),
+    )
+}
+fn @mul__double2x3_double2x2_mdl_math(x : double2x3, y : double2x2, math : mdl_math) -> double2x3{
+    make_double2x3(
+        make_double3(
+            double2_sum(mul__double2_double2(double2x3_get_row(x, 0), y.x)), 
+            double2_sum(mul__double2_double2(double2x3_get_row(x, 1), y.x)),
+            double2_sum(mul__double2_double2(double2x3_get_row(x, 2), y.x)),
+        ),
+        make_double3(
+            double2_sum(mul__double2_double2(double2x3_get_row(x, 0), y.y)), 
+            double2_sum(mul__double2_double2(double2x3_get_row(x, 1), y.y)),
+            double2_sum(mul__double2_double2(double2x3_get_row(x, 2), y.y)),
+        ),
+    )
+}
+fn @mul__double2x3_double3x2_mdl_math(x : double2x3, y : double3x2, math : mdl_math) -> double3x3{
+    make_double3x3(
+        make_double3(
+            double2_sum(mul__double2_double2(double2x3_get_row(x, 0), y.x)), 
+            double2_sum(mul__double2_double2(double2x3_get_row(x, 1), y.x)),
+            double2_sum(mul__double2_double2(double2x3_get_row(x, 2), y.x)),
+        ),
+        make_double3(
+            double2_sum(mul__double2_double2(double2x3_get_row(x, 0), y.y)), 
+            double2_sum(mul__double2_double2(double2x3_get_row(x, 1), y.y)),
+            double2_sum(mul__double2_double2(double2x3_get_row(x, 2), y.y)),
+        ),
+        make_double3(
+            double2_sum(mul__double2_double2(double2x3_get_row(x, 0), y.z)), 
+            double2_sum(mul__double2_double2(double2x3_get_row(x, 1), y.z)),
+            double2_sum(mul__double2_double2(double2x3_get_row(x, 2), y.z)),
+        ),
+    )
+}
+fn @mul__double2x3_double4x2_mdl_math(x : double2x3, y : double4x2, math : mdl_math) -> double4x3{
+    make_double4x3(
+        make_double3(
+            double2_sum(mul__double2_double2(double2x3_get_row(x, 0), y.x)), 
+            double2_sum(mul__double2_double2(double2x3_get_row(x, 1), y.x)),
+            double2_sum(mul__double2_double2(double2x3_get_row(x, 2), y.x)),
+        ),
+        make_double3(
+            double2_sum(mul__double2_double2(double2x3_get_row(x, 0), y.y)), 
+            double2_sum(mul__double2_double2(double2x3_get_row(x, 1), y.y)),
+            double2_sum(mul__double2_double2(double2x3_get_row(x, 2), y.y)),
+        ),
+        make_double3(
+            double2_sum(mul__double2_double2(double2x3_get_row(x, 0), y.z)), 
+            double2_sum(mul__double2_double2(double2x3_get_row(x, 1), y.z)),
+            double2_sum(mul__double2_double2(double2x3_get_row(x, 2), y.z)),
+        ),
+        make_double3(
+            double2_sum(mul__double2_double2(double2x3_get_row(x, 0), y.w)), 
+            double2_sum(mul__double2_double2(double2x3_get_row(x, 1), y.w)),
+            double2_sum(mul__double2_double2(double2x3_get_row(x, 2), y.w)),
+        ),
+    )
+}
+fn @mul__double3x3_double2x3_mdl_math(x : double3x3, y : double2x3, math : mdl_math) -> double2x3{
+    make_double2x3(
+        make_double3(
+            double3_sum(mul__double3_double3(double3x3_get_row(x, 0), y.x)), 
+            double3_sum(mul__double3_double3(double3x3_get_row(x, 1), y.x)),
+            double3_sum(mul__double3_double3(double3x3_get_row(x, 2), y.x)),
+        ),
+        make_double3(
+            double3_sum(mul__double3_double3(double3x3_get_row(x, 0), y.y)), 
+            double3_sum(mul__double3_double3(double3x3_get_row(x, 1), y.y)),
+            double3_sum(mul__double3_double3(double3x3_get_row(x, 2), y.y)),
+        ),
+    )
+}
+fn @mul__double3x3_double3x3_mdl_math(x : double3x3, y : double3x3, math : mdl_math) -> double3x3{
+    make_double3x3(
+        make_double3(
+            double3_sum(mul__double3_double3(double3x3_get_row(x, 0), y.x)), 
+            double3_sum(mul__double3_double3(double3x3_get_row(x, 1), y.x)),
+            double3_sum(mul__double3_double3(double3x3_get_row(x, 2), y.x)),
+        ),
+        make_double3(
+            double3_sum(mul__double3_double3(double3x3_get_row(x, 0), y.y)), 
+            double3_sum(mul__double3_double3(double3x3_get_row(x, 1), y.y)),
+            double3_sum(mul__double3_double3(double3x3_get_row(x, 2), y.y)),
+        ),
+        make_double3(
+            double3_sum(mul__double3_double3(double3x3_get_row(x, 0), y.z)), 
+            double3_sum(mul__double3_double3(double3x3_get_row(x, 1), y.z)),
+            double3_sum(mul__double3_double3(double3x3_get_row(x, 2), y.z)),
+        ),
+    )
+}
+fn @mul__double3x3_double4x3_mdl_math(x : double3x3, y : double4x3, math : mdl_math) -> double4x3{
+    make_double4x3(
+        make_double3(
+            double3_sum(mul__double3_double3(double3x3_get_row(x, 0), y.x)), 
+            double3_sum(mul__double3_double3(double3x3_get_row(x, 1), y.x)),
+            double3_sum(mul__double3_double3(double3x3_get_row(x, 2), y.x)),
+        ),
+        make_double3(
+            double3_sum(mul__double3_double3(double3x3_get_row(x, 0), y.y)), 
+            double3_sum(mul__double3_double3(double3x3_get_row(x, 1), y.y)),
+            double3_sum(mul__double3_double3(double3x3_get_row(x, 2), y.y)),
+        ),
+        make_double3(
+            double3_sum(mul__double3_double3(double3x3_get_row(x, 0), y.z)), 
+            double3_sum(mul__double3_double3(double3x3_get_row(x, 1), y.z)),
+            double3_sum(mul__double3_double3(double3x3_get_row(x, 2), y.z)),
+        ),
+        make_double3(
+            double3_sum(mul__double3_double3(double3x3_get_row(x, 0), y.w)), 
+            double3_sum(mul__double3_double3(double3x3_get_row(x, 1), y.w)),
+            double3_sum(mul__double3_double3(double3x3_get_row(x, 2), y.w)),
+        ),
+    )
+}
+fn @mul__double4x3_double2x4_mdl_math(x : double4x3, y : double2x4, math : mdl_math) -> double2x3{
+    make_double2x3(
+        make_double3(
+            double4_sum(mul__double4_double4(double4x3_get_row(x, 0), y.x)), 
+            double4_sum(mul__double4_double4(double4x3_get_row(x, 1), y.x)),
+            double4_sum(mul__double4_double4(double4x3_get_row(x, 2), y.x)),
+        ),
+        make_double3(
+            double4_sum(mul__double4_double4(double4x3_get_row(x, 0), y.y)), 
+            double4_sum(mul__double4_double4(double4x3_get_row(x, 1), y.y)),
+            double4_sum(mul__double4_double4(double4x3_get_row(x, 2), y.y)),
+        ),
+    )
+}
+fn @mul__double4x3_double3x4_mdl_math(x : double4x3, y : double3x4, math : mdl_math) -> double3x3{
+    make_double3x3(
+        make_double3(
+            double4_sum(mul__double4_double4(double4x3_get_row(x, 0), y.x)), 
+            double4_sum(mul__double4_double4(double4x3_get_row(x, 1), y.x)),
+            double4_sum(mul__double4_double4(double4x3_get_row(x, 2), y.x)),
+        ),
+        make_double3(
+            double4_sum(mul__double4_double4(double4x3_get_row(x, 0), y.y)), 
+            double4_sum(mul__double4_double4(double4x3_get_row(x, 1), y.y)),
+            double4_sum(mul__double4_double4(double4x3_get_row(x, 2), y.y)),
+        ),
+        make_double3(
+            double4_sum(mul__double4_double4(double4x3_get_row(x, 0), y.z)), 
+            double4_sum(mul__double4_double4(double4x3_get_row(x, 1), y.z)),
+            double4_sum(mul__double4_double4(double4x3_get_row(x, 2), y.z)),
+        ),
+    )
+}
+fn @mul__double4x3_double4x4_mdl_math(x : double4x3, y : double4x4, math : mdl_math) -> double4x3{
+    make_double4x3(
+        make_double3(
+            double4_sum(mul__double4_double4(double4x3_get_row(x, 0), y.x)), 
+            double4_sum(mul__double4_double4(double4x3_get_row(x, 1), y.x)),
+            double4_sum(mul__double4_double4(double4x3_get_row(x, 2), y.x)),
+        ),
+        make_double3(
+            double4_sum(mul__double4_double4(double4x3_get_row(x, 0), y.y)), 
+            double4_sum(mul__double4_double4(double4x3_get_row(x, 1), y.y)),
+            double4_sum(mul__double4_double4(double4x3_get_row(x, 2), y.y)),
+        ),
+        make_double3(
+            double4_sum(mul__double4_double4(double4x3_get_row(x, 0), y.z)), 
+            double4_sum(mul__double4_double4(double4x3_get_row(x, 1), y.z)),
+            double4_sum(mul__double4_double4(double4x3_get_row(x, 2), y.z)),
+        ),
+        make_double3(
+            double4_sum(mul__double4_double4(double4x3_get_row(x, 0), y.w)), 
+            double4_sum(mul__double4_double4(double4x3_get_row(x, 1), y.w)),
+            double4_sum(mul__double4_double4(double4x3_get_row(x, 2), y.w)),
+        ),
+    )
+}
+fn @mul__double2x4_double2x2_mdl_math(x : double2x4, y : double2x2, math : mdl_math) -> double2x4{
+    make_double2x4(
+        make_double4(
+            double2_sum(mul__double2_double2(double2x4_get_row(x, 0), y.x)), 
+            double2_sum(mul__double2_double2(double2x4_get_row(x, 1), y.x)),
+            double2_sum(mul__double2_double2(double2x4_get_row(x, 2), y.x)),
+            double2_sum(mul__double2_double2(double2x4_get_row(x, 3), y.x)),
+        ),
+        make_double4(
+            double2_sum(mul__double2_double2(double2x4_get_row(x, 0), y.y)), 
+            double2_sum(mul__double2_double2(double2x4_get_row(x, 1), y.y)),
+            double2_sum(mul__double2_double2(double2x4_get_row(x, 2), y.y)),
+            double2_sum(mul__double2_double2(double2x4_get_row(x, 3), y.y)),
+        ),
+    )
+}
+fn @mul__double2x4_double3x2_mdl_math(x : double2x4, y : double3x2, math : mdl_math) -> double3x4{
+    make_double3x4(
+        make_double4(
+            double2_sum(mul__double2_double2(double2x4_get_row(x, 0), y.x)), 
+            double2_sum(mul__double2_double2(double2x4_get_row(x, 1), y.x)),
+            double2_sum(mul__double2_double2(double2x4_get_row(x, 2), y.x)),
+            double2_sum(mul__double2_double2(double2x4_get_row(x, 3), y.x)),
+        ),
+        make_double4(
+            double2_sum(mul__double2_double2(double2x4_get_row(x, 0), y.y)), 
+            double2_sum(mul__double2_double2(double2x4_get_row(x, 1), y.y)),
+            double2_sum(mul__double2_double2(double2x4_get_row(x, 2), y.y)),
+            double2_sum(mul__double2_double2(double2x4_get_row(x, 3), y.y)),
+        ),
+        make_double4(
+            double2_sum(mul__double2_double2(double2x4_get_row(x, 0), y.z)), 
+            double2_sum(mul__double2_double2(double2x4_get_row(x, 1), y.z)),
+            double2_sum(mul__double2_double2(double2x4_get_row(x, 2), y.z)),
+            double2_sum(mul__double2_double2(double2x4_get_row(x, 3), y.z)),
+        ),
+    )
+}
+fn @mul__double2x4_double4x2_mdl_math(x : double2x4, y : double4x2, math : mdl_math) -> double4x4{
+    make_double4x4(
+        make_double4(
+            double2_sum(mul__double2_double2(double2x4_get_row(x, 0), y.x)), 
+            double2_sum(mul__double2_double2(double2x4_get_row(x, 1), y.x)),
+            double2_sum(mul__double2_double2(double2x4_get_row(x, 2), y.x)),
+            double2_sum(mul__double2_double2(double2x4_get_row(x, 3), y.x)),
+        ),
+        make_double4(
+            double2_sum(mul__double2_double2(double2x4_get_row(x, 0), y.y)), 
+            double2_sum(mul__double2_double2(double2x4_get_row(x, 1), y.y)),
+            double2_sum(mul__double2_double2(double2x4_get_row(x, 2), y.y)),
+            double2_sum(mul__double2_double2(double2x4_get_row(x, 3), y.y)),
+        ),
+        make_double4(
+            double2_sum(mul__double2_double2(double2x4_get_row(x, 0), y.z)), 
+            double2_sum(mul__double2_double2(double2x4_get_row(x, 1), y.z)),
+            double2_sum(mul__double2_double2(double2x4_get_row(x, 2), y.z)),
+            double2_sum(mul__double2_double2(double2x4_get_row(x, 3), y.z)),
+        ),
+        make_double4(
+            double2_sum(mul__double2_double2(double2x4_get_row(x, 0), y.w)), 
+            double2_sum(mul__double2_double2(double2x4_get_row(x, 1), y.w)),
+            double2_sum(mul__double2_double2(double2x4_get_row(x, 2), y.w)),
+            double2_sum(mul__double2_double2(double2x4_get_row(x, 3), y.w)),
+        ),
+    )
+}
+fn @mul__double3x4_double2x3_mdl_math(x : double3x4, y : double2x3, math : mdl_math) -> double2x4{
+    make_double2x4(
+        make_double4(
+            double3_sum(mul__double3_double3(double3x4_get_row(x, 0), y.x)), 
+            double3_sum(mul__double3_double3(double3x4_get_row(x, 1), y.x)),
+            double3_sum(mul__double3_double3(double3x4_get_row(x, 2), y.x)),
+            double3_sum(mul__double3_double3(double3x4_get_row(x, 3), y.x)),
+        ),
+        make_double4(
+            double3_sum(mul__double3_double3(double3x4_get_row(x, 0), y.y)), 
+            double3_sum(mul__double3_double3(double3x4_get_row(x, 1), y.y)),
+            double3_sum(mul__double3_double3(double3x4_get_row(x, 2), y.y)),
+            double3_sum(mul__double3_double3(double3x4_get_row(x, 3), y.y)),
+        ),
+    )
+}
+fn @mul__double3x4_double3x3_mdl_math(x : double3x4, y : double3x3, math : mdl_math) -> double3x4{
+    make_double3x4(
+        make_double4(
+            double3_sum(mul__double3_double3(double3x4_get_row(x, 0), y.x)), 
+            double3_sum(mul__double3_double3(double3x4_get_row(x, 1), y.x)),
+            double3_sum(mul__double3_double3(double3x4_get_row(x, 2), y.x)),
+            double3_sum(mul__double3_double3(double3x4_get_row(x, 3), y.x)),
+        ),
+        make_double4(
+            double3_sum(mul__double3_double3(double3x4_get_row(x, 0), y.y)), 
+            double3_sum(mul__double3_double3(double3x4_get_row(x, 1), y.y)),
+            double3_sum(mul__double3_double3(double3x4_get_row(x, 2), y.y)),
+            double3_sum(mul__double3_double3(double3x4_get_row(x, 3), y.y)),
+        ),
+        make_double4(
+            double3_sum(mul__double3_double3(double3x4_get_row(x, 0), y.z)), 
+            double3_sum(mul__double3_double3(double3x4_get_row(x, 1), y.z)),
+            double3_sum(mul__double3_double3(double3x4_get_row(x, 2), y.z)),
+            double3_sum(mul__double3_double3(double3x4_get_row(x, 3), y.z)),
+        ),
+    )
+}
+fn @mul__double3x4_double4x3_mdl_math(x : double3x4, y : double4x3, math : mdl_math) -> double4x4{
+    make_double4x4(
+        make_double4(
+            double3_sum(mul__double3_double3(double3x4_get_row(x, 0), y.x)), 
+            double3_sum(mul__double3_double3(double3x4_get_row(x, 1), y.x)),
+            double3_sum(mul__double3_double3(double3x4_get_row(x, 2), y.x)),
+            double3_sum(mul__double3_double3(double3x4_get_row(x, 3), y.x)),
+        ),
+        make_double4(
+            double3_sum(mul__double3_double3(double3x4_get_row(x, 0), y.y)), 
+            double3_sum(mul__double3_double3(double3x4_get_row(x, 1), y.y)),
+            double3_sum(mul__double3_double3(double3x4_get_row(x, 2), y.y)),
+            double3_sum(mul__double3_double3(double3x4_get_row(x, 3), y.y)),
+        ),
+        make_double4(
+            double3_sum(mul__double3_double3(double3x4_get_row(x, 0), y.z)), 
+            double3_sum(mul__double3_double3(double3x4_get_row(x, 1), y.z)),
+            double3_sum(mul__double3_double3(double3x4_get_row(x, 2), y.z)),
+            double3_sum(mul__double3_double3(double3x4_get_row(x, 3), y.z)),
+        ),
+        make_double4(
+            double3_sum(mul__double3_double3(double3x4_get_row(x, 0), y.w)), 
+            double3_sum(mul__double3_double3(double3x4_get_row(x, 1), y.w)),
+            double3_sum(mul__double3_double3(double3x4_get_row(x, 2), y.w)),
+            double3_sum(mul__double3_double3(double3x4_get_row(x, 3), y.w)),
+        ),
+    )
+}
+fn @mul__double4x4_double2x4_mdl_math(x : double4x4, y : double2x4, math : mdl_math) -> double2x4{
+    make_double2x4(
+        make_double4(
+            double4_sum(mul__double4_double4(double4x4_get_row(x, 0), y.x)), 
+            double4_sum(mul__double4_double4(double4x4_get_row(x, 1), y.x)),
+            double4_sum(mul__double4_double4(double4x4_get_row(x, 2), y.x)),
+            double4_sum(mul__double4_double4(double4x4_get_row(x, 3), y.x)),
+        ),
+        make_double4(
+            double4_sum(mul__double4_double4(double4x4_get_row(x, 0), y.y)), 
+            double4_sum(mul__double4_double4(double4x4_get_row(x, 1), y.y)),
+            double4_sum(mul__double4_double4(double4x4_get_row(x, 2), y.y)),
+            double4_sum(mul__double4_double4(double4x4_get_row(x, 3), y.y)),
+        ),
+    )
+}
+fn @mul__double4x4_double3x4_mdl_math(x : double4x4, y : double3x4, math : mdl_math) -> double3x4{
+    make_double3x4(
+        make_double4(
+            double4_sum(mul__double4_double4(double4x4_get_row(x, 0), y.x)), 
+            double4_sum(mul__double4_double4(double4x4_get_row(x, 1), y.x)),
+            double4_sum(mul__double4_double4(double4x4_get_row(x, 2), y.x)),
+            double4_sum(mul__double4_double4(double4x4_get_row(x, 3), y.x)),
+        ),
+        make_double4(
+            double4_sum(mul__double4_double4(double4x4_get_row(x, 0), y.y)), 
+            double4_sum(mul__double4_double4(double4x4_get_row(x, 1), y.y)),
+            double4_sum(mul__double4_double4(double4x4_get_row(x, 2), y.y)),
+            double4_sum(mul__double4_double4(double4x4_get_row(x, 3), y.y)),
+        ),
+        make_double4(
+            double4_sum(mul__double4_double4(double4x4_get_row(x, 0), y.z)), 
+            double4_sum(mul__double4_double4(double4x4_get_row(x, 1), y.z)),
+            double4_sum(mul__double4_double4(double4x4_get_row(x, 2), y.z)),
+            double4_sum(mul__double4_double4(double4x4_get_row(x, 3), y.z)),
+        ),
+    )
+}
+fn @mul__double4x4_double4x4_mdl_math(x : double4x4, y : double4x4, math : mdl_math) -> double4x4{
+    make_double4x4(
+        make_double4(
+            double4_sum(mul__double4_double4(double4x4_get_row(x, 0), y.x)), 
+            double4_sum(mul__double4_double4(double4x4_get_row(x, 1), y.x)),
+            double4_sum(mul__double4_double4(double4x4_get_row(x, 2), y.x)),
+            double4_sum(mul__double4_double4(double4x4_get_row(x, 3), y.x)),
+        ),
+        make_double4(
+            double4_sum(mul__double4_double4(double4x4_get_row(x, 0), y.y)), 
+            double4_sum(mul__double4_double4(double4x4_get_row(x, 1), y.y)),
+            double4_sum(mul__double4_double4(double4x4_get_row(x, 2), y.y)),
+            double4_sum(mul__double4_double4(double4x4_get_row(x, 3), y.y)),
+        ),
+        make_double4(
+            double4_sum(mul__double4_double4(double4x4_get_row(x, 0), y.z)), 
+            double4_sum(mul__double4_double4(double4x4_get_row(x, 1), y.z)),
+            double4_sum(mul__double4_double4(double4x4_get_row(x, 2), y.z)),
+            double4_sum(mul__double4_double4(double4x4_get_row(x, 3), y.z)),
+        ),
+        make_double4(
+            double4_sum(mul__double4_double4(double4x4_get_row(x, 0), y.w)), 
+            double4_sum(mul__double4_double4(double4x4_get_row(x, 1), y.w)),
+            double4_sum(mul__double4_double4(double4x4_get_row(x, 2), y.w)),
+            double4_sum(mul__double4_double4(double4x4_get_row(x, 3), y.w)),
+        ),
+    )
+}
+
+fn @mul__float2x2_float2_mdl_math(x : float2x2, y : float2, math : mdl_math) -> float2{
+    make_float2(
+        float2_sum(mul__float2_float2(float2x2_get_row(x, 0), y)),
+        float2_sum(mul__float2_float2(float2x2_get_row(x, 1), y)),
+    )
+}
+fn @mul__float3x2_float3_mdl_math(x : float3x2, y : float3, math : mdl_math) -> float2{
+    make_float2(
+        float3_sum(mul__float3_float3(float3x2_get_row(x, 0), y)),
+        float3_sum(mul__float3_float3(float3x2_get_row(x, 1), y)),
+    )
+}
+fn @mul__float4x2_float4_mdl_math(x : float4x2, y : float4, math : mdl_math) -> float2{
+    make_float2(
+        float4_sum(mul__float4_float4(float4x2_get_row(x, 0), y)),
+        float4_sum(mul__float4_float4(float4x2_get_row(x, 1), y)),
+    )
+}
+fn @mul__float2x3_float2_mdl_math(x : float2x3, y : float2, math : mdl_math) -> float3{
+    make_float3(
+        float2_sum(mul__float2_float2(float2x3_get_row(x, 0), y)),
+        float2_sum(mul__float2_float2(float2x3_get_row(x, 1), y)),
+        float2_sum(mul__float2_float2(float2x3_get_row(x, 2), y)),
+    )
+}
+fn @mul__float3x3_float3_mdl_math(x : float3x3, y : float3, math : mdl_math) -> float3{
+    make_float3(
+        float3_sum(mul__float3_float3(float3x3_get_row(x, 0), y)),
+        float3_sum(mul__float3_float3(float3x3_get_row(x, 1), y)),
+        float3_sum(mul__float3_float3(float3x3_get_row(x, 2), y)),
+    )
+}
+fn @mul__float4x3_float4_mdl_math(x : float4x3, y : float4, math : mdl_math) -> float3{
+    make_float3(
+        float4_sum(mul__float4_float4(float4x3_get_row(x, 0), y)),
+        float4_sum(mul__float4_float4(float4x3_get_row(x, 1), y)),
+        float4_sum(mul__float4_float4(float4x3_get_row(x, 2), y)),
+    )
+}
+fn @mul__float2x4_float2_mdl_math(x : float2x4, y : float2, math : mdl_math) -> float4{
+    make_float4(
+        float2_sum(mul__float2_float2(float2x4_get_row(x, 0), y)),
+        float2_sum(mul__float2_float2(float2x4_get_row(x, 1), y)),
+        float2_sum(mul__float2_float2(float2x4_get_row(x, 2), y)),
+        float2_sum(mul__float2_float2(float2x4_get_row(x, 3), y)),
+    )
+}
+fn @mul__float3x4_float3_mdl_math(x : float3x4, y : float3, math : mdl_math) -> float4{
+    make_float4(
+        float3_sum(mul__float3_float3(float3x4_get_row(x, 0), y)),
+        float3_sum(mul__float3_float3(float3x4_get_row(x, 1), y)),
+        float3_sum(mul__float3_float3(float3x4_get_row(x, 2), y)),
+        float3_sum(mul__float3_float3(float3x4_get_row(x, 3), y)),
+    )
+}
+fn @mul__float4x4_float4_mdl_math(x : float4x4, y : float4, math : mdl_math) -> float4{
+    make_float4(
+        float4_sum(mul__float4_float4(float4x4_get_row(x, 0), y)),
+        float4_sum(mul__float4_float4(float4x4_get_row(x, 1), y)),
+        float4_sum(mul__float4_float4(float4x4_get_row(x, 2), y)),
+        float4_sum(mul__float4_float4(float4x4_get_row(x, 3), y)),
+    )
+}
+fn @mul__double2x2_double2_mdl_math(x : double2x2, y : double2, math : mdl_math) -> double2{
+    make_double2(
+        double2_sum(mul__double2_double2(double2x2_get_row(x, 0), y)),
+        double2_sum(mul__double2_double2(double2x2_get_row(x, 1), y)),
+    )
+}
+fn @mul__double3x2_double3_mdl_math(x : double3x2, y : double3, math : mdl_math) -> double2{
+    make_double2(
+        double3_sum(mul__double3_double3(double3x2_get_row(x, 0), y)),
+        double3_sum(mul__double3_double3(double3x2_get_row(x, 1), y)),
+    )
+}
+fn @mul__double4x2_double4_mdl_math(x : double4x2, y : double4, math : mdl_math) -> double2{
+    make_double2(
+        double4_sum(mul__double4_double4(double4x2_get_row(x, 0), y)),
+        double4_sum(mul__double4_double4(double4x2_get_row(x, 1), y)),
+    )
+}
+fn @mul__double2x3_double2_mdl_math(x : double2x3, y : double2, math : mdl_math) -> double3{
+    make_double3(
+        double2_sum(mul__double2_double2(double2x3_get_row(x, 0), y)),
+        double2_sum(mul__double2_double2(double2x3_get_row(x, 1), y)),
+        double2_sum(mul__double2_double2(double2x3_get_row(x, 2), y)),
+    )
+}
+fn @mul__double3x3_double3_mdl_math(x : double3x3, y : double3, math : mdl_math) -> double3{
+    make_double3(
+        double3_sum(mul__double3_double3(double3x3_get_row(x, 0), y)),
+        double3_sum(mul__double3_double3(double3x3_get_row(x, 1), y)),
+        double3_sum(mul__double3_double3(double3x3_get_row(x, 2), y)),
+    )
+}
+fn @mul__double4x3_double4_mdl_math(x : double4x3, y : double4, math : mdl_math) -> double3{
+    make_double3(
+        double4_sum(mul__double4_double4(double4x3_get_row(x, 0), y)),
+        double4_sum(mul__double4_double4(double4x3_get_row(x, 1), y)),
+        double4_sum(mul__double4_double4(double4x3_get_row(x, 2), y)),
+    )
+}
+fn @mul__double2x4_double2_mdl_math(x : double2x4, y : double2, math : mdl_math) -> double4{
+    make_double4(
+        double2_sum(mul__double2_double2(double2x4_get_row(x, 0), y)),
+        double2_sum(mul__double2_double2(double2x4_get_row(x, 1), y)),
+        double2_sum(mul__double2_double2(double2x4_get_row(x, 2), y)),
+        double2_sum(mul__double2_double2(double2x4_get_row(x, 3), y)),
+    )
+}
+fn @mul__double3x4_double3_mdl_math(x : double3x4, y : double3, math : mdl_math) -> double4{
+    make_double4(
+        double3_sum(mul__double3_double3(double3x4_get_row(x, 0), y)),
+        double3_sum(mul__double3_double3(double3x4_get_row(x, 1), y)),
+        double3_sum(mul__double3_double3(double3x4_get_row(x, 2), y)),
+        double3_sum(mul__double3_double3(double3x4_get_row(x, 3), y)),
+    )
+}
+fn @mul__double4x4_double4_mdl_math(x : double4x4, y : double4, math : mdl_math) -> double4{
+    make_double4(
+        double4_sum(mul__double4_double4(double4x4_get_row(x, 0), y)),
+        double4_sum(mul__double4_double4(double4x4_get_row(x, 1), y)),
+        double4_sum(mul__double4_double4(double4x4_get_row(x, 2), y)),
+        double4_sum(mul__double4_double4(double4x4_get_row(x, 3), y)),
+    )
+}
+fn @mul__float2_float2x2_mdl_math(x : float2, y : float2x2, math : mdl_math) -> float2{
+    make_float2(
+        float2_sum(mul__float2_float2(x,y.x)),
+        float2_sum(mul__float2_float2(x,y.y))
+    )
+}
+fn @mul__float2_float3x2_mdl_math(x : float2, y : float3x2, math : mdl_math) -> float3{
+    make_float3(
+        float2_sum(mul__float2_float2(x,y.x)),
+        float2_sum(mul__float2_float2(x,y.y)),
+        float2_sum(mul__float2_float2(x,y.z))
+    )
+}
+fn @mul__float2_float4x2_mdl_math(x : float2, y : float4x2, math : mdl_math) -> float4{
+    make_float4(
+        float2_sum(mul__float2_float2(x,y.x)),
+        float2_sum(mul__float2_float2(x,y.y)),
+        float2_sum(mul__float2_float2(x,y.z)),
+        float2_sum(mul__float2_float2(x,y.w))
+    )
+}
+fn @mul__float3_float2x3_mdl_math(x : float3, y : float2x3, math : mdl_math) -> float2{
+    make_float2(
+        float3_sum(mul__float3_float3(x,y.x)),
+        float3_sum(mul__float3_float3(x,y.y))
+    )
+}
+fn @mul__float3_float3x3_mdl_math(x : float3, y : float3x3, math : mdl_math) -> float3{
+    make_float3(
+        float3_sum(mul__float3_float3(x,y.x)),
+        float3_sum(mul__float3_float3(x,y.y)),
+        float3_sum(mul__float3_float3(x,y.z))
+    )
+}
+fn @mul__float3_float4x3_mdl_math(x : float3, y : float4x3, math : mdl_math) -> float4{
+    make_float4(
+        float3_sum(mul__float3_float3(x,y.x)),
+        float3_sum(mul__float3_float3(x,y.y)),
+        float3_sum(mul__float3_float3(x,y.z)),
+        float3_sum(mul__float3_float3(x,y.w))
+    )
+}
+fn @mul__float4_float2x4_mdl_math(x : float4, y : float2x4, math : mdl_math) -> float2{
+    make_float2(
+        float4_sum(mul__float4_float4(x,y.x)),
+        float4_sum(mul__float4_float4(x,y.y))
+    )
+}
+fn @mul__float4_float3x4_mdl_math(x : float4, y : float3x4, math : mdl_math) -> float3{
+    make_float3(
+        float4_sum(mul__float4_float4(x,y.x)),
+        float4_sum(mul__float4_float4(x,y.y)),
+        float4_sum(mul__float4_float4(x,y.z))
+    )
+}
+fn @mul__float4_float4x4_mdl_math(x : float4, y : float4x4, math : mdl_math) -> float4{
+    make_float4(
+        float4_sum(mul__float4_float4(x,y.x)),
+        float4_sum(mul__float4_float4(x,y.y)),
+        float4_sum(mul__float4_float4(x,y.z)),
+        float4_sum(mul__float4_float4(x,y.w))
+    )
+}
+fn @mul__double2_double2x2_mdl_math(x : double2, y : double2x2, math : mdl_math) -> double2{
+    make_double2(
+        double2_sum(mul__double2_double2(x,y.x)),
+        double2_sum(mul__double2_double2(x,y.y))
+    )
+}
+fn @mul__double2_double3x2_mdl_math(x : double2, y : double3x2, math : mdl_math) -> double3{
+    make_double3(
+        double2_sum(mul__double2_double2(x,y.x)),
+        double2_sum(mul__double2_double2(x,y.y)),
+        double2_sum(mul__double2_double2(x,y.z))
+    )
+}
+fn @mul__double2_double4x2_mdl_math(x : double2, y : double4x2, math : mdl_math) -> double4{
+    make_double4(
+        double2_sum(mul__double2_double2(x,y.x)),
+        double2_sum(mul__double2_double2(x,y.y)),
+        double2_sum(mul__double2_double2(x,y.z)),
+        double2_sum(mul__double2_double2(x,y.w))
+    )
+}
+fn @mul__double3_double2x3_mdl_math(x : double3, y : double2x3, math : mdl_math) -> double2{
+    make_double2(
+        double3_sum(mul__double3_double3(x,y.x)),
+        double3_sum(mul__double3_double3(x,y.y))
+    )
+}
+fn @mul__double3_double3x3_mdl_math(x : double3, y : double3x3, math : mdl_math) -> double3{
+    make_double3(
+        double3_sum(mul__double3_double3(x,y.x)),
+        double3_sum(mul__double3_double3(x,y.y)),
+        double3_sum(mul__double3_double3(x,y.z))
+    )
+}
+fn @mul__double3_double4x3_mdl_math(x : double3, y : double4x3, math : mdl_math) -> double4{
+    make_double4(
+        double3_sum(mul__double3_double3(x,y.x)),
+        double3_sum(mul__double3_double3(x,y.y)),
+        double3_sum(mul__double3_double3(x,y.z)),
+        double3_sum(mul__double3_double3(x,y.w))
+    )
+}
+fn @mul__double4_double2x4_mdl_math(x : double4, y : double2x4, math : mdl_math) -> double2{
+    make_double2(
+        double4_sum(mul__double4_double4(x,y.x)),
+        double4_sum(mul__double4_double4(x,y.y))
+    )
+}
+fn @mul__double4_double3x4_mdl_math(x : double4, y : double3x4, math : mdl_math) -> double3{
+    make_double3(
+        double4_sum(mul__double4_double4(x,y.x)),
+        double4_sum(mul__double4_double4(x,y.y)),
+        double4_sum(mul__double4_double4(x,y.z))
+    )
+}
+fn @mul__double4_double4x4_mdl_math(x : double4, y : double4x4, math : mdl_math) -> double4{
+    make_double4(
+        double4_sum(mul__double4_double4(x,y.x)),
+        double4_sum(mul__double4_double4(x,y.y)),
+        double4_sum(mul__double4_double4(x,y.z)),
+        double4_sum(mul__double4_double4(x,y.w))
+    )
+}
+fn @mul__float2x2_float_mdl_math(x : float2x2, y : float, math : mdl_math) -> float2x2{
+    float2x2_map(x, |a|{a*y})
+}
+fn @mul__float_float2x2_mdl_math(x : float, y : float2x2, math : mdl_math) -> float2x2{
+    float2x2_map(y, |a|{a*x})
+}
+fn @mul__float2x3_float_mdl_math(x : float2x3, y : float, math : mdl_math) -> float2x3{
+    float2x3_map(x, |a|{a*y})
+}
+fn @mul__float_float2x3_mdl_math(x : float, y : float2x3, math : mdl_math) -> float2x3{
+    float2x3_map(y, |a|{a*x})
+}
+fn @mul__float2x4_float_mdl_math(x : float2x4, y : float, math : mdl_math) -> float2x4{
+    float2x4_map(x, |a|{a*y})
+}
+fn @mul__float_float2x4_mdl_math(x : float, y : float2x4, math : mdl_math) -> float2x4{
+    float2x4_map(y, |a|{a*x})
+}
+fn @mul__float3x2_float_mdl_math(x : float3x2, y : float, math : mdl_math) -> float3x2{
+    float3x2_map(x, |a|{a*y})
+}
+fn @mul__float_float3x2_mdl_math(x : float, y : float3x2, math : mdl_math) -> float3x2{
+    float3x2_map(y, |a|{a*x})
+}
+fn @mul__float3x3_float_mdl_math(x : float3x3, y : float, math : mdl_math) -> float3x3{
+    float3x3_map(x, |a|{a*y})
+}
+fn @mul__float_float3x3_mdl_math(x : float, y : float3x3, math : mdl_math) -> float3x3{
+    float3x3_map(y, |a|{a*x})
+}
+fn @mul__float3x4_float_mdl_math(x : float3x4, y : float, math : mdl_math) -> float3x4{
+    float3x4_map(x, |a|{a*y})
+}
+fn @mul__float_float3x4_mdl_math(x : float, y : float3x4, math : mdl_math) -> float3x4{
+    float3x4_map(y, |a|{a*x})
+}
+fn @mul__float4x2_float_mdl_math(x : float4x2, y : float, math : mdl_math) -> float4x2{
+    float4x2_map(x, |a|{a*y})
+}
+fn @mul__float_float4x2_mdl_math(x : float, y : float4x2, math : mdl_math) -> float4x2{
+    float4x2_map(y, |a|{a*x})
+}
+fn @mul__float4x3_float_mdl_math(x : float4x3, y : float, math : mdl_math) -> float4x3{
+    float4x3_map(x, |a|{a*y})
+}
+fn @mul__float_float4x3_mdl_math(x : float, y : float4x3, math : mdl_math) -> float4x3{
+    float4x3_map(y, |a|{a*x})
+}
+fn @mul__float4x4_float_mdl_math(x : float4x4, y : float, math : mdl_math) -> float4x4{
+    float4x4_map(x, |a|{a*y})
+}
+fn @mul__float_float4x4_mdl_math(x : float, y : float4x4, math : mdl_math) -> float4x4{
+    float4x4_map(y, |a|{a*x})
+}
+fn @mul__double2x2_double_mdl_math(x : double2x2, y : double, math : mdl_math) -> double2x2{
+    double2x2_map(x, |a|{a*y})
+}
+fn @mul__double_double2x2_mdl_math(x : double, y : double2x2, math : mdl_math) -> double2x2{
+    double2x2_map(y, |a|{a*x})
+}
+fn @mul__double2x3_double_mdl_math(x : double2x3, y : double, math : mdl_math) -> double2x3{
+    double2x3_map(x, |a|{a*y})
+}
+fn @mul__double_double2x3_mdl_math(x : double, y : double2x3, math : mdl_math) -> double2x3{
+    double2x3_map(y, |a|{a*x})
+}
+fn @mul__double2x4_double_mdl_math(x : double2x4, y : double, math : mdl_math) -> double2x4{
+    double2x4_map(x, |a|{a*y})
+}
+fn @mul__double_double2x4_mdl_math(x : double, y : double2x4, math : mdl_math) -> double2x4{
+    double2x4_map(y, |a|{a*x})
+}
+fn @mul__double3x2_double_mdl_math(x : double3x2, y : double, math : mdl_math) -> double3x2{
+    double3x2_map(x, |a|{a*y})
+}
+fn @mul__double_double3x2_mdl_math(x : double, y : double3x2, math : mdl_math) -> double3x2{
+    double3x2_map(y, |a|{a*x})
+}
+fn @mul__double3x3_double_mdl_math(x : double3x3, y : double, math : mdl_math) -> double3x3{
+    double3x3_map(x, |a|{a*y})
+}
+fn @mul__double_double3x3_mdl_math(x : double, y : double3x3, math : mdl_math) -> double3x3{
+    double3x3_map(y, |a|{a*x})
+}
+fn @mul__double3x4_double_mdl_math(x : double3x4, y : double, math : mdl_math) -> double3x4{
+    double3x4_map(x, |a|{a*y})
+}
+fn @mul__double_double3x4_mdl_math(x : double, y : double3x4, math : mdl_math) -> double3x4{
+    double3x4_map(y, |a|{a*x})
+}
+fn @mul__double4x2_double_mdl_math(x : double4x2, y : double, math : mdl_math) -> double4x2{
+    double4x2_map(x, |a|{a*y})
+}
+fn @mul__double_double4x2_mdl_math(x : double, y : double4x2, math : mdl_math) -> double4x2{
+    double4x2_map(y, |a|{a*x})
+}
+fn @mul__double4x3_double_mdl_math(x : double4x3, y : double, math : mdl_math) -> double4x3{
+    double4x3_map(x, |a|{a*y})
+}
+fn @mul__double_double4x3_mdl_math(x : double, y : double4x3, math : mdl_math) -> double4x3{
+    double4x3_map(y, |a|{a*x})
+}
+fn @mul__double4x4_double_mdl_math(x : double4x4, y : double, math : mdl_math) -> double4x4{
+    double4x4_map(x, |a|{a*y})
+}
+fn @mul__double_double4x4_mdl_math(x : double, y : double4x4, math : mdl_math) -> double4x4{
+    double4x4_map(y, |a|{a*x})
+}
+fn @mul__int_int_mdl_math(x : int, y : int, math : mdl_math) -> int{
+    x * y
+}
+fn @mul__int2_int2_mdl_math(x : int2, y : int2, math : mdl_math) -> int2{
+    int2_zip(x,y,|a,b|{a*b})
+}
+fn @mul__int_int2_mdl_math(x : int, y : int2, math : mdl_math) -> int2{
+    int2_map(y, |a|{a * x})
+}
+fn @mul__int2_int_mdl_math(x : int2, y : int, math : mdl_math) -> int2{
+    int2_map(x, |a|{a * y})
+}
+fn @mul__int3_int3_mdl_math(x : int3, y : int3, math : mdl_math) -> int3{
+    int3_zip(x,y,|a,b|{a*b})
+}
+fn @mul__int_int3_mdl_math(x : int, y : int3, math : mdl_math) -> int3{
+    int3_map(y, |a|{a * x})
+}
+fn @mul__int3_int_mdl_math(x : int3, y : int, math : mdl_math) -> int3{
+    int3_map(x, |a|{a * y})
+}
+fn @mul__int4_int4_mdl_math(x : int4, y : int4, math : mdl_math) -> int4{
+    int4_zip(x,y,|a,b|{a*b})
+}
+fn @mul__int_int4_mdl_math(x : int, y : int4, math : mdl_math) -> int4{
+    int4_map(y, |a|{a * x})
+}
+fn @mul__int4_int_mdl_math(x : int4, y : int, math : mdl_math) -> int4{
+    int4_map(x, |a|{a * y})
+}
+fn @mul__float_float_mdl_math(x : float, y : float, math : mdl_math) -> float{
+    x * y
+}
+fn @mul__float2_float2_mdl_math(x : float2, y : float2, math : mdl_math) -> float2{
+    float2_zip(x,y,|a,b|{a*b})
+}
+fn @mul__float_float2_mdl_math(x : float, y : float2, math : mdl_math) -> float2{
+    float2_map(y, |a|{a * x})
+}
+fn @mul__float2_float_mdl_math(x : float2, y : float, math : mdl_math) -> float2{
+    float2_map(x, |a|{a * y})
+}
+fn @mul__float3_float3_mdl_math(x : float3, y : float3, math : mdl_math) -> float3{
+    float3_zip(x,y,|a,b|{a*b})
+}
+fn @mul__float_float3_mdl_math(x : float, y : float3, math : mdl_math) -> float3{
+    float3_map(y, |a|{a * x})
+}
+fn @mul__float3_float_mdl_math(x : float3, y : float, math : mdl_math) -> float3{
+    float3_map(x, |a|{a * y})
+}
+fn @mul__float4_float4_mdl_math(x : float4, y : float4, math : mdl_math) -> float4{
+    float4_zip(x,y,|a,b|{a*b})
+}
+fn @mul__float_float4_mdl_math(x : float, y : float4, math : mdl_math) -> float4{
+    float4_map(y, |a|{a * x})
+}
+fn @mul__float4_float_mdl_math(x : float4, y : float, math : mdl_math) -> float4{
+    float4_map(x, |a|{a * y})
+}
+fn @mul__double_double_mdl_math(x : double, y : double, math : mdl_math) -> double{
+    x * y
+}
+fn @mul__double2_double2_mdl_math(x : double2, y : double2, math : mdl_math) -> double2{
+    double2_zip(x,y,|a,b|{a*b})
+}
+fn @mul__double_double2_mdl_math(x : double, y : double2, math : mdl_math) -> double2{
+    double2_map(y, |a|{a * x})
+}
+fn @mul__double2_double_mdl_math(x : double2, y : double, math : mdl_math) -> double2{
+    double2_map(x, |a|{a * y})
+}
+fn @mul__double3_double3_mdl_math(x : double3, y : double3, math : mdl_math) -> double3{
+    double3_zip(x,y,|a,b|{a*b})
+}
+fn @mul__double_double3_mdl_math(x : double, y : double3, math : mdl_math) -> double3{
+    double3_map(y, |a|{a * x})
+}
+fn @mul__double3_double_mdl_math(x : double3, y : double, math : mdl_math) -> double3{
+    double3_map(x, |a|{a * y})
+}
+fn @mul__double4_double4_mdl_math(x : double4, y : double4, math : mdl_math) -> double4{
+    double4_zip(x,y,|a,b|{a*b})
+}
+fn @mul__double_double4_mdl_math(x : double, y : double4, math : mdl_math) -> double4{
+    double4_map(y, |a|{a * x})
+}
+fn @mul__double4_double_mdl_math(x : double4, y : double, math : mdl_math) -> double4{
+    double4_map(x, |a|{a * y})
+}
+fn @mul__color_color_mdl_math(x : color, y : color, math : mdl_math) -> color{
+    color_zip(x,y,|a,b|{a*b})
+}
+fn @mul__float_color_mdl_math(x : float, y : color, math : mdl_math) -> color{
+    color_map(y, |a|{a*x})
+}
+fn @mul__color_float_mdl_math(x : color, y : float, math : mdl_math) -> color{
+    color_map(x, |a|{a*y})
+}
+fn @geq__int_int_mdl_math(x : int, y : int, math : mdl_math) -> bool{
+    x >= y
+}
+fn @geq__float_float_mdl_math(x : float, y : float, math : mdl_math) -> bool{
+    x >= y
+}
+fn @geq__double_double_mdl_math(x : double, y : double, math : mdl_math) -> bool{
+    x >= y
+}
+fn @ge__int_int_mdl_math(x : int, y : int, math : mdl_math) -> bool{
+    x > y
+}
+fn @ge__float_float_mdl_math(x : float, y : float, math : mdl_math) -> bool{
+    x > y
+}
+fn @ge__double_double_mdl_math(x : double, y : double, math : mdl_math) -> bool{
+    x > y
+}
+fn @leq__int_int_mdl_math(x : int, y : int, math : mdl_math) -> bool{
+    x <= y
+}
+fn @leq__float_float_mdl_math(x : float, y : float, math : mdl_math) -> bool{
+    x <= y
+}
+fn @leq__double_double_mdl_math(x : double, y : double, math : mdl_math) -> bool{
+    x <= y
+}
+fn @le__int_int_mdl_math(x : int, y : int, math : mdl_math) -> bool{
+    x < y
+}
+fn @le__float_float_mdl_math(x : float, y : float, math : mdl_math) -> bool{
+    x < y
+}
+fn @le__double_double_mdl_math(x : double, y : double, math : mdl_math) -> bool{
+    x < y
+}
+fn @sub__int_int_mdl_math(x : int, y : int, math : mdl_math) -> int{
+    x - y
+}
+fn @sub__int2_int2_mdl_math(x : int2, y : int2, math : mdl_math) -> int2{
+    int2_zip(x,y,|a,b|{a-b})
+}
+fn @sub__int_int2_mdl_math(x : int, y : int2, math : mdl_math) -> int2{
+    int2_map(y, |a|{x-a})
+}
+fn @sub__int2_int_mdl_math(x : int2, y : int, math : mdl_math) -> int2{
+    int2_map(x,|a|{a-y})
+}
+fn @sub__int3_int3_mdl_math(x : int3, y : int3, math : mdl_math) -> int3{
+    int3_zip(x,y,|a,b|{a-b})
+}
+fn @sub__int_int3_mdl_math(x : int, y : int3, math : mdl_math) -> int3{
+    int3_map(y, |a|{x-a})
+}
+fn @sub__int3_int_mdl_math(x : int3, y : int, math : mdl_math) -> int3{
+    int3_map(x,|a|{a-y})
+}
+fn @sub__int4_int4_mdl_math(x : int4, y : int4, math : mdl_math) -> int4{
+    int4_zip(x,y,|a,b|{a-b})
+}
+fn @sub__int_int4_mdl_math(x : int, y : int4, math : mdl_math) -> int4{
+    int4_map(y, |a|{x-a})
+}
+fn @sub__int4_int_mdl_math(x : int4, y : int, math : mdl_math) -> int4{
+    int4_map(x,|a|{a-y})
+}
+fn @sub__float_float_mdl_math(x : float, y : float, math : mdl_math) -> float{
+    x - y
+}
+fn @sub__float2_float2_mdl_math(x : float2, y : float2, math : mdl_math) -> float2{
+    float2_zip(x,y,|a,b|{a-b})
+}
+fn @sub__float_float2_mdl_math(x : float, y : float2, math : mdl_math) -> float2{
+    float2_map(y, |a|{x-a})
+}
+fn @sub__float2_float_mdl_math(x : float2, y : float, math : mdl_math) -> float2{
+    float2_map(x,|a|{a-y})
+}
+fn @sub__float3_float3_mdl_math(x : float3, y : float3, math : mdl_math) -> float3{
+    float3_zip(x,y,|a,b|{a-b})
+}
+fn @sub__float_float3_mdl_math(x : float, y : float3, math : mdl_math) -> float3{
+    float3_map(y, |a|{x-a})
+}
+fn @sub__float3_float_mdl_math(x : float3, y : float, math : mdl_math) -> float3{
+    float3_map(x,|a|{a-y})
+}
+fn @sub__float4_float4_mdl_math(x : float4, y : float4, math : mdl_math) -> float4{
+    float4_zip(x,y,|a,b|{a-b})
+}
+fn @sub__float_float4_mdl_math(x : float, y : float4, math : mdl_math) -> float4{
+    float4_map(y, |a|{x-a})
+}
+fn @sub__float4_float_mdl_math(x : float4, y : float, math : mdl_math) -> float4{
+    float4_map(x,|a|{a-y})
+}
+fn @sub__double_double_mdl_math(x : double, y : double, math : mdl_math) -> double{
+    x - y
+}
+fn @sub__double2_double2_mdl_math(x : double2, y : double2, math : mdl_math) -> double2{
+    double2_zip(x,y,|a,b|{a-b})
+}
+fn @sub__double_double2_mdl_math(x : double, y : double2, math : mdl_math) -> double2{
+    double2_map(y, |a|{x-a})
+}
+fn @sub__double2_double_mdl_math(x : double2, y : double, math : mdl_math) -> double2{
+    double2_map(x,|a|{a-y})
+}
+fn @sub__double3_double3_mdl_math(x : double3, y : double3, math : mdl_math) -> double3{
+    double3_zip(x,y,|a,b|{a-b})
+}
+fn @sub__double_double3_mdl_math(x : double, y : double3, math : mdl_math) -> double3{
+    double3_map(y, |a|{x-a})
+}
+fn @sub__double3_double_mdl_math(x : double3, y : double, math : mdl_math) -> double3{
+    double3_map(x,|a|{a-y})
+}
+fn @sub__double4_double4_mdl_math(x : double4, y : double4, math : mdl_math) -> double4{
+    double4_zip(x,y,|a,b|{a-b})
+}
+fn @sub__double_double4_mdl_math(x : double, y : double4, math : mdl_math) -> double4{
+    double4_map(y, |a|{x-a})
+}
+fn @sub__double4_double_mdl_math(x : double4, y : double, math : mdl_math) -> double4{
+    double4_map(x,|a|{a-y})
+}
+fn @sub__color_color_mdl_math(x : color, y : color, math : mdl_math) -> color{
+    color_zip(x,y,|a,b|{a-b})
+}
+fn @sub__float_color_mdl_math(x : float, y : color, math : mdl_math) -> color{
+    color_map(y, |a|{x-a})
+}
+fn @sub__color_float_mdl_math(x : color, y : float, math : mdl_math) -> color{
+    color_map(x, |a|{a-y})
+}
+fn @sub__float2x2_float2x2_mdl_math(x : float2x2, y : float2x2, math : mdl_math) -> float2x2{
+    float2x2_zip(x,y,|a,b|{a-b})
+}
+fn @sub__float2x3_float2x3_mdl_math(x : float2x3, y : float2x3, math : mdl_math) -> float2x3{
+    float2x3_zip(x,y,|a,b|{a-b})
+}
+fn @sub__float2x4_float2x4_mdl_math(x : float2x4, y : float2x4, math : mdl_math) -> float2x4{
+    float2x4_zip(x,y,|a,b|{a-b})
+}
+fn @sub__float3x2_float3x2_mdl_math(x : float3x2, y : float3x2, math : mdl_math) -> float3x2{
+    float3x2_zip(x,y,|a,b|{a-b})
+}
+fn @sub__float3x3_float3x3_mdl_math(x : float3x3, y : float3x3, math : mdl_math) -> float3x3{
+    float3x3_zip(x,y,|a,b|{a-b})
+}
+fn @sub__float3x4_float3x4_mdl_math(x : float3x4, y : float3x4, math : mdl_math) -> float3x4{
+    float3x4_zip(x,y,|a,b|{a-b})
+}
+fn @sub__float4x2_float4x2_mdl_math(x : float4x2, y : float4x2, math : mdl_math) -> float4x2{
+    float4x2_zip(x,y,|a,b|{a-b})
+}
+fn @sub__float4x3_float4x3_mdl_math(x : float4x3, y : float4x3, math : mdl_math) -> float4x3{
+    float4x3_zip(x,y,|a,b|{a-b})
+}
+fn @sub__float4x4_float4x4_mdl_math(x : float4x4, y : float4x4, math : mdl_math) -> float4x4{
+    float4x4_zip(x,y,|a,b|{a-b})
+}
+fn @sub__double2x2_double2x2_mdl_math(x : double2x2, y : double2x2, math : mdl_math) -> double2x2{
+    double2x2_zip(x,y,|a,b|{a-b})
+}
+fn @sub__double2x3_double2x3_mdl_math(x : double2x3, y : double2x3, math : mdl_math) -> double2x3{
+    double2x3_zip(x,y,|a,b|{a-b})
+}
+fn @sub__double2x4_double2x4_mdl_math(x : double2x4, y : double2x4, math : mdl_math) -> double2x4{
+    double2x4_zip(x,y,|a,b|{a-b})
+}
+fn @sub__double3x2_double3x2_mdl_math(x : double3x2, y : double3x2, math : mdl_math) -> double3x2{
+    double3x2_zip(x,y,|a,b|{a-b})
+}
+fn @sub__double3x3_double3x3_mdl_math(x : double3x3, y : double3x3, math : mdl_math) -> double3x3{
+    double3x3_zip(x,y,|a,b|{a-b})
+}
+fn @sub__double3x4_double3x4_mdl_math(x : double3x4, y : double3x4, math : mdl_math) -> double3x4{
+    double3x4_zip(x,y,|a,b|{a-b})
+}
+fn @sub__double4x2_double4x2_mdl_math(x : double4x2, y : double4x2, math : mdl_math) -> double4x2{
+    double4x2_zip(x,y,|a,b|{a-b})
+}
+fn @sub__double4x3_double4x3_mdl_math(x : double4x3, y : double4x3, math : mdl_math) -> double4x3{
+    double4x3_zip(x,y,|a,b|{a-b})
+}
+fn @sub__double4x4_double4x4_mdl_math(x : double4x4, y : double4x4, math : mdl_math) -> double4x4{
+    double4x4_zip(x,y,|a,b|{a-b})
+}
+fn @add__int_int_mdl_math(x : int, y : int, math : mdl_math) -> int{
+    x + y
+}
+fn @add__int2_int2_mdl_math(x : int2, y : int2, math : mdl_math) -> int2{
+    int2_zip(x,y,|a,b|{a+b})
+}
+fn @add__int_int2_mdl_math(x : int, y : int2, math : mdl_math) -> int2{
+    int2_map(y, |a|{x+a})
+}
+fn @add__int2_int_mdl_math(x : int2, y : int, math : mdl_math) -> int2{
+    int2_map(x,|a|{a+y})
+}
+fn @add__int3_int3_mdl_math(x : int3, y : int3, math : mdl_math) -> int3{
+    int3_zip(x,y,|a,b|{a+b})
+}
+fn @add__int_int3_mdl_math(x : int, y : int3, math : mdl_math) -> int3{
+    int3_map(y, |a|{x+a})
+}
+fn @add__int3_int_mdl_math(x : int3, y : int, math : mdl_math) -> int3{
+    int3_map(x,|a|{a+y})
+}
+fn @add__int4_int4_mdl_math(x : int4, y : int4, math : mdl_math) -> int4{
+    int4_zip(x,y,|a,b|{a+b})
+}
+fn @add__int_int4_mdl_math(x : int, y : int4, math : mdl_math) -> int4{
+    int4_map(y, |a|{x+a})
+}
+fn @add__int4_int_mdl_math(x : int4, y : int, math : mdl_math) -> int4{
+    int4_map(x,|a|{a+y})
+}
+fn @add__float_float_mdl_math(x : float, y : float, math : mdl_math) -> float{
+    x + y
+}
+fn @add__float2_float2_mdl_math(x : float2, y : float2, math : mdl_math) -> float2{
+    float2_zip(x,y,|a,b|{a+b})
+}
+fn @add__float_float2_mdl_math(x : float, y : float2, math : mdl_math) -> float2{
+    float2_map(y, |a|{x+a})
+}
+fn @add__float2_float_mdl_math(x : float2, y : float, math : mdl_math) -> float2{
+    float2_map(x,|a|{a+y})
+}
+fn @add__float3_float3_mdl_math(x : float3, y : float3, math : mdl_math) -> float3{
+    float3_zip(x,y,|a,b|{a+b})
+}
+fn @add__float_float3_mdl_math(x : float, y : float3, math : mdl_math) -> float3{
+    float3_map(y, |a|{x+a})
+}
+fn @add__float3_float_mdl_math(x : float3, y : float, math : mdl_math) -> float3{
+    float3_map(x,|a|{a+y})
+}
+fn @add__float4_float4_mdl_math(x : float4, y : float4, math : mdl_math) -> float4{
+    float4_zip(x,y,|a,b|{a+b})
+}
+fn @add__float_float4_mdl_math(x : float, y : float4, math : mdl_math) -> float4{
+    float4_map(y, |a|{x+a})
+}
+fn @add__float4_float_mdl_math(x : float4, y : float, math : mdl_math) -> float4{
+    float4_map(x,|a|{a+y})
+}
+fn @add__double_double_mdl_math(x : double, y : double, math : mdl_math) -> double{
+    x + y
+}
+fn @add__double2_double2_mdl_math(x : double2, y : double2, math : mdl_math) -> double2{
+    double2_zip(x,y,|a,b|{a+b})
+}
+fn @add__double_double2_mdl_math(x : double, y : double2, math : mdl_math) -> double2{
+    double2_map(y, |a|{x+a})
+}
+fn @add__double2_double_mdl_math(x : double2, y : double, math : mdl_math) -> double2{
+    double2_map(x,|a|{a+y})
+}
+fn @add__double3_double3_mdl_math(x : double3, y : double3, math : mdl_math) -> double3{
+    double3_zip(x,y,|a,b|{a+b})
+}
+fn @add__double_double3_mdl_math(x : double, y : double3, math : mdl_math) -> double3{
+    double3_map(y, |a|{x+a})
+}
+fn @add__double3_double_mdl_math(x : double3, y : double, math : mdl_math) -> double3{
+    double3_map(x,|a|{a+y})
+}
+fn @add__double4_double4_mdl_math(x : double4, y : double4, math : mdl_math) -> double4{
+    double4_zip(x,y,|a,b|{a+b})
+}
+fn @add__double_double4_mdl_math(x : double, y : double4, math : mdl_math) -> double4{
+    double4_map(y, |a|{x+a})
+}
+fn @add__double4_double_mdl_math(x : double4, y : double, math : mdl_math) -> double4{
+    double4_map(x,|a|{a+y})
+}
+fn @add__color_color_mdl_math(x : color, y : color, math : mdl_math) -> color{
+    color_zip(x,y,|a,b|{a+b})
+}
+fn @add__float_color_mdl_math(x : float, y : color, math : mdl_math) -> color{
+    color_map(y, |a|{x+a})
+}
+fn @add__color_float_mdl_math(x : color, y : float, math : mdl_math) -> color{
+    color_map(x, |a|{a+y})
+}
+fn @add__float2x2_float2x2_mdl_math(x : float2x2, y : float2x2, math : mdl_math) -> float2x2{
+    float2x2_zip(x,y,|a,b|{a+b})
+}
+fn @add__float2x3_float2x3_mdl_math(x : float2x3, y : float2x3, math : mdl_math) -> float2x3{
+    float2x3_zip(x,y,|a,b|{a+b})
+}
+fn @add__float2x4_float2x4_mdl_math(x : float2x4, y : float2x4, math : mdl_math) -> float2x4{
+    float2x4_zip(x,y,|a,b|{a+b})
+}
+fn @add__float3x2_float3x2_mdl_math(x : float3x2, y : float3x2, math : mdl_math) -> float3x2{
+    float3x2_zip(x,y,|a,b|{a+b})
+}
+fn @add__float3x3_float3x3_mdl_math(x : float3x3, y : float3x3, math : mdl_math) -> float3x3{
+    float3x3_zip(x,y,|a,b|{a+b})
+}
+fn @add__float3x4_float3x4_mdl_math(x : float3x4, y : float3x4, math : mdl_math) -> float3x4{
+    float3x4_zip(x,y,|a,b|{a+b})
+}
+fn @add__float4x2_float4x2_mdl_math(x : float4x2, y : float4x2, math : mdl_math) -> float4x2{
+    float4x2_zip(x,y,|a,b|{a+b})
+}
+fn @add__float4x3_float4x3_mdl_math(x : float4x3, y : float4x3, math : mdl_math) -> float4x3{
+    float4x3_zip(x,y,|a,b|{a+b})
+}
+fn @add__float4x4_float4x4_mdl_math(x : float4x4, y : float4x4, math : mdl_math) -> float4x4{
+    float4x4_zip(x,y,|a,b|{a+b})
+}
+fn @add__double2x2_double2x2_mdl_math(x : double2x2, y : double2x2, math : mdl_math) -> double2x2{
+    double2x2_zip(x,y,|a,b|{a+b})
+}
+fn @add__double2x3_double2x3_mdl_math(x : double2x3, y : double2x3, math : mdl_math) -> double2x3{
+    double2x3_zip(x,y,|a,b|{a+b})
+}
+fn @add__double2x4_double2x4_mdl_math(x : double2x4, y : double2x4, math : mdl_math) -> double2x4{
+    double2x4_zip(x,y,|a,b|{a+b})
+}
+fn @add__double3x2_double3x2_mdl_math(x : double3x2, y : double3x2, math : mdl_math) -> double3x2{
+    double3x2_zip(x,y,|a,b|{a+b})
+}
+fn @add__double3x3_double3x3_mdl_math(x : double3x3, y : double3x3, math : mdl_math) -> double3x3{
+    double3x3_zip(x,y,|a,b|{a+b})
+}
+fn @add__double3x4_double3x4_mdl_math(x : double3x4, y : double3x4, math : mdl_math) -> double3x4{
+    double3x4_zip(x,y,|a,b|{a+b})
+}
+fn @add__double4x2_double4x2_mdl_math(x : double4x2, y : double4x2, math : mdl_math) -> double4x2{
+    double4x2_zip(x,y,|a,b|{a+b})
+}
+fn @add__double4x3_double4x3_mdl_math(x : double4x3, y : double4x3, math : mdl_math) -> double4x3{
+    double4x3_zip(x,y,|a,b|{a+b})
+}
+fn @add__double4x4_double4x4_mdl_math(x : double4x4, y : double4x4, math : mdl_math) -> double4x4{
+    double4x4_zip(x,y,|a,b|{a+b})
+}
+fn @neq__bool_bool_mdl_math(x : bool, y : bool, math : mdl_math) -> bool{
+    x != y
+}
+fn @neq__bool2_bool2_mdl_math(x : bool2, y : bool2, math : mdl_math) -> bool{
+    math.any__bool2(bool2_zip(x,y,|a,b|{a != b}))
+}
+fn @neq__bool_bool2_mdl_math(x : bool, y : bool2, math : mdl_math) -> bool{
+    math.any__bool2(bool2_map(y, |a|{x != a}))
+}
+fn @neq__bool2_bool_mdl_math(x : bool2, y : bool, math : mdl_math) -> bool{
+    math.any__bool2(bool2_map(x, |a|{a != y}))
+}
+fn @neq__bool3_bool3_mdl_math(x : bool3, y : bool3, math : mdl_math) -> bool{
+    math.any__bool3(bool3_zip(x,y,|a,b|{a != b}))
+}
+fn @neq__bool_bool3_mdl_math(x : bool, y : bool3, math : mdl_math) -> bool{
+    math.any__bool3(bool3_map(y, |a|{x != a}))
+}
+fn @neq__bool3_bool_mdl_math(x : bool3, y : bool, math : mdl_math) -> bool{
+    math.any__bool3(bool3_map(x, |a|{a != y}))
+}
+fn @neq__bool4_bool4_mdl_math(x : bool4, y : bool4, math : mdl_math) -> bool{
+    math.any__bool4(bool4_zip(x,y,|a,b|{a != b}))
+}
+fn @neq__bool_bool4_mdl_math(x : bool, y : bool4, math : mdl_math) -> bool{
+    math.any__bool4(bool4_map(y, |a|{x != a}))
+}
+fn @neq__bool4_bool_mdl_math(x : bool4, y : bool, math : mdl_math) -> bool{
+    math.any__bool4(bool4_map(x, |a|{a != y}))
+}
+fn @neq__int_int_mdl_math(x : int, y : int, math : mdl_math) -> bool{
+    x != y
+}
+fn @neq__int2_int2_mdl_math(x : int2, y : int2, math : mdl_math) -> bool{
+    math.any__bool2(int2_zip_bool(x,y,|a,b|{a != b}))
+}
+fn @neq__int_int2_mdl_math(x : int, y : int2, math : mdl_math) -> bool{
+    math.any__bool2(int2_map_bool(y, |a|{x != a}))
+}
+fn @neq__int2_int_mdl_math(x : int2, y : int, math : mdl_math) -> bool{
+    math.any__bool2(int2_map_bool(x, |a|{a != y}))
+}
+fn @neq__int3_int3_mdl_math(x : int3, y : int3, math : mdl_math) -> bool{
+    math.any__bool3(int3_zip_bool(x,y,|a,b|{a != b}))
+}
+fn @neq__int_int3_mdl_math(x : int, y : int3, math : mdl_math) -> bool{
+    math.any__bool3(int3_map_bool(y, |a|{x != a}))
+}
+fn @neq__int3_int_mdl_math(x : int3, y : int, math : mdl_math) -> bool{
+    math.any__bool3(int3_map_bool(x, |a|{a != y}))
+}
+fn @neq__int4_int4_mdl_math(x : int4, y : int4, math : mdl_math) -> bool{
+    math.any__bool4(int4_zip_bool(x,y,|a,b|{a != b}))
+}
+fn @neq__int_int4_mdl_math(x : int, y : int4, math : mdl_math) -> bool{
+    math.any__bool4(int4_map_bool(y, |a|{x != a}))
+}
+fn @neq__int4_int_mdl_math(x : int4, y : int, math : mdl_math) -> bool{
+    math.any__bool4(int4_map_bool(x, |a|{a != y}))
+}
+fn @neq__float_float_mdl_math(x : float, y : float, math : mdl_math) -> bool{
+    x != y
+}
+fn @neq__float2_float2_mdl_math(x : float2, y : float2, math : mdl_math) -> bool{
+    math.any__bool2(float2_zip_bool(x,y,|a,b|{a != b}))
+}
+fn @neq__float_float2_mdl_math(x : float, y : float2, math : mdl_math) -> bool{
+    math.any__bool2(float2_map_bool(y, |a|{x != a}))
+}
+fn @neq__float2_float_mdl_math(x : float2, y : float, math : mdl_math) -> bool{
+    math.any__bool2(float2_map_bool(x, |a|{a != y}))
+}
+fn @neq__float3_float3_mdl_math(x : float3, y : float3, math : mdl_math) -> bool{
+    math.any__bool3(float3_zip_bool(x,y,|a,b|{a != b}))
+}
+fn @neq__float_float3_mdl_math(x : float, y : float3, math : mdl_math) -> bool{
+    math.any__bool3(float3_map_bool(y, |a|{x != a}))
+}
+fn @neq__float3_float_mdl_math(x : float3, y : float, math : mdl_math) -> bool{
+    math.any__bool3(float3_map_bool(x, |a|{a != y}))
+}
+fn @neq__float4_float4_mdl_math(x : float4, y : float4, math : mdl_math) -> bool{
+    math.any__bool4(float4_zip_bool(x,y,|a,b|{a != b}))
+}
+fn @neq__float_float4_mdl_math(x : float, y : float4, math : mdl_math) -> bool{
+    math.any__bool4(float4_map_bool(y, |a|{x != a}))
+}
+fn @neq__float4_float_mdl_math(x : float4, y : float, math : mdl_math) -> bool{
+    math.any__bool4(float4_map_bool(x, |a|{a != y}))
+}
+fn @neq__double_double_mdl_math(x : double, y : double, math : mdl_math) -> bool{
+    x != y
+}
+fn @neq__double2_double2_mdl_math(x : double2, y : double2, math : mdl_math) -> bool{
+    math.any__bool2(double2_zip_bool(x,y,|a,b|{a != b}))
+}
+fn @neq__double_double2_mdl_math(x : double, y : double2, math : mdl_math) -> bool{
+    math.any__bool2(double2_map_bool(y, |a|{x != a}))
+}
+fn @neq__double2_double_mdl_math(x : double2, y : double, math : mdl_math) -> bool{
+    math.any__bool2(double2_map_bool(x, |a|{a != y}))
+}
+fn @neq__double3_double3_mdl_math(x : double3, y : double3, math : mdl_math) -> bool{
+    math.any__bool3(double3_zip_bool(x,y,|a,b|{a != b}))
+}
+fn @neq__double_double3_mdl_math(x : double, y : double3, math : mdl_math) -> bool{
+    math.any__bool3(double3_map_bool(y, |a|{x != a}))
+}
+fn @neq__double3_double_mdl_math(x : double3, y : double, math : mdl_math) -> bool{
+    math.any__bool3(double3_map_bool(x, |a|{a != y}))
+}
+fn @neq__double4_double4_mdl_math(x : double4, y : double4, math : mdl_math) -> bool{
+    math.any__bool4(double4_zip_bool(x,y,|a,b|{a != b}))
+}
+fn @neq__double_double4_mdl_math(x : double, y : double4, math : mdl_math) -> bool{
+    math.any__bool4(double4_map_bool(y, |a|{x != a}))
+}
+fn @neq__double4_double_mdl_math(x : double4, y : double, math : mdl_math) -> bool{
+    math.any__bool4(double4_map_bool(x, |a|{a != y}))
+}
+fn @neq__color_color_mdl_math(x : color, y : color, math : mdl_math) -> bool{
+    math.any__bool3(color_zip_bool(x,y,|a,b|{a != b}))
+}
+
+fn @neq__float2x2_float2x2_mdl_math(x : float2x2, y : float2x2, math : mdl_math) -> bool{
+    any__bool2x2(float2x2_zip_bool(x,y,|a,b|{a != b}), math)
+}
+fn @neq__float2x3_float2x3_mdl_math(x : float2x3, y : float2x3, math : mdl_math) -> bool{
+    any__bool2x3(float2x3_zip_bool(x,y,|a,b|{a != b}), math)
+}
+fn @neq__float2x4_float2x4_mdl_math(x : float2x4, y : float2x4, math : mdl_math) -> bool{
+    any__bool2x4(float2x4_zip_bool(x,y,|a,b|{a != b}), math)
+}
+fn @neq__float3x2_float3x2_mdl_math(x : float3x2, y : float3x2, math : mdl_math) -> bool{
+    any__bool3x2(float3x2_zip_bool(x,y,|a,b|{a != b}), math)
+}
+fn @neq__float3x3_float3x3_mdl_math(x : float3x3, y : float3x3, math : mdl_math) -> bool{
+    any__bool3x3(float3x3_zip_bool(x,y,|a,b|{a != b}), math)
+}
+fn @neq__float3x4_float3x4_mdl_math(x : float3x4, y : float3x4, math : mdl_math) -> bool{
+    any__bool3x4(float3x4_zip_bool(x,y,|a,b|{a != b}), math)
+}
+fn @neq__float4x2_float4x2_mdl_math(x : float4x2, y : float4x2, math : mdl_math) -> bool{
+    any__bool4x2(float4x2_zip_bool(x,y,|a,b|{a != b}), math)
+}
+fn @neq__float4x3_float4x3_mdl_math(x : float4x3, y : float4x3, math : mdl_math) -> bool{
+    any__bool4x3(float4x3_zip_bool(x,y,|a,b|{a != b}), math)
+}
+fn @neq__float4x4_float4x4_mdl_math(x : float4x4, y : float4x4, math : mdl_math) -> bool{
+    any__bool4x4(float4x4_zip_bool(x,y,|a,b|{a != b}), math)
+}
+fn @neq__double2x2_double2x2_mdl_math(x : double2x2, y : double2x2, math : mdl_math) -> bool{
+    any__bool2x2(double2x2_zip_bool(x,y,|a,b|{a != b}), math)
+}
+fn @neq__double2x3_double2x3_mdl_math(x : double2x3, y : double2x3, math : mdl_math) -> bool{
+    any__bool2x3(double2x3_zip_bool(x,y,|a,b|{a != b}), math)
+}
+fn @neq__double2x4_double2x4_mdl_math(x : double2x4, y : double2x4, math : mdl_math) -> bool{
+    any__bool2x4(double2x4_zip_bool(x,y,|a,b|{a != b}), math)
+}
+fn @neq__double3x2_double3x2_mdl_math(x : double3x2, y : double3x2, math : mdl_math) -> bool{
+    any__bool3x2(double3x2_zip_bool(x,y,|a,b|{a != b}), math)
+}
+fn @neq__double3x3_double3x3_mdl_math(x : double3x3, y : double3x3, math : mdl_math) -> bool{
+    any__bool3x3(double3x3_zip_bool(x,y,|a,b|{a != b}), math)
+}
+fn @neq__double3x4_double3x4_mdl_math(x : double3x4, y : double3x4, math : mdl_math) -> bool{
+    any__bool3x4(double3x4_zip_bool(x,y,|a,b|{a != b}), math)
+}
+fn @neq__double4x2_double4x2_mdl_math(x : double4x2, y : double4x2, math : mdl_math) -> bool{
+    any__bool4x2(double4x2_zip_bool(x,y,|a,b|{a != b}), math)
+}
+fn @neq__double4x3_double4x3_mdl_math(x : double4x3, y : double4x3, math : mdl_math) -> bool{
+    any__bool4x3(double4x3_zip_bool(x,y,|a,b|{a != b}), math)
+}
+fn @neq__double4x4_double4x4_mdl_math(x : double4x4, y : double4x4, math : mdl_math) -> bool{
+    any__bool4x4(double4x4_zip_bool(x,y,|a,b|{a != b}), math)
+}
+fn @eq__bool_bool_mdl_math(x : bool, y : bool, math : mdl_math) -> bool{
+    x == y
+}
+fn @eq__bool2_bool2_mdl_math(x : bool2, y : bool2, math : mdl_math) -> bool{
+    math.all__bool2(bool2_zip(x,y,|a,b|{a == b}))
+}
+fn @eq__bool_bool2_mdl_math(x : bool, y : bool2, math : mdl_math) -> bool{
+    math.all__bool2(bool2_map(y, |a|{x == a}))
+}
+fn @eq__bool2_bool_mdl_math(x : bool2, y : bool, math : mdl_math) -> bool{
+    math.all__bool2(bool2_map(x, |a|{a == y}))
+}
+fn @eq__bool3_bool3_mdl_math(x : bool3, y : bool3, math : mdl_math) -> bool{
+    math.all__bool3(bool3_zip(x,y,|a,b|{a == b}))
+}
+fn @eq__bool_bool3_mdl_math(x : bool, y : bool3, math : mdl_math) -> bool{
+    math.all__bool3(bool3_map(y, |a|{x == a}))
+}
+fn @eq__bool3_bool_mdl_math(x : bool3, y : bool, math : mdl_math) -> bool{
+    math.all__bool3(bool3_map(x, |a|{a == y}))
+}
+fn @eq__bool4_bool4_mdl_math(x : bool4, y : bool4, math : mdl_math) -> bool{
+    math.all__bool4(bool4_zip(x,y,|a,b|{a == b}))
+}
+fn @eq__bool_bool4_mdl_math(x : bool, y : bool4, math : mdl_math) -> bool{
+    math.all__bool4(bool4_map(y, |a|{x == a}))
+}
+fn @eq__bool4_bool_mdl_math(x : bool4, y : bool, math : mdl_math) -> bool{
+    math.all__bool4(bool4_map(x, |a|{a == y}))
+}
+fn @eq__int_int_mdl_math(x : int, y : int, math : mdl_math) -> bool{
+    x == y
+}
+fn @eq__int2_int2_mdl_math(x : int2, y : int2, math : mdl_math) -> bool{
+    math.all__bool2(int2_zip_bool(x,y,|a,b|{a == b}))
+}
+fn @eq__int_int2_mdl_math(x : int, y : int2, math : mdl_math) -> bool{
+    math.all__bool2(int2_map_bool(y, |a|{x == a}))
+}
+fn @eq__int2_int_mdl_math(x : int2, y : int, math : mdl_math) -> bool{
+    math.all__bool2(int2_map_bool(x, |a|{a == y}))
+}
+fn @eq__int3_int3_mdl_math(x : int3, y : int3, math : mdl_math) -> bool{
+    math.all__bool3(int3_zip_bool(x,y,|a,b|{a == b}))
+}
+fn @eq__int_int3_mdl_math(x : int, y : int3, math : mdl_math) -> bool{
+    math.all__bool3(int3_map_bool(y, |a|{x == a}))
+}
+fn @eq__int3_int_mdl_math(x : int3, y : int, math : mdl_math) -> bool{
+    math.all__bool3(int3_map_bool(x, |a|{a == y}))
+}
+fn @eq__int4_int4_mdl_math(x : int4, y : int4, math : mdl_math) -> bool{
+    math.all__bool4(int4_zip_bool(x,y,|a,b|{a == b}))
+}
+fn @eq__int_int4_mdl_math(x : int, y : int4, math : mdl_math) -> bool{
+    math.all__bool4(int4_map_bool(y, |a|{x == a}))
+}
+fn @eq__int4_int_mdl_math(x : int4, y : int, math : mdl_math) -> bool{
+    math.all__bool4(int4_map_bool(x, |a|{a == y}))
+}
+fn @eq__float_float_mdl_math(x : float, y : float, math : mdl_math) -> bool{
+    x == y
+}
+fn @eq__float2_float2_mdl_math(x : float2, y : float2, math : mdl_math) -> bool{
+    math.all__bool2(float2_zip_bool(x,y,|a,b|{a == b}))
+}
+fn @eq__float_float2_mdl_math(x : float, y : float2, math : mdl_math) -> bool{
+    math.all__bool2(float2_map_bool(y, |a|{x == a}))
+}
+fn @eq__float2_float_mdl_math(x : float2, y : float, math : mdl_math) -> bool{
+    math.all__bool2(float2_map_bool(x, |a|{a == y}))
+}
+fn @eq__float3_float3_mdl_math(x : float3, y : float3, math : mdl_math) -> bool{
+    math.all__bool3(float3_zip_bool(x,y,|a,b|{a == b}))
+}
+fn @eq__float_float3_mdl_math(x : float, y : float3, math : mdl_math) -> bool{
+    math.all__bool3(float3_map_bool(y, |a|{x == a}))
+}
+fn @eq__float3_float_mdl_math(x : float3, y : float, math : mdl_math) -> bool{
+    math.all__bool3(float3_map_bool(x, |a|{a == y}))
+}
+fn @eq__float4_float4_mdl_math(x : float4, y : float4, math : mdl_math) -> bool{
+    math.all__bool4(float4_zip_bool(x,y,|a,b|{a == b}))
+}
+fn @eq__float_float4_mdl_math(x : float, y : float4, math : mdl_math) -> bool{
+    math.all__bool4(float4_map_bool(y, |a|{x == a}))
+}
+fn @eq__float4_float_mdl_math(x : float4, y : float, math : mdl_math) -> bool{
+    math.all__bool4(float4_map_bool(x, |a|{a == y}))
+}
+fn @eq__double_double_mdl_math(x : double, y : double, math : mdl_math) -> bool{
+    x == y
+}
+fn @eq__double2_double2_mdl_math(x : double2, y : double2, math : mdl_math) -> bool{
+    math.all__bool2(double2_zip_bool(x,y,|a,b|{a == b}))
+}
+fn @eq__double_double2_mdl_math(x : double, y : double2, math : mdl_math) -> bool{
+    math.all__bool2(double2_map_bool(y, |a|{x == a}))
+}
+fn @eq__double2_double_mdl_math(x : double2, y : double, math : mdl_math) -> bool{
+    math.all__bool2(double2_map_bool(x, |a|{a == y}))
+}
+fn @eq__double3_double3_mdl_math(x : double3, y : double3, math : mdl_math) -> bool{
+    math.all__bool3(double3_zip_bool(x,y,|a,b|{a == b}))
+}
+fn @eq__double_double3_mdl_math(x : double, y : double3, math : mdl_math) -> bool{
+    math.all__bool3(double3_map_bool(y, |a|{x == a}))
+}
+fn @eq__double3_double_mdl_math(x : double3, y : double, math : mdl_math) -> bool{
+    math.all__bool3(double3_map_bool(x, |a|{a == y}))
+}
+fn @eq__double4_double4_mdl_math(x : double4, y : double4, math : mdl_math) -> bool{
+    math.all__bool4(double4_zip_bool(x,y,|a,b|{a == b}))
+}
+fn @eq__double_double4_mdl_math(x : double, y : double4, math : mdl_math) -> bool{
+    math.all__bool4(double4_map_bool(y, |a|{x == a}))
+}
+fn @eq__double4_double_mdl_math(x : double4, y : double, math : mdl_math) -> bool{
+    math.all__bool4(double4_map_bool(x, |a|{a == y}))
+}
+fn @eq__color_color_mdl_math(x : color, y : color, math : mdl_math) -> bool{
+    math.all__bool3(color_zip_bool(x,y,|a,b|{a == b}))
+}
+
+fn @eq__float2x2_float2x2_mdl_math(x : float2x2, y : float2x2, math : mdl_math) -> bool{
+    all__bool2x2(float2x2_zip_bool(x,y,|a,b|{a == b}), math)
+}
+fn @eq__float2x3_float2x3_mdl_math(x : float2x3, y : float2x3, math : mdl_math) -> bool{
+    all__bool2x3(float2x3_zip_bool(x,y,|a,b|{a == b}), math)
+}
+fn @eq__float2x4_float2x4_mdl_math(x : float2x4, y : float2x4, math : mdl_math) -> bool{
+    all__bool2x4(float2x4_zip_bool(x,y,|a,b|{a == b}), math)
+}
+fn @eq__float3x2_float3x2_mdl_math(x : float3x2, y : float3x2, math : mdl_math) -> bool{
+    all__bool3x2(float3x2_zip_bool(x,y,|a,b|{a == b}), math)
+}
+fn @eq__float3x3_float3x3_mdl_math(x : float3x3, y : float3x3, math : mdl_math) -> bool{
+    all__bool3x3(float3x3_zip_bool(x,y,|a,b|{a == b}), math)
+}
+fn @eq__float3x4_float3x4_mdl_math(x : float3x4, y : float3x4, math : mdl_math) -> bool{
+    all__bool3x4(float3x4_zip_bool(x,y,|a,b|{a == b}), math)
+}
+fn @eq__float4x2_float4x2_mdl_math(x : float4x2, y : float4x2, math : mdl_math) -> bool{
+    all__bool4x2(float4x2_zip_bool(x,y,|a,b|{a == b}), math)
+}
+fn @eq__float4x3_float4x3_mdl_math(x : float4x3, y : float4x3, math : mdl_math) -> bool{
+    all__bool4x3(float4x3_zip_bool(x,y,|a,b|{a == b}), math)
+}
+fn @eq__float4x4_float4x4_mdl_math(x : float4x4, y : float4x4, math : mdl_math) -> bool{
+    all__bool4x4(float4x4_zip_bool(x,y,|a,b|{a == b}), math)
+}
+fn @eq__double2x2_double2x2_mdl_math(x : double2x2, y : double2x2, math : mdl_math) -> bool{
+    all__bool2x2(double2x2_zip_bool(x,y,|a,b|{a == b}), math)
+}
+fn @eq__double2x3_double2x3_mdl_math(x : double2x3, y : double2x3, math : mdl_math) -> bool{
+    all__bool2x3(double2x3_zip_bool(x,y,|a,b|{a == b}), math)
+}
+fn @eq__double2x4_double2x4_mdl_math(x : double2x4, y : double2x4, math : mdl_math) -> bool{
+    all__bool2x4(double2x4_zip_bool(x,y,|a,b|{a == b}), math)
+}
+fn @eq__double3x2_double3x2_mdl_math(x : double3x2, y : double3x2, math : mdl_math) -> bool{
+    all__bool3x2(double3x2_zip_bool(x,y,|a,b|{a == b}), math)
+}
+fn @eq__double3x3_double3x3_mdl_math(x : double3x3, y : double3x3, math : mdl_math) -> bool{
+    all__bool3x3(double3x3_zip_bool(x,y,|a,b|{a == b}), math)
+}
+fn @eq__double3x4_double3x4_mdl_math(x : double3x4, y : double3x4, math : mdl_math) -> bool{
+    all__bool3x4(double3x4_zip_bool(x,y,|a,b|{a == b}), math)
+}
+fn @eq__double4x2_double4x2_mdl_math(x : double4x2, y : double4x2, math : mdl_math) -> bool{
+    all__bool4x2(double4x2_zip_bool(x,y,|a,b|{a == b}), math)
+}
+fn @eq__double4x3_double4x3_mdl_math(x : double4x3, y : double4x3, math : mdl_math) -> bool{
+    all__bool4x3(double4x3_zip_bool(x,y,|a,b|{a == b}), math)
+}
+fn @eq__double4x4_double4x4_mdl_math(x : double4x4, y : double4x4, math : mdl_math) -> bool{
+    all__bool4x4(double4x4_zip_bool(x,y,|a,b|{a == b}), math)
+}
+//texture stuff
+/*
+enum intensity_mode;
+fn @texture_ptex__mdl_math( math : mdl_math) -> texture_ptex;
+fn @texture_ptex__texture_ptex_mdl_math(v : texture_ptex, math : mdl_math) -> texture_ptex;
+fn @texture_ptex__string_gamma_mode_mdl_math(name : string, gamma : gamma_mode, math : mdl_math) -> texture_ptex;
+texture texture_ptex;
+fn @texture_cube__mdl_math( math : mdl_math) -> texture_cube;
+fn @texture_cube__texture_cube_mdl_math(v : texture_cube, math : mdl_math) -> texture_cube;
+fn @texture_cube__string_gamma_mode_mdl_math(name : string, gamma : gamma_mode, math : mdl_math) -> texture_cube;
+texture texture_cube;
+fn @texture_3d__mdl_math( math : mdl_math) -> texture_3d;
+fn @texture_3d__texture_3d_mdl_math(v : texture_3d, math : mdl_math) -> texture_3d;
+fn @texture_3d__string_gamma_mode_mdl_math(name : string, gamma : gamma_mode, math : mdl_math) -> texture_3d;
+texture texture_3d;
+fn @texture_2d__mdl_math( math : mdl_math) -> texture_2d;
+fn @texture_2d__texture_2d_mdl_math(v : texture_2d, math : mdl_math) -> texture_2d;
+fn @texture_2d__string_gamma_mode_mdl_math(name : string, gamma : gamma_mode, math : mdl_math) -> texture_2d;
+texture texture_2d;
+fn @vdf__mdl_math( math : mdl_math) -> vdf;
+fn @vdf__vdf_mdl_math(v : fn(State) -> vdf,  math : mdl_math) -> vdf;
+vdf vdf;
+fn @edf__mdl_math( math : mdl_math) -> edf;
+fn @edf__edf_mdl_math(v : fn(State) -> edf,  math : mdl_math) -> edf;
+edf edf;
+fn @bsdf__mdl_math( math : mdl_math) -> bsdf;
+fn @bsdf__bsdf_mdl_math(v : fn(State) -> bsdf,  math : mdl_math) -> bsdf;
+bsdf bsdf;
+fn @bsdf_measurement__mdl_math( math : mdl_math) -> bsdf_measurement;
+fn @bsdf_measurement__bsdf_measurement_mdl_math(v : bsdf_measurement, math : mdl_math) -> bsdf_measurement;
+fn @bsdf_measurement__string_mdl_math(name : string, math : mdl_math) -> bsdf_measurement;
+bsdf_measurement bsdf_measurement;
+fn @light_profile__mdl_math( math : mdl_math) -> light_profile;
+fn @light_profile__light_profile_mdl_math(v : light_profile, math : mdl_math) -> light_profile;
+fn @light_profile__string_mdl_math(name : string, math : mdl_math) -> light_profile;
+light_profile light_profile;
+*/
+fn @double4x4__double_mdl_math(v : double, math : mdl_math) -> double4x4{
+    make_double4x4(
+        make_double4(v,0.0,0.0,0.0),
+        make_double4(0.0,v,0.0,0.0),
+        make_double4(0.0,0.0,v,0.0),
+        make_double4(0.0,0.0,0.0,v),
+    )
+}
+fn @double4x4__double4x4_mdl_math(v : double4x4, math : mdl_math) -> double4x4{
+    v
+}
+fn @double4x4__double_double_double_double_double_double_double_double_double_double_double_double_double_double_double_double_mdl_math(m00 : double, m01 : double, m02 : double, m03 : double, m10 : double, m11 : double, m12 : double, m13 : double, m20 : double, m21 : double, m22 : double, m23 : double, m30 : double, m31 : double, m32 : double, m33 : double, math : mdl_math) -> double4x4{
+    make_double4x4(
+        make_double4(m00, m01, m02, m03),
+        make_double4(m10, m11, m12, m13),
+        make_double4(m20, m21, m22, m23),
+        make_double4(m30, m31, m32, m33),
+    )
+}
+fn @double4x4__double4_double4_double4_double4_mdl_math(col0 : double4, col1 : double4, col2 : double4, col3 : double4, math : mdl_math) -> double4x4{
+    make_double4x4(
+        col0,
+        col1,
+        col2,
+        col3
+    )
+}
+fn @double4x4__float4x4_mdl_math(v : float4x4, math : mdl_math) -> double4x4{
+    make_double4x4(
+        double4__float4_mdl_math(v.x, math),
+        double4__float4_mdl_math(v.y, math),
+        double4__float4_mdl_math(v.z, math),
+        double4__float4_mdl_math(v.w, math),
+    )
+}
+
+fn @double4x3__double_mdl_math(v : double, math : mdl_math) -> double4x3{
+    make_double4x3(
+        make_double3(v,0.0,0.0),
+        make_double3(0.0,v,0.0),
+        make_double3(0.0,0.0,v),
+        make_double3(0.0,0.0,0.0),
+    )
+}
+fn @double4x3__double4x3_mdl_math(v : double4x3, math : mdl_math) -> double4x3{
+    v
+}
+fn @double4x3__double_double_double_double_double_double_double_double_double_double_double_double_mdl_math(m00 : double, m01 : double, m02 : double, m10 : double, m11 : double, m12 : double, m20 : double, m21 : double, m22 : double, m30 : double, m31 : double, m32 : double, math : mdl_math) -> double4x3{
+    make_double4x3(
+        make_double3(m00, m01, m02),
+        make_double3(m10, m11, m12),
+        make_double3(m20, m21, m22),
+        make_double3(m30, m31, m32),
+    )
+}
+fn @double4x3__double3_double3_double3_double3_mdl_math(col0 : double3, col1 : double3, col2 : double3, col3 : double3, math : mdl_math) -> double4x3{
+    make_double4x3(
+        col0,
+        col1,
+        col2,
+        col3
+    )
+}
+fn @double4x3__float4x3_mdl_math(v : float4x3, math : mdl_math) -> double4x3{
+    make_double4x3(
+        double3__float3_mdl_math(v.x, math),
+        double3__float3_mdl_math(v.y, math),
+        double3__float3_mdl_math(v.z, math),
+        double3__float3_mdl_math(v.w, math),
+    )
+}
+fn @double4x2__double_mdl_math(v : double, math : mdl_math) -> double4x2{
+    make_double4x2(
+        make_double2(v,0.0),
+        make_double2(0.0,v),
+        make_double2(0.0,0.0),
+        make_double2(0.0,0.0),
+    )
+}
+fn @double4x2__double4x2_mdl_math(v : double4x2, math : mdl_math) -> double4x2{
+    v
+}
+fn @double4x2__double_double_double_double_double_double_double_double_mdl_math(m00 : double, m01 : double, m10 : double, m11 : double, m20 : double, m21 : double, m30 : double, m31 : double, math : mdl_math) -> double4x2{
+    make_double4x2(
+        make_double2(m00, m01),
+        make_double2(m10, m11),
+        make_double2(m20, m21),
+        make_double2(m30, m31),
+    )
+}
+fn @double4x2__double2_double2_double2_double2_mdl_math(col0 : double2, col1 : double2, col2 : double2, col3 : double2, math : mdl_math) -> double4x2{
+    make_double4x2(
+        col0,
+        col1,
+        col2,
+        col3
+    )
+}
+fn @double4x2__float4x2_mdl_math(v : float4x2, math : mdl_math) -> double4x2{
+    make_double4x2(
+        double2__float2_mdl_math(v.x, math),
+        double2__float2_mdl_math(v.y, math),
+        double2__float2_mdl_math(v.z, math),
+        double2__float2_mdl_math(v.w, math),
+    )
+}
+
+fn @double3x4__double_mdl_math(v : double, math : mdl_math) -> double3x4{
+    make_double3x4(
+        make_double4(v,0.0,0.0,0.0),
+        make_double4(0.0,v,0.0,0.0),
+        make_double4(0.0,0.0,v,0.0),
+    )
+}
+fn @double3x4__double3x4_mdl_math(v : double3x4, math : mdl_math) -> double3x4{
+    v
+}
+fn @double3x4__double_double_double_double_double_double_double_double_double_double_double_double_mdl_math(m00 : double, m01 : double, m02 : double, m03 : double, m10 : double, m11 : double, m12 : double, m13 : double, m20 : double, m21 : double, m22 : double, m23 : double, math : mdl_math) -> double3x4{
+    make_double3x4(
+        make_double4(m00, m01, m02, m03),
+        make_double4(m10, m11, m12, m13),
+        make_double4(m20, m21, m22, m23),
+    )
+}
+fn @double3x4__double4_double4_double4_mdl_math(col0 : double4, col1 : double4, col2 : double4, math : mdl_math) -> double3x4{
+    make_double3x4(
+        col0,
+        col1,
+        col2
+    )
+}
+fn @double3x4__float3x4_mdl_math(v : float3x4, math : mdl_math) -> double3x4{
+    make_double3x4(
+        double4__float4_mdl_math(v.x, math),
+        double4__float4_mdl_math(v.y, math),
+        double4__float4_mdl_math(v.z, math),
+    )
+}
+
+fn @double3x3__double_mdl_math(v : double, math : mdl_math) -> double3x3{
+    make_double3x3(
+        make_double3(v,0.0,0.0),
+        make_double3(0.0,v,0.0),
+        make_double3(0.0,0.0,v),
+    )
+}
+fn @double3x3__double3x3_mdl_math(v : double3x3, math : mdl_math) -> double3x3{
+    v
+}
+fn @double3x3__double_double_double_double_double_double_double_double_double_mdl_math(m00 : double, m01 : double, m02 : double, m10 : double, m11 : double, m12 : double, m20 : double, m21 : double, m22 : double, math : mdl_math) -> double3x3{
+    make_double3x3(
+        make_double3(m00, m01, m02),
+        make_double3(m10, m11, m12),
+        make_double3(m20, m21, m22),
+    )
+}
+fn @double3x3__double3_double3_double3_mdl_math(col0 : double3, col1 : double3, col2 : double3, math : mdl_math) -> double3x3{
+    make_double3x3(
+        col0,
+        col1,
+        col2
+    )
+}
+
+fn @double3x3__float3x3_mdl_math(v : float3x3, math : mdl_math) -> double3x3{
+    make_double3x3(
+        double3__float3_mdl_math(v.x, math),
+        double3__float3_mdl_math(v.y, math),
+        double3__float3_mdl_math(v.z, math),
+    )
+}
+
+fn @double3x2__double_mdl_math(v : double, math : mdl_math) -> double3x2{
+    make_double3x2(
+        make_double2(v,0.0),
+        make_double2(0.0,v),
+        make_double2(0.0,0.0),
+    )
+}
+fn @double3x2__double3x2_mdl_math(v : double3x2, math : mdl_math) -> double3x2{
+    v
+}
+fn @double3x2__double_double_double_double_double_double_mdl_math(m00 : double, m01 : double, m10 : double, m11 : double, m20 : double, m21 : double, math : mdl_math) -> double3x2{
+    make_double3x2(
+        make_double2(m00, m01),
+        make_double2(m10, m11),
+        make_double2(m20, m21),
+    )
+}
+fn @double3x2__double2_double2_double2_mdl_math(col0 : double2, col1 : double2, col2 : double2, math : mdl_math) -> double3x2{
+    make_double3x2(
+        col0,
+        col1,
+        col2
+    )
+}
+fn @double3x2__float3x2_mdl_math(v : float3x2, math : mdl_math) -> double3x2{
+    make_double3x2(
+        double2__float2_mdl_math(v.x, math),
+        double2__float2_mdl_math(v.y, math),
+        double2__float2_mdl_math(v.z, math),
+    )
+}
+
+fn @double2x4__double_mdl_math(v : double, math : mdl_math) -> double2x4{
+    make_double2x4(
+        make_double4(v,0.0,0.0,0.0),
+        make_double4(0.0,v,0.0,0.0),
+    )
+}
+fn @double2x4__double2x4_mdl_math(v : double2x4, math : mdl_math) -> double2x4{
+    v
+}
+fn @double2x4__double_double_double_double_double_double_double_double_mdl_math(m00 : double, m01 : double, m02 : double, m03 : double, m10 : double, m11 : double, m12 : double, m13 : double, math : mdl_math) -> double2x4{
+    make_double2x4(
+        make_double4(m00, m01, m02, m03),
+        make_double4(m10, m11, m12, m13),
+    )
+}
+fn @double2x4__double4_double4_mdl_math(col0 : double4, col1 : double4, math : mdl_math) -> double2x4{
+    make_double2x4(
+        col0,
+        col1
+    )
+}
+fn @double2x4__float2x4_mdl_math(v : float2x4, math : mdl_math) -> double2x4{
+    make_double2x4(
+        double4__float4_mdl_math(v.x, math),
+        double4__float4_mdl_math(v.y, math),
+    )
+}
+fn @double2x3__double_mdl_math(v : double, math : mdl_math) -> double2x3{
+    make_double2x3(
+        make_double3(v,0.0,0.0),
+        make_double3(0.0,v,0.0),
+    )
+}
+fn @double2x3__double2x3_mdl_math(v : double2x3, math : mdl_math) -> double2x3{
+    v
+}
+fn @double2x3__double_double_double_double_double_double_mdl_math(m00 : double, m01 : double, m02 : double, m10 : double, m11 : double, m12 : double, math : mdl_math) -> double2x3{
+    make_double2x3(
+        make_double3(m00, m01, m02),
+        make_double3(m10, m11, m12),
+    )
+}
+fn @double2x3__double3_double3_mdl_math(col0 : double3, col1 : double3, math : mdl_math) -> double2x3{
+    make_double2x3(
+        col0,
+        col1
+    )
+}
+fn @double2x3__float2x3_mdl_math(v : float2x3, math : mdl_math) -> double2x3{
+    make_double2x3(
+        double3__float3_mdl_math(v.x, math),
+        double3__float3_mdl_math(v.y, math),
+    )
+}
+
+fn @double2x2__double_mdl_math(v : double, math : mdl_math) -> double2x2{
+    make_double2x2(
+        make_double2(v,0.0),
+        make_double2(0.0,v),
+    )
+}
+fn @double2x2__double2x2_mdl_math(v : double2x2, math : mdl_math) -> double2x2{
+    v
+}
+fn @double2x2__double_double_double_double_mdl_math(m00 : double, m01 : double, m10 : double, m11 : double, math : mdl_math) -> double2x2{
+    make_double2x2(
+        make_double2(m00, m01),
+        make_double2(m10, m11),
+    )
+}
+fn @double2x2__double2_double2_mdl_math(col0 : double2, col1 : double2, math : mdl_math) -> double2x2{
+    make_double2x2(
+        col0,
+        col1
+    )
+}
+fn @double2x2__float2x2_mdl_math(v : float2x2, math : mdl_math) -> double2x2{
+    make_double2x2(
+        double2__float2_mdl_math(v.x, math),
+        double2__float2_mdl_math(v.y, math),
+    )
+}
+
+fn @float4x4__float_mdl_math(v : float, math : mdl_math) -> float4x4{
+    make_float4x4(
+        make_float4(v,0.0f,0.0f,0.0f),
+        make_float4(0.0f,v,0.0f,0.0f),
+        make_float4(0.0f,0.0f,v,0.0f),
+        make_float4(0.0f,0.0f,0.0f,v),
+    )
+}
+fn @float4x4__float4x4_mdl_math(v : float4x4, math : mdl_math) -> float4x4{
+    v
+}
+fn @float4x4__float_float_float_float_float_float_float_float_float_float_float_float_float_float_float_float_mdl_math(m00 : float, m01 : float, m02 : float, m03 : float, m10 : float, m11 : float, m12 : float, m13 : float, m20 : float, m21 : float, m22 : float, m23 : float, m30 : float, m31 : float, m32 : float, m33 : float, math : mdl_math) -> float4x4{
+    make_float4x4(
+        make_float4(m00, m01, m02, m03),
+        make_float4(m10, m11, m12, m13),
+        make_float4(m20, m21, m22, m23),
+        make_float4(m30, m31, m32, m33),
+    )
+}
+fn @float4x4__float4_float4_float4_float4_mdl_math(col0 : float4, col1 : float4, col2 : float4, col3 : float4, math : mdl_math) -> float4x4{
+    make_float4x4(
+        col0,
+        col1,
+        col2,
+        col3
+    )
+}
+fn @float4x4__double4x4_mdl_math(v : double4x4, math : mdl_math) -> float4x4{
+    make_float4x4(
+        float4__double4_mdl_math(v.x, math),
+        float4__double4_mdl_math(v.y, math),
+        float4__double4_mdl_math(v.z, math),
+        float4__double4_mdl_math(v.w, math),
+    )
+}
+
+fn @float4x3__float_mdl_math(v : float, math : mdl_math) -> float4x3{
+    make_float4x3(
+        make_float3(v,0.0f,0.0f),
+        make_float3(0.0f,v,0.0f),
+        make_float3(0.0f,0.0f,v),
+        make_float3(0.0f,0.0f,0.0f),
+    )
+}
+fn @float4x3__float4x3_mdl_math(v : float4x3, math : mdl_math) -> float4x3{
+    v
+}
+fn @float4x3__float_float_float_float_float_float_float_float_float_float_float_float_mdl_math(m00 : float, m01 : float, m02 : float, m10 : float, m11 : float, m12 : float, m20 : float, m21 : float, m22 : float, m30 : float, m31 : float, m32 : float, math : mdl_math) -> float4x3{
+    make_float4x3(
+        make_float3(m00, m01, m02),
+        make_float3(m10, m11, m12),
+        make_float3(m20, m21, m22),
+        make_float3(m30, m31, m32),
+    )
+}
+fn @float4x3__float3_float3_float3_float3_mdl_math(col0 : float3, col1 : float3, col2 : float3, col3 : float3, math : mdl_math) -> float4x3{
+    make_float4x3(
+        col0,
+        col1,
+        col2,
+        col3
+    )
+}
+fn @float4x3__double4x3_mdl_math(v : double4x3, math : mdl_math) -> float4x3{
+    make_float4x3(
+        float3__double3_mdl_math(v.x, math),
+        float3__double3_mdl_math(v.y, math),
+        float3__double3_mdl_math(v.z, math),
+        float3__double3_mdl_math(v.w, math),
+    )
+}
+fn @float4x2__float_mdl_math(v : float, math : mdl_math) -> float4x2{
+    make_float4x2(
+        make_float2(v,0.0f),
+        make_float2(0.0f,v),
+        make_float2(0.0f,0.0f),
+        make_float2(0.0f,0.0f),
+    )
+}
+fn @float4x2__float4x2_mdl_math(v : float4x2, math : mdl_math) -> float4x2{
+    v
+}
+fn @float4x2__float_float_float_float_float_float_float_float_mdl_math(m00 : float, m01 : float, m10 : float, m11 : float, m20 : float, m21 : float, m30 : float, m31 : float, math : mdl_math) -> float4x2{
+    make_float4x2(
+        make_float2(m00, m01),
+        make_float2(m10, m11),
+        make_float2(m20, m21),
+        make_float2(m30, m31),
+    )
+}
+fn @float4x2__float2_float2_float2_float2_mdl_math(col0 : float2, col1 : float2, col2 : float2, col3 : float2, math : mdl_math) -> float4x2{
+    make_float4x2(
+        col0,
+        col1,
+        col2,
+        col3
+    )
+}
+fn @float4x2__double4x2_mdl_math(v : double4x2, math : mdl_math) -> float4x2{
+    make_float4x2(
+        float2__double2_mdl_math(v.x, math),
+        float2__double2_mdl_math(v.y, math),
+        float2__double2_mdl_math(v.z, math),
+        float2__double2_mdl_math(v.w, math),
+    )
+}
+
+fn @float3x4__float_mdl_math(v : float, math : mdl_math) -> float3x4{
+    make_float3x4(
+        make_float4(v,0.0f,0.0f,0.0f),
+        make_float4(0.0f,v,0.0f,0.0f),
+        make_float4(0.0f,0.0f,v,0.0f),
+    )
+}
+fn @float3x4__float3x4_mdl_math(v : float3x4, math : mdl_math) -> float3x4{
+    v
+}
+fn @float3x4__float_float_float_float_float_float_float_float_float_float_float_float_mdl_math(m00 : float, m01 : float, m02 : float, m03 : float, m10 : float, m11 : float, m12 : float, m13 : float, m20 : float, m21 : float, m22 : float, m23 : float, math : mdl_math) -> float3x4{
+    make_float3x4(
+        make_float4(m00, m01, m02, m03),
+        make_float4(m10, m11, m12, m13),
+        make_float4(m20, m21, m22, m23),
+    )
+}
+fn @float3x4__float4_float4_float4_mdl_math(col0 : float4, col1 : float4, col2 : float4, math : mdl_math) -> float3x4{
+    make_float3x4(
+        col0,
+        col1,
+        col2
+    )
+}
+fn @float3x4__double3x4_mdl_math(v : double3x4, math : mdl_math) -> float3x4{
+    make_float3x4(
+        float4__double4_mdl_math(v.x, math),
+        float4__double4_mdl_math(v.y, math),
+        float4__double4_mdl_math(v.z, math),
+    )
+}
+
+fn @float3x3__float_mdl_math(v : float, math : mdl_math) -> float3x3{
+    make_float3x3(
+        make_float3(v,0.0f,0.0f),
+        make_float3(0.0f,v,0.0f),
+        make_float3(0.0f,0.0f,v),
+    )
+}
+fn @float3x3__float3x3_mdl_math(v : float3x3, math : mdl_math) -> float3x3{
+    v
+}
+fn @float3x3__float_float_float_float_float_float_float_float_float_mdl_math(m00 : float, m01 : float, m02 : float, m10 : float, m11 : float, m12 : float, m20 : float, m21 : float, m22 : float, math : mdl_math) -> float3x3{
+    make_float3x3(
+        make_float3(m00, m01, m02),
+        make_float3(m10, m11, m12),
+        make_float3(m20, m21, m22),
+    )
+}
+fn @float3x3__float3_float3_float3_mdl_math(col0 : float3, col1 : float3, col2 : float3, math : mdl_math) -> float3x3{
+    make_float3x3(
+        col0,
+        col1,
+        col2
+    )
+}
+
+fn @float3x3__double3x3_mdl_math(v : double3x3, math : mdl_math) -> float3x3{
+    make_float3x3(
+        float3__double3_mdl_math(v.x, math),
+        float3__double3_mdl_math(v.y, math),
+        float3__double3_mdl_math(v.z, math),
+    )
+}
+
+fn @float3x2__float_mdl_math(v : float, math : mdl_math) -> float3x2{
+    make_float3x2(
+        make_float2(v,0.0f),
+        make_float2(0.0f,v),
+        make_float2(0.0f,0.0f),
+    )
+}
+fn @float3x2__float3x2_mdl_math(v : float3x2, math : mdl_math) -> float3x2{
+    v
+}
+fn @float3x2__float_float_float_float_float_float_mdl_math(m00 : float, m01 : float, m10 : float, m11 : float, m20 : float, m21 : float, math : mdl_math) -> float3x2{
+    make_float3x2(
+        make_float2(m00, m01),
+        make_float2(m10, m11),
+        make_float2(m20, m21),
+    )
+}
+fn @float3x2__float2_float2_float2_mdl_math(col0 : float2, col1 : float2, col2 : float2, math : mdl_math) -> float3x2{
+    make_float3x2(
+        col0,
+        col1,
+        col2
+    )
+}
+fn @float3x2__double3x2_mdl_math(v : double3x2, math : mdl_math) -> float3x2{
+    make_float3x2(
+        float2__double2_mdl_math(v.x, math),
+        float2__double2_mdl_math(v.y, math),
+        float2__double2_mdl_math(v.z, math),
+    )
+}
+
+fn @float2x4__float_mdl_math(v : float, math : mdl_math) -> float2x4{
+    make_float2x4(
+        make_float4(v,0.0f,0.0f,0.0f),
+        make_float4(0.0f,v,0.0f,0.0f),
+    )
+}
+fn @float2x4__float2x4_mdl_math(v : float2x4, math : mdl_math) -> float2x4{
+    v
+}
+fn @float2x4__float_float_float_float_float_float_float_float_mdl_math(m00 : float, m01 : float, m02 : float, m03 : float, m10 : float, m11 : float, m12 : float, m13 : float, math : mdl_math) -> float2x4{
+    make_float2x4(
+        make_float4(m00, m01, m02, m03),
+        make_float4(m10, m11, m12, m13),
+    )
+}
+fn @float2x4__float4_float4_mdl_math(col0 : float4, col1 : float4, math : mdl_math) -> float2x4{
+    make_float2x4(
+        col0,
+        col1
+    )
+}
+fn @float2x4__double2x4_mdl_math(v : double2x4, math : mdl_math) -> float2x4{
+    make_float2x4(
+        float4__double4_mdl_math(v.x, math),
+        float4__double4_mdl_math(v.y, math),
+    )
+}
+fn @float2x3__float_mdl_math(v : float, math : mdl_math) -> float2x3{
+    make_float2x3(
+        make_float3(v,0.0f,0.0f),
+        make_float3(0.0f,v,0.0f),
+    )
+}
+fn @float2x3__float2x3_mdl_math(v : float2x3, math : mdl_math) -> float2x3{
+    v
+}
+fn @float2x3__float_float_float_float_float_float_mdl_math(m00 : float, m01 : float, m02 : float, m10 : float, m11 : float, m12 : float, math : mdl_math) -> float2x3{
+    make_float2x3(
+        make_float3(m00, m01, m02),
+        make_float3(m10, m11, m12),
+    )
+}
+fn @float2x3__float3_float3_mdl_math(col0 : float3, col1 : float3, math : mdl_math) -> float2x3{
+    make_float2x3(
+        col0,
+        col1
+    )
+}
+fn @float2x3__double2x3_mdl_math(v : double2x3, math : mdl_math) -> float2x3{
+    make_float2x3(
+        float3__double3_mdl_math(v.x, math),
+        float3__double3_mdl_math(v.y, math),
+    )
+}
+
+fn @float2x2__float_mdl_math(v : float, math : mdl_math) -> float2x2{
+    make_float2x2(
+        make_float2(v,0.0f),
+        make_float2(0.0f,v),
+    )
+}
+fn @float2x2__float2x2_mdl_math(v : float2x2, math : mdl_math) -> float2x2{
+    v
+}
+fn @float2x2__float_float_float_float_mdl_math(m00 : float, m01 : float, m10 : float, m11 : float, math : mdl_math) -> float2x2{
+    make_float2x2(
+        make_float2(m00, m01),
+        make_float2(m10, m11),
+    )
+}
+fn @float2x2__float2_float2_mdl_math(col0 : float2, col1 : float2, math : mdl_math) -> float2x2{
+    make_float2x2(
+        col0,
+        col1
+    )
+}
+fn @float2x2__double2x2_mdl_math(v : double2x2, math : mdl_math) -> float2x2{
+    make_float2x2(
+        float2__double2_mdl_math(v.x, math),
+        float2__double2_mdl_math(v.y, math),
+    )
+}
+
+fn @color__float_mdl_math(v : float, math : mdl_math) -> color{
+    make_color(v,v,v)
+}
+fn @color__float_float_float_mdl_math(r : float, g : float, b : float, math : mdl_math) -> color{
+    make_color(r,g,b)
+}
+fn @color__float3_mdl_math(rgb : float3, math : mdl_math) -> color{
+    make_color(rgb.x, rgb.y, rgb.z)
+}
+/*
+fn @color__float_arr_float_arr_mdl_math(wavelengths : [float], amplitudes : [float], math : mdl_math) -> color;
+*/
+fn @color__color_mdl_math(v : color, math : mdl_math) -> color{
+    v
+}
+/*
+fn @string__string_mdl_math(v : string, math : mdl_math) -> string;
+string string;
+*/
+fn @double4__double_mdl_math(v : double, math : mdl_math) -> double4{
+    make_double4(v,v,v,v)
+}
+fn @double4__double_double_double_double_mdl_math(x : double, y : double, z : double, w : double, math : mdl_math) -> double4{
+    make_double4(x,y,z,w)
+}
+fn @double4__double4_mdl_math(v : double4, math : mdl_math) -> double4{
+    v
+}
+fn @double4__bool4_mdl_math(v : bool4, math : mdl_math) -> double4{
+    make_double4(
+        if(v.x) {1.0} else {0.0},
+        if(v.y) {1.0} else {0.0},
+        if(v.z) {1.0} else {0.0},
+        if(v.w) {1.0} else {0.0}
+    )
+}
+fn @double4__int4_mdl_math(v : int4, math : mdl_math) -> double4{
+    make_double4(
+        v.x as double,
+        v.y as double,
+        v.z as double,
+        v.w as double
+    )
+}
+fn @double4__float4_mdl_math(v : float4, math : mdl_math) -> double4{
+    make_double4(
+        v.x as double,
+        v.y as double,
+        v.z as double,
+        v.w as double
+    )
+}
+fn @double3__double_mdl_math(v : double, math : mdl_math) -> double3{
+    make_double3(v,v,v)
+}
+fn @double3__double_double_double_mdl_math(x : double, y : double, z : double, math : mdl_math) -> double3{
+    make_double3(x,y,z)
+}
+fn @double3__double3_mdl_math(v : double3, math : mdl_math) -> double3{
+    v
+}
+fn @double3__bool3_mdl_math(v : bool3, math : mdl_math) -> double3{
+    make_double3(
+        if(v.x) {1.0} else {0.0},
+        if(v.y) {1.0} else {0.0},
+        if(v.z) {1.0} else {0.0},
+    )
+}
+fn @double3__int3_mdl_math(v : int3, math : mdl_math) -> double3{
+    make_double3(
+        v.x as double,
+        v.y as double,
+        v.z as double,
+    )
+}
+fn @double3__float3_mdl_math(v : float3, math : mdl_math) -> double3{
+    make_double3(
+        v.x as double,
+        v.y as double,
+        v.z as double,
+    )
+}
+
+fn @double2__double_mdl_math(v : double, math : mdl_math) -> double2{
+    make_double2(v,v)
+}
+fn @double2__double_double_mdl_math(x : double, y : double, math : mdl_math) -> double2{
+    make_double2(x,y)
+}
+fn @double2__double2_mdl_math(v : double2, math : mdl_math) -> double2{
+    v
+}
+fn @double2__bool2_mdl_math(v : bool2, math : mdl_math) -> double2{
+    make_double2(
+        if(v.x) {1.0} else {0.0},
+        if(v.y) {1.0} else {0.0},
+    )
+}
+fn @double2__int2_mdl_math(v : int2, math : mdl_math) -> double2{
+    make_double2(
+        v.x as double,
+        v.y as double,
+    )
+}
+fn @double2__float2_mdl_math(v : float2, math : mdl_math) -> double2{
+    make_double2(
+        v.x as double,
+        v.y as double,
+    )
+}
+
+fn @double__double_mdl_math(v : double, math : mdl_math) -> double{
+    v
+}
+fn @double__bool_mdl_math(v : bool, math : mdl_math) -> double{
+    if(v) {1.0} else {0.0}
+}
+fn @double__int_mdl_math(v : int, math : mdl_math) -> double{
+    v as double
+}
+fn @double__float_mdl_math(v : float, math : mdl_math) -> double{
+    v as double
+}
+
+fn @float4__float_mdl_math(v : float, math : mdl_math) -> float4{
+    make_float4(v,v,v,v)
+}
+fn @float4__float_float_float_float_mdl_math(x : float, y : float, z : float, w : float, math : mdl_math) -> float4{
+    make_float4(x,y,z,w)
+}
+fn @float4__float4_mdl_math(v : float4, math : mdl_math) -> float4{
+    v
+}
+fn @float4__bool4_mdl_math(v : bool4, math : mdl_math) -> float4{
+    make_float4(
+        if(v.x) {1.0f} else {0.0f},
+        if(v.y) {1.0f} else {0.0f},
+        if(v.z) {1.0f} else {0.0f},
+        if(v.w) {1.0f} else {0.0f}
+    )
+}
+fn @float4__int4_mdl_math(v : int4, math : mdl_math) -> float4{
+    make_float4(
+        v.x as float,
+        v.y as float,
+        v.z as float,
+        v.w as float
+    )
+}
+fn @float4__double4_mdl_math(v : double4, math : mdl_math) -> float4{
+    make_float4(
+        v.x as float,
+        v.y as float,
+        v.z as float,
+        v.w as float
+    )
+}
+fn @float3__float_mdl_math(v : float, math : mdl_math) -> float3{
+    make_float3(v,v,v)
+}
+fn @float3__float_float_float_mdl_math(x : float, y : float, z : float, math : mdl_math) -> float3{
+    make_float3(x,y,z)
+}
+fn @float3__float3_mdl_math(v : float3, math : mdl_math) -> float3{
+    v
+}
+fn @float3__bool3_mdl_math(v : bool3, math : mdl_math) -> float3{
+    make_float3(
+        if(v.x) {1.0f} else {0.0f},
+        if(v.y) {1.0f} else {0.0f},
+        if(v.z) {1.0f} else {0.0f},
+    )
+}
+fn @float3__int3_mdl_math(v : int3, math : mdl_math) -> float3{
+    make_float3(
+        v.x as float,
+        v.y as float,
+        v.z as float,
+    )
+}
+
+fn @float3__color_mdl_math(c: color, math: mdl_math) -> float3{
+    make_float3(
+        c.r,
+        c.g,
+        c.b
+    )
+}
+
+fn @float3__double3_mdl_math(v : double3, math : mdl_math) -> float3{
+    make_float3(
+        v.x as float,
+        v.y as float,
+        v.z as float,
+    )
+}
+
+fn @float2__float_mdl_math(v : float, math : mdl_math) -> float2{
+    make_float2(v,v)
+}
+fn @float2__float_float_mdl_math(x : float, y : float, math : mdl_math) -> float2{
+    make_float2(x,y)
+}
+fn @float2__float2_mdl_math(v : float2, math : mdl_math) -> float2{
+    v
+}
+fn @float2__bool2_mdl_math(v : bool2, math : mdl_math) -> float2{
+    make_float2(
+        if(v.x) {1.0f} else {0.0f},
+        if(v.y) {1.0f} else {0.0f},
+    )
+}
+fn @float2__int2_mdl_math(v : int2, math : mdl_math) -> float2{
+    make_float2(
+        v.x as float,
+        v.y as float,
+    )
+}
+fn @float2__double2_mdl_math(v : double2, math : mdl_math) -> float2{
+    make_float2(
+        v.x as float,
+        v.y as float,
+    )
+}
+
+fn @float__float_mdl_math(v : float, math : mdl_math) -> float{
+    v
+}
+fn @float__bool_mdl_math(v : bool, math : mdl_math) -> float{
+    if(v) {1.0f} else {0.0f}
+}
+fn @float__int_mdl_math(v : int, math : mdl_math) -> float{
+    v as float
+}
+fn @float__double_mdl_math(v : double, math : mdl_math) -> float{
+    v as float
+}
+fn @int4__int_mdl_math(v : int, math : mdl_math) -> int4{
+    make_int4(v,v,v,v)
+}
+fn @int4__int_int_int_int_mdl_math(x : int, y : int, z : int, w : int, math : mdl_math) -> int4{
+    make_int4(x,y,z,w)
+}
+fn @int4__int4_mdl_math(v : int4, math : mdl_math) -> int4{
+    v
+}
+fn @int4__bool4_mdl_math(v : bool4, math : mdl_math) -> int4{
+    make_int4(
+        if(v.x) {1} else {0},
+        if(v.y) {1} else {0},
+        if(v.z) {1} else {0},
+        if(v.w) {1} else {0}
+    )
+}
+fn @int4__float4_mdl_math(v : float4, math : mdl_math) -> int4{
+    make_int4(
+        v.x as int,
+        v.y as int,
+        v.z as int,
+        v.w as int
+    )
+}
+fn @int4__double4_mdl_math(v : double4, math : mdl_math) -> int4{
+    make_int4(
+        v.x as int,
+        v.y as int,
+        v.z as int,
+        v.w as int
+    )
+}
+fn @int3__int_mdl_math(v : int, math : mdl_math) -> int3{
+    make_int3(v,v,v)
+}
+fn @int3__int_int_int_mdl_math(x : int, y : int, z : int, math : mdl_math) -> int3{
+    make_int3(x,y,z)
+}
+fn @int3__int3_mdl_math(v : int3, math : mdl_math) -> int3{
+    v
+}
+fn @int3__bool3_mdl_math(v : bool3, math : mdl_math) -> int3{
+    make_int3(
+        if(v.x) {1} else {0},
+        if(v.y) {1} else {0},
+        if(v.z) {1} else {0},
+    )
+}
+fn @int3__float3_mdl_math(v : float3, math : mdl_math) -> int3{
+    make_int3(
+        v.x as int,
+        v.y as int,
+        v.z as int,
+    )
+}
+fn @int3__double3_mdl_math(v : double3, math : mdl_math) -> int3{
+    make_int3(
+        v.x as int,
+        v.y as int,
+        v.z as int,
+    )
+}
+
+fn @int2__int_mdl_math(v : int, math : mdl_math) -> int2{
+    make_int2(v,v)
+}
+fn @int2__int_int_mdl_math(x : int, y : int, math : mdl_math) -> int2{
+    make_int2(x,y)
+}
+fn @int2__float2_mdl_math(v : float2, math : mdl_math) -> int2{
+    make_int2(
+        v.x as int,
+        v.y as int,
+    )
+}
+fn @int2__bool2_mdl_math(v : bool2, math : mdl_math) -> int2{
+    make_int2(
+        if(v.x) {1} else {0},
+        if(v.y) {1} else {0},
+    )
+}
+fn @int2__int2_mdl_math(v : int2, math : mdl_math) -> int2{
+    v
+}
+fn @int2__double2_mdl_math(v : double2, math : mdl_math) -> int2{
+    make_int2(
+        v.x as int,
+        v.y as int,
+    )
+}
+
+fn @int__int_mdl_math(v : int, math : mdl_math) -> int{
+    v
+}
+fn @int__bool_mdl_math(v : bool, math : mdl_math) -> int{
+    if(v) {1} else {0}
+}
+fn @int__float_mdl_math(v : float, math : mdl_math) -> int{
+    v as int
+}
+fn @int__double_mdl_math(v : double, math : mdl_math) -> int{
+    v as int
+}
+fn @bool4__bool_mdl_math(v : bool, math : mdl_math) -> bool4{
+    make_bool4(v,v,v,v)
+}
+fn @bool4__bool_bool_bool_bool_mdl_math(x : bool, y : bool, z : bool, w : bool, math : mdl_math) -> bool4{
+    make_bool4(x,y,z,w)
+}
+fn @bool4__bool4_mdl_math(v : bool4, math : mdl_math) -> bool4{
+    v
+}
+fn @bool4__float4_mdl_math(v : float4, math : mdl_math) -> bool4{
+    make_bool4(
+        v.x as bool,
+        v.y as bool,
+        v.z as bool,
+        v.w as bool
+    )
+}
+fn @bool4__int4_mdl_math(v : int4, math : mdl_math) -> bool4{
+    make_bool4(
+        v.x as bool,
+        v.y as bool,
+        v.z as bool,
+        v.w as bool
+    )
+}
+fn @bool4__double4_mdl_math(v : double4, math : mdl_math) -> bool4{
+    make_bool4(
+        v.x as bool,
+        v.y as bool,
+        v.z as bool,
+        v.w as bool
+    )
+}
+fn @bool3__bool_mdl_math(v : bool, math : mdl_math) -> bool3{
+    make_bool3(v,v,v)
+}
+fn @bool3__bool_bool_bool_mdl_math(x : bool, y : bool, z : bool, math : mdl_math) -> bool3{
+    make_bool3(x,y,z)
+}
+fn @bool3__bool3_mdl_math(v : bool3, math : mdl_math) -> bool3{
+    v
+}
+fn @bool3__float3_mdl_math(v : float3, math : mdl_math) -> bool3{
+    make_bool3(
+        v.x as bool,
+        v.y as bool,
+        v.z as bool,
+    )
+}
+fn @bool3__int3_mdl_math(v : int3, math : mdl_math) -> bool3{
+    make_bool3(
+        v.x as bool,
+        v.y as bool,
+        v.z as bool,
+    )
+}
+fn @bool3__double3_mdl_math(v : double3, math : mdl_math) -> bool3{
+    make_bool3(
+        v.x as bool,
+        v.y as bool,
+        v.z as bool,
+    )
+}
+
+fn @bool2__bool_mdl_math(v : bool, math : mdl_math) -> bool2{
+    make_bool2(v,v)
+}
+fn @bool2__bool_bool_mdl_math(x : bool, y : bool, math : mdl_math) -> bool2{
+    make_bool2(x,y)
+}
+fn @bool2__bool2_mdl_math(v : bool2, math : mdl_math) -> bool2{
+    v
+}
+fn @bool2__float2_mdl_math(v : float2, math : mdl_math) -> bool2{
+    make_bool2(
+        v.x as bool,
+        v.y as bool,
+    )
+}
+fn @bool2__int2_mdl_math(v : int2, math : mdl_math) -> bool2{
+    make_bool2(
+        v.x as bool,
+        v.y as bool,
+    )
+}
+fn @bool2__double2_mdl_math(v : double2, math : mdl_math) -> bool2{
+    make_bool2(
+        v.x as bool,
+        v.y as bool,
+    )
+}
+
+fn @bool__bool_mdl_math(v : bool, math : mdl_math) -> bool{
+    v
+}
+fn @bool__float_mdl_math(v : float, math : mdl_math) -> bool{
+    v as bool
+}
+fn @bool__int_mdl_math(v : int, math : mdl_math) -> bool{
+    v as bool
+}
+fn @bool__double_mdl_math(v : double, math : mdl_math) -> bool{
+    v as bool
+}

@@ -1,29 +1,5 @@
 /******************************************************************************
- * Copyright (c) 2017-2019, NVIDIA CORPORATION. All rights reserved.
- *
- * Redistribution and use in source and binary forms, with or without
- * modification, are permitted provided that the following conditions
- * are met:
- *  * Redistributions of source code must retain the above copyright
- *    notice, this list of conditions and the following disclaimer.
- *  * Redistributions in binary form must reproduce the above copyright
- *    notice, this list of conditions and the following disclaimer in the
- *    documentation and/or other materials provided with the distribution.
- *  * Neither the name of NVIDIA CORPORATION nor the names of its
- *    contributors may be used to endorse or promote products derived
- *    from this software without specific prior written permission.
- *
- * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS ``AS IS'' AND ANY
- * EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
- * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
- * PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL THE COPYRIGHT OWNER OR
- * CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
- * EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
- * PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
- * PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY
- * OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
- * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
- * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ * Copyright 2019 NVIDIA Corporation. All rights reserved.
  *****************************************************************************/
 
 // examples/example_execution_native.cpp
@@ -36,12 +12,14 @@
 #include <iostream>
 #include <sstream>
 #include <string>
+#include <chrono>
 
 #include <mi/mdl_sdk.h>
 
 #include "example_shared.h"
 #include "texture_support.h"
 #include <vector>
+#include <png.h>
 
 
 // Command line options structure.
@@ -183,7 +161,7 @@ mi::neuraylib::ITarget_code const *generate_native(
 
 // Bake the material expression created with the native backend into a canvas with the given
 // resolution.
-mi::neuraylib::ICanvas *bake_expression_native(
+std::vector<std::vector<mi::Float32_3_struct>> bake_expression_native(
     mi::neuraylib::IImage_api            *image_api,
     mi::neuraylib::ITarget_code const    *code_native,
     mi::neuraylib::Texture_handler_base  *tex_handler,
@@ -232,8 +210,10 @@ mi::neuraylib::ICanvas *bake_expression_native(
     // Calculate all expression values for a 2x2 quad around the center of the world
     // and write them to the canvas.
     mi::base::Handle<mi::neuraylib::ITile> tile(canvas->get_tile(0, 0));
-    mi::Float32_3_struct *data = static_cast<mi::Float32_3_struct *>(tile->get_data());
+    auto buffer = std::vector<std::vector<mi::Float32_3_struct>>();
+    auto start = std::chrono::system_clock::now();
     for (mi::Uint32 y = 0; y < height; ++y) {
+        buffer.emplace_back(std::vector<mi::Float32_3_struct>());
         for (mi::Uint32 x = 0; x < width; ++x) {
             // Update state for the current pixel
             float rel_x = float(x) / float(width);
@@ -244,20 +224,22 @@ mi::neuraylib::ICanvas *bake_expression_native(
             texture_coords[0].y  = rel_y;             // [0, 1)
 
             // Evaluate sub-expression
-            code_native->execute(0, mdl_state, tex_handler, nullptr, &execute_result);
+            check_success(
+                code_native->execute(0, mdl_state, tex_handler, nullptr, &execute_result) == 0);
 
             // Apply gamma correction
-            execute_result.float3_val.x = powf(execute_result.float3_val.x, 1.f / 2.2f);
+            /*execute_result.float3_val.x = powf(execute_result.float3_val.x, 1.f / 2.2f);
             execute_result.float3_val.y = powf(execute_result.float3_val.y, 1.f / 2.2f);
-            execute_result.float3_val.z = powf(execute_result.float3_val.z, 1.f / 2.2f);
+            execute_result.float3_val.z = powf(execute_result.float3_val.z, 1.f / 2.2f);*/
 
             // Store result in texture
-            data[y * width + x] = execute_result.float3_val;
+            buffer[y].push_back(execute_result.float3_val);
         }
     }
 
-    canvas->retain();
-    return canvas.get();
+    auto end = std::chrono::system_clock::now();
+    std::cout << "elapsed " << std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count() << " ms" << std::endl;
+    return buffer;
 }
 
 // Bake the material expression created with the native backend into a canvas with the given
@@ -463,7 +445,7 @@ int main(int argc, char *argv[])
     // Use default material, if none was provided via command line
     if (options.material_name.empty()) {
         options.mdl_paths.push_back(get_samples_mdl_root());
-        options.material_name = "::nvidia::sdk_examples::tutorials::example_execution1";
+        options.material_name = "::nvidia::sdk_examples::presentation_perlin_noise::summed_noise_material";
     }
 
     // Access the MDL SDK
@@ -553,19 +535,24 @@ int main(int argc, char *argv[])
                 tex_handler_ptr = &tex_handler;
             }
 
-            // Bake the expression into a canvas
-            if (options.enable_derivatives) {
-                canvas = bake_expression_native_with_derivs(
+            auto data = bake_expression_native(
                     image_api.get(), target_code.get(), tex_handler_ptr,
                     options.res_x, options.res_y);
-            } else {
-                canvas = bake_expression_native(
-                    image_api.get(), target_code.get(), tex_handler_ptr,
-                    options.res_x, options.res_y);
-            }
 
+            auto file = fopen((options.outputfile + ".ppm").c_str() , "wb");
+            fprintf(file, "P3\n%d %d\n255\n", options.res_x, options.res_y);
+            for(int y = options.res_y-1; y >= 0; y--){
+                for (int x = 0; x < options.res_x; ++x) {
+                    if(x > 0){
+                        fprintf(file, " ");
+                    }
+                    fprintf(file, "%i %i %i", static_cast<int>(data[y][x].x * 255), static_cast<int>(data[y][x].y * 255),static_cast<int>(data[y][x].z * 255));
+                }
+                fprintf(file, "\n");
+            }
+            fclose(file);
             // Export the canvas to an image on disk
-            mdl_compiler->export_canvas(options.outputfile.c_str(), canvas.get());
+            //l_compiler->export_canvas(options.outputfile.c_str(), canvas.get());
         }
 
         transaction->commit();

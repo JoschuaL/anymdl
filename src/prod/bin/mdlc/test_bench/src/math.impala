@@ -1,0 +1,2145 @@
+struct mdl_math{
+    PI: float,
+    TWO_PI : float,
+    HALF_PI: float,
+    
+abs__int: fn(int) -> int,
+
+
+
+abs__int2: fn(int2) -> int2,
+
+
+
+abs__int3: fn(int3) -> int3,
+
+
+
+abs__int4: fn(int4) -> int4,
+
+
+
+abs__float: fn(float) -> float,
+
+
+
+abs__float2: fn(float2) -> float2,
+
+
+
+abs__float3: fn(float3) -> float3,
+
+
+
+abs__float4: fn(float4) -> float4,
+
+
+
+abs__double: fn(double) -> double,
+
+
+
+abs__double2: fn(double2) -> double2,
+
+
+
+abs__double3: fn(double3) -> double3,
+
+
+
+abs__double4: fn(double4) -> double4,
+
+
+
+abs__color: fn(color) -> color,
+
+
+
+acos__float: fn(float) -> float,
+
+
+
+acos__float2: fn(float2) -> float2,
+
+
+
+acos__float3: fn(float3) -> float3,
+
+
+
+acos__float4: fn(float4) -> float4,
+
+
+
+acos__double: fn(double) -> double,
+
+
+
+acos__double2: fn(double2) -> double2,
+
+
+
+acos__double3: fn(double3) -> double3,
+
+
+
+acos__double4: fn(double4) -> double4,
+
+
+
+all__bool: fn(bool) -> bool,
+
+
+
+all__bool2: fn(bool2) -> bool,
+
+
+
+all__bool3: fn(bool3) -> bool,
+
+
+
+all__bool4: fn(bool4) -> bool,
+
+
+
+any__bool: fn(bool) -> bool,
+
+
+
+any__bool2: fn(bool2) -> bool,
+
+
+
+any__bool3: fn(bool3) -> bool,
+
+
+
+any__bool4: fn(bool4) -> bool,
+
+
+
+asin__float: fn(float) -> float,
+
+
+
+asin__float2: fn(float2) -> float2,
+
+
+
+asin__float3: fn(float3) -> float3,
+
+
+
+asin__float4: fn(float4) -> float4,
+
+
+
+asin__double: fn(double) -> double,
+
+
+
+asin__double2: fn(double2) -> double2,
+
+
+
+asin__double3: fn(double3) -> double3,
+
+
+
+asin__double4: fn(double4) -> double4,
+
+
+
+atan__float: fn(float) -> float,
+
+
+
+atan__float2: fn(float2) -> float2,
+
+
+
+atan__float3: fn(float3) -> float3,
+
+
+
+atan__float4: fn(float4) -> float4,
+
+
+
+atan__double: fn(double) -> double,
+
+
+
+atan__double2: fn(double2) -> double2,
+
+
+
+atan__double3: fn(double3) -> double3,
+
+
+
+atan__double4: fn(double4) -> double4,
+
+
+
+atan2__float_float: fn(float, float) -> float,
+
+
+
+atan2__float2_float2: fn(float2, float2) -> float2,
+
+
+
+atan2__float3_float3: fn(float3, float3) -> float3,
+
+
+
+atan2__float4_float4: fn(float4, float4) -> float4,
+
+
+
+atan2__double_double: fn(double, double) -> double,
+
+
+
+atan2__double2_double2: fn(double2, double2) -> double2,
+
+
+
+atan2__double3_double3: fn(double3, double3) -> double3,
+
+
+
+atan2__double4_double4: fn(double4, double4) -> double4,
+
+
+
+average__float: fn(float) -> float,
+
+
+
+average__float2: fn(float2) -> float,
+
+
+
+average__float3: fn(float3) -> float,
+
+
+
+average__float4: fn(float4) -> float,
+
+
+
+average__double: fn(double) -> double,
+
+
+
+average__double2: fn(double2) -> double,
+
+
+
+average__double3: fn(double3) -> double,
+
+
+
+average__double4: fn(double4) -> double,
+
+
+
+average__color: fn(color) -> float,
+
+
+
+ceil__float: fn(float) -> float,
+
+
+
+ceil__float2: fn(float2) -> float2,
+
+
+
+ceil__float3: fn(float3) -> float3,
+
+
+
+ceil__float4: fn(float4) -> float4,
+
+
+
+ceil__double: fn(double) -> double,
+
+
+
+ceil__double2: fn(double2) -> double2,
+
+
+
+ceil__double3: fn(double3) -> double3,
+
+
+
+ceil__double4: fn(double4) -> double4,
+
+
+
+clamp__int_int_int: fn(int, int, int) -> int,
+
+
+
+clamp__int2_int2_int2: fn(int2, int2, int2) -> int2,
+
+
+
+clamp__int3_int3_int3: fn(int3, int3, int3) -> int3,
+
+
+
+clamp__int4_int4_int4: fn(int4, int4, int4) -> int4,
+
+
+
+clamp__float_float_float: fn(float, float, float) -> float,
+
+
+
+clamp__float2_float2_float2: fn(float2, float2, float2) -> float2,
+
+
+
+clamp__float3_float3_float3: fn(float3, float3, float3) -> float3,
+
+
+
+clamp__float4_float4_float4: fn(float4, float4, float4) -> float4,
+
+
+
+clamp__double_double_double: fn(double, double, double) -> double,
+
+
+
+clamp__double2_double2_double2: fn(double2, double2, double2) -> double2,
+
+
+
+clamp__double3_double3_double3: fn(double3, double3, double3) -> double3,
+
+
+
+clamp__double4_double4_double4: fn(double4, double4, double4) -> double4,
+
+
+
+clamp__color_color_color: fn(color, color, color) -> color,
+
+
+
+clamp__int2_int2_int: fn(int2, int2, int) -> int2,
+
+
+
+clamp__int2_int_int2: fn(int2, int, int2) -> int2,
+
+
+
+clamp__int2_int_int: fn(int2, int, int) -> int2,
+
+
+
+clamp__int3_int3_int: fn(int3, int3, int) -> int3,
+
+
+
+clamp__int3_int_int3: fn(int3, int, int3) -> int3,
+
+
+
+clamp__int3_int_int: fn(int3, int, int) -> int3,
+
+
+
+clamp__int4_int4_int: fn(int4, int4, int) -> int4,
+
+
+
+clamp__int4_int_int4: fn(int4, int, int4) -> int4,
+
+
+
+clamp__int4_int_int: fn(int4, int, int) -> int4,
+
+
+
+clamp__float2_float2_float: fn(float2, float2, float) -> float2,
+
+
+
+clamp__float2_float_float2: fn(float2, float, float2) -> float2,
+
+
+
+clamp__float2_float_float: fn(float2, float, float) -> float2,
+
+
+
+clamp__float3_float3_float: fn(float3, float3, float) -> float3,
+
+
+
+clamp__float3_float_float3: fn(float3, float, float3) -> float3,
+
+
+
+clamp__float3_float_float: fn(float3, float, float) -> float3,
+
+
+
+clamp__float4_float4_float: fn(float4, float4, float) -> float4,
+
+
+
+clamp__float4_float_float4: fn(float4, float, float4) -> float4,
+
+
+
+clamp__float4_float_float: fn(float4, float, float) -> float4,
+
+
+
+clamp__color_color_float: fn(color, color, float) -> color,
+
+
+
+clamp__color_float_color: fn(color, float, color) -> color,
+
+
+
+clamp__color_float_float: fn(color, float, float) -> color,
+
+
+
+clamp__double2_double2_double: fn(double2, double2, double) -> double2,
+
+
+
+clamp__double2_double_double2: fn(double2, double, double2) -> double2,
+
+
+
+clamp__double2_double_double: fn(double2, double, double) -> double2,
+
+
+
+clamp__double3_double3_double: fn(double3, double3, double) -> double3,
+
+
+
+clamp__double3_double_double3: fn(double3, double, double3) -> double3,
+
+
+
+clamp__double3_double_double: fn(double3, double, double) -> double3,
+
+
+
+clamp__double4_double4_double: fn(double4, double4, double) -> double4,
+
+
+
+clamp__double4_double_double4: fn(double4, double, double4) -> double4,
+
+
+
+clamp__double4_double_double: fn(double4, double, double) -> double4,
+
+
+
+cos__float: fn(float) -> float,
+
+
+
+cos__float2: fn(float2) -> float2,
+
+
+
+cos__float3: fn(float3) -> float3,
+
+
+
+cos__float4: fn(float4) -> float4,
+
+
+
+cos__double: fn(double) -> double,
+
+
+
+cos__double2: fn(double2) -> double2,
+
+
+
+cos__double3: fn(double3) -> double3,
+
+
+
+cos__double4: fn(double4) -> double4,
+
+
+
+cross__float3_float3: fn(float3, float3) -> float3,
+
+
+
+cross__double3_double3: fn(double3, double3) -> double3,
+
+
+
+degrees__float: fn(float) -> float,
+
+
+
+degrees__float2: fn(float2) -> float2,
+
+
+
+degrees__float3: fn(float3) -> float3,
+
+
+
+degrees__float4: fn(float4) -> float4,
+
+
+
+degrees__double: fn(double) -> double,
+
+
+
+degrees__double2: fn(double2) -> double2,
+
+
+
+degrees__double3: fn(double3) -> double3,
+
+
+
+degrees__double4: fn(double4) -> double4,
+
+
+
+distance__float_float: fn(float, float) -> float,
+
+
+
+distance__float2_float2: fn(float2, float2) -> float,
+
+
+
+distance__float3_float3: fn(float3, float3) -> float,
+
+
+
+distance__float4_float4: fn(float4, float4) -> float,
+
+
+
+distance__double_double: fn(double, double) -> double,
+
+
+
+distance__double2_double2: fn(double2, double2) -> double,
+
+
+
+distance__double3_double3: fn(double3, double3) -> double,
+
+
+
+distance__double4_double4: fn(double4, double4) -> double,
+
+
+
+dot__float_float: fn(float, float) -> float,
+
+
+
+dot__float2_float2: fn(float2, float2) -> float,
+
+
+
+dot__float3_float3: fn(float3, float3) -> float,
+
+
+
+dot__float4_float4: fn(float4, float4) -> float,
+
+
+
+dot__double_double: fn(double, double) -> double,
+
+
+
+dot__double2_double2: fn(double2, double2) -> double,
+
+
+
+dot__double3_double3: fn(double3, double3) -> double,
+
+
+
+dot__double4_double4: fn(double4, double4) -> double,
+
+
+
+eval_at_wavelength__color_float: fn(color, float) -> float,
+
+
+
+exp__float: fn(float) -> float,
+
+
+
+exp__float2: fn(float2) -> float2,
+
+
+
+exp__float3: fn(float3) -> float3,
+
+
+
+exp__float4: fn(float4) -> float4,
+
+
+
+exp__double: fn(double) -> double,
+
+
+
+exp__double2: fn(double2) -> double2,
+
+
+
+exp__double3: fn(double3) -> double3,
+
+
+
+exp__double4: fn(double4) -> double4,
+
+
+
+exp__color: fn(color) -> color,
+
+
+
+exp2__float: fn(float) -> float,
+
+
+
+exp2__float2: fn(float2) -> float2,
+
+
+
+exp2__float3: fn(float3) -> float3,
+
+
+
+exp2__float4: fn(float4) -> float4,
+
+
+
+exp2__double: fn(double) -> double,
+
+
+
+exp2__double2: fn(double2) -> double2,
+
+
+
+exp2__double3: fn(double3) -> double3,
+
+
+
+exp2__double4: fn(double4) -> double4,
+
+
+
+exp2__color: fn(color) -> color,
+
+
+
+floor__float: fn(float) -> float,
+
+
+
+floor__float2: fn(float2) -> float2,
+
+
+
+floor__float3: fn(float3) -> float3,
+
+
+
+floor__float4: fn(float4) -> float4,
+
+
+
+floor__double: fn(double) -> double,
+
+
+
+floor__double2: fn(double2) -> double2,
+
+
+
+floor__double3: fn(double3) -> double3,
+
+
+
+floor__double4: fn(double4) -> double4,
+
+
+
+fmod__float_float: fn(float, float) -> float,
+
+
+
+fmod__float2_float2: fn(float2, float2) -> float2,
+
+
+
+fmod__float3_float3: fn(float3, float3) -> float3,
+
+
+
+fmod__float4_float4: fn(float4, float4) -> float4,
+
+
+
+fmod__double_double: fn(double, double) -> double,
+
+
+
+fmod__double2_double2: fn(double2, double2) -> double2,
+
+
+
+fmod__double3_double3: fn(double3, double3) -> double3,
+
+
+
+fmod__double4_double4: fn(double4, double4) -> double4,
+
+
+
+fmod__float2_float: fn(float2, float) -> float2,
+
+
+
+fmod__float3_float: fn(float3, float) -> float3,
+
+
+
+fmod__float4_float: fn(float4, float) -> float4,
+
+
+
+fmod__double2_double: fn(double2, double) -> double2,
+
+
+
+fmod__double3_double: fn(double3, double) -> double3,
+
+
+
+fmod__double4_double: fn(double4, double) -> double4,
+
+
+
+frac__float: fn(float) -> float,
+
+
+
+frac__float2: fn(float2) -> float2,
+
+
+
+frac__float3: fn(float3) -> float3,
+
+
+
+frac__float4: fn(float4) -> float4,
+
+
+
+frac__double: fn(double) -> double,
+
+
+
+frac__double2: fn(double2) -> double2,
+
+
+
+frac__double3: fn(double3) -> double3,
+
+
+
+frac__double4: fn(double4) -> double4,
+
+
+
+isnan__float: fn(float) -> bool,
+
+
+
+isnan__float2: fn(float2) -> bool2,
+
+
+
+isnan__float3: fn(float3) -> bool3,
+
+
+
+isnan__float4: fn(float4) -> bool4,
+
+
+
+isnan__double: fn(double) -> bool,
+
+
+
+isnan__double2: fn(double2) -> bool2,
+
+
+
+isnan__double3: fn(double3) -> bool3,
+
+
+
+isnan__double4: fn(double4) -> bool4,
+
+
+
+isfinite__float: fn(float) -> bool,
+
+
+
+isfinite__float2: fn(float2) -> bool2,
+
+
+
+isfinite__float3: fn(float3) -> bool3,
+
+
+
+isfinite__float4: fn(float4) -> bool4,
+
+
+
+isfinite__double: fn(double) -> bool,
+
+
+
+isfinite__double2: fn(double2) -> bool2,
+
+
+
+isfinite__double3: fn(double3) -> bool3,
+
+
+
+isfinite__double4: fn(double4) -> bool4,
+
+
+
+length__float: fn(float) -> float,
+
+
+
+length__float2: fn(float2) -> float,
+
+
+
+length__float3: fn(float3) -> float,
+
+
+
+length__float4: fn(float4) -> float,
+
+
+
+length__double: fn(double) -> double,
+
+
+
+length__double2: fn(double2) -> double,
+
+
+
+length__double3: fn(double3) -> double,
+
+
+
+length__double4: fn(double4) -> double,
+
+
+
+lerp__float_float_float: fn(float, float, float) -> float,
+
+
+
+lerp__float2_float2_float2: fn(float2, float2, float2) -> float2,
+
+
+
+lerp__float3_float3_float3: fn(float3, float3, float3) -> float3,
+
+
+
+lerp__float4_float4_float4: fn(float4, float4, float4) -> float4,
+
+
+
+lerp__double_double_double: fn(double, double, double) -> double,
+
+
+
+lerp__double2_double2_double2: fn(double2, double2, double2) -> double2,
+
+
+
+lerp__double3_double3_double3: fn(double3, double3, double3) -> double3,
+
+
+
+lerp__double4_double4_double4: fn(double4, double4, double4) -> double4,
+
+
+
+lerp__float2_float2_float: fn(float2, float2, float) -> float2,
+
+
+
+lerp__float3_float3_float: fn(float3, float3, float) -> float3,
+
+
+
+lerp__float4_float4_float: fn(float4, float4, float) -> float4,
+
+
+
+lerp__double2_double2_double: fn(double2, double2, double) -> double2,
+
+
+
+lerp__double3_double3_double: fn(double3, double3, double) -> double3,
+
+
+
+lerp__double4_double4_double: fn(double4, double4, double) -> double4,
+
+
+
+lerp__color_color_color: fn(color, color, color) -> color,
+
+
+
+lerp__color_color_float: fn(color, color, float) -> color,
+
+
+
+log__float: fn(float) -> float,
+
+
+
+log__float2: fn(float2) -> float2,
+
+
+
+log__float3: fn(float3) -> float3,
+
+
+
+log__float4: fn(float4) -> float4,
+
+
+
+log__double: fn(double) -> double,
+
+
+
+log__double2: fn(double2) -> double2,
+
+
+
+log__double3: fn(double3) -> double3,
+
+
+
+log__double4: fn(double4) -> double4,
+
+
+
+log__color: fn(color) -> color,
+
+
+
+log2__float: fn(float) -> float,
+
+
+
+log2__float2: fn(float2) -> float2,
+
+
+
+log2__float3: fn(float3) -> float3,
+
+
+
+log2__float4: fn(float4) -> float4,
+
+
+
+log2__double: fn(double) -> double,
+
+
+
+log2__double2: fn(double2) -> double2,
+
+
+
+log2__double3: fn(double3) -> double3,
+
+
+
+log2__double4: fn(double4) -> double4,
+
+
+
+log2__color: fn(color) -> color,
+
+
+
+log10__float: fn(float) -> float,
+
+
+
+log10__float2: fn(float2) -> float2,
+
+
+
+log10__float3: fn(float3) -> float3,
+
+
+
+log10__float4: fn(float4) -> float4,
+
+
+
+log10__double: fn(double) -> double,
+
+
+
+log10__double2: fn(double2) -> double2,
+
+
+
+log10__double3: fn(double3) -> double3,
+
+
+
+log10__double4: fn(double4) -> double4,
+
+
+
+log10__color: fn(color) -> color,
+
+
+
+luminance__float3: fn(float3) -> float,
+
+
+
+luminance__color: fn(color) -> float,
+
+
+
+max__int_int: fn(int, int) -> int,
+
+
+
+max__int2_int2: fn(int2, int2) -> int2,
+
+
+
+max__int3_int3: fn(int3, int3) -> int3,
+
+
+
+max__int4_int4: fn(int4, int4) -> int4,
+
+
+
+max__int2_int: fn(int2, int) -> int2,
+
+
+
+max__int3_int: fn(int3, int) -> int3,
+
+
+
+max__int4_int: fn(int4, int) -> int4,
+
+
+
+max__int_int2: fn(int, int2) -> int2,
+
+
+
+max__int_int3: fn(int, int3) -> int3,
+
+
+
+max__int_int4: fn(int, int4) -> int4,
+
+
+
+max__float_float: fn(float, float) -> float,
+
+
+
+max__float2_float2: fn(float2, float2) -> float2,
+
+
+
+max__float3_float3: fn(float3, float3) -> float3,
+
+
+
+max__float4_float4: fn(float4, float4) -> float4,
+
+
+
+max__float2_float: fn(float2, float) -> float2,
+
+
+
+max__float3_float: fn(float3, float) -> float3,
+
+
+
+max__float4_float: fn(float4, float) -> float4,
+
+
+
+max__float_float2: fn(float, float2) -> float2,
+
+
+
+max__float_float3: fn(float, float3) -> float3,
+
+
+
+max__float_float4: fn(float, float4) -> float4,
+
+
+
+max__double_double: fn(double, double) -> double,
+
+
+
+max__double2_double2: fn(double2, double2) -> double2,
+
+
+
+max__double3_double3: fn(double3, double3) -> double3,
+
+
+
+max__double4_double4: fn(double4, double4) -> double4,
+
+
+
+max__double2_double: fn(double2, double) -> double2,
+
+
+
+max__double3_double: fn(double3, double) -> double3,
+
+
+
+max__double4_double: fn(double4, double) -> double4,
+
+
+
+max__double_double2: fn(double, double2) -> double2,
+
+
+
+max__double_double3: fn(double, double3) -> double3,
+
+
+
+max__double_double4: fn(double, double4) -> double4,
+
+
+
+max__color_color: fn(color, color) -> color,
+
+
+
+max__float_color: fn(float, color) -> color,
+
+
+
+max__color_float: fn(color, float) -> color,
+
+
+
+max_value__float: fn(float) -> float,
+
+
+
+max_value__float2: fn(float2) -> float,
+
+
+
+max_value__float3: fn(float3) -> float,
+
+
+
+max_value__float4: fn(float4) -> float,
+
+
+
+max_value__double: fn(double) -> double,
+
+
+
+max_value__double2: fn(double2) -> double,
+
+
+
+max_value__double3: fn(double3) -> double,
+
+
+
+max_value__double4: fn(double4) -> double,
+
+
+
+max_value__color: fn(color) -> float,
+
+
+
+max_value_wavelength__color: fn(color) -> float,
+
+
+
+min__int_int: fn(int, int) -> int,
+
+
+
+min__int2_int2: fn(int2, int2) -> int2,
+
+
+
+min__int3_int3: fn(int3, int3) -> int3,
+
+
+
+min__int4_int4: fn(int4, int4) -> int4,
+
+
+
+min__int2_int: fn(int2, int) -> int2,
+
+
+
+min__int3_int: fn(int3, int) -> int3,
+
+
+
+min__int4_int: fn(int4, int) -> int4,
+
+
+
+min__int_int2: fn(int, int2) -> int2,
+
+
+
+min__int_int3: fn(int, int3) -> int3,
+
+
+
+min__int_int4: fn(int, int4) -> int4,
+
+
+
+min__float_float: fn(float, float) -> float,
+
+
+
+min__float2_float2: fn(float2, float2) -> float2,
+
+
+
+min__float3_float3: fn(float3, float3) -> float3,
+
+
+
+min__float4_float4: fn(float4, float4) -> float4,
+
+
+
+min__float2_float: fn(float2, float) -> float2,
+
+
+
+min__float3_float: fn(float3, float) -> float3,
+
+
+
+min__float4_float: fn(float4, float) -> float4,
+
+
+
+min__float_float2: fn(float, float2) -> float2,
+
+
+
+min__float_float3: fn(float, float3) -> float3,
+
+
+
+min__float_float4: fn(float, float4) -> float4,
+
+
+
+min__double_double: fn(double, double) -> double,
+
+
+
+min__double2_double2: fn(double2, double2) -> double2,
+
+
+
+min__double3_double3: fn(double3, double3) -> double3,
+
+
+
+min__double4_double4: fn(double4, double4) -> double4,
+
+
+
+min__double2_double: fn(double2, double) -> double2,
+
+
+
+min__double3_double: fn(double3, double) -> double3,
+
+
+
+min__double4_double: fn(double4, double) -> double4,
+
+
+
+min__double_double2: fn(double, double2) -> double2,
+
+
+
+min__double_double3: fn(double, double3) -> double3,
+
+
+
+min__double_double4: fn(double, double4) -> double4,
+
+
+
+min__color_color: fn(color, color) -> color,
+
+
+
+min__float_color: fn(float, color) -> color,
+
+
+
+min__color_float: fn(color, float) -> color,
+
+
+
+min_value__float: fn(float) -> float,
+
+
+
+min_value__float2: fn(float2) -> float,
+
+
+
+min_value__float3: fn(float3) -> float,
+
+
+
+min_value__float4: fn(float4) -> float,
+
+
+
+min_value__double: fn(double) -> double,
+
+
+
+min_value__double2: fn(double2) -> double,
+
+
+
+min_value__double3: fn(double3) -> double,
+
+
+
+min_value__double4: fn(double4) -> double,
+
+
+
+min_value__color: fn(color) -> float,
+
+
+
+min_value_wavelength__color: fn(color) -> float,
+
+
+
+modf__float: fn(float) -> float2,
+
+
+
+modf__float2: fn(float2) -> float2x2,
+
+
+
+modf__float3: fn(float3) -> float3x2,
+
+
+
+modf__float4: fn(float4) -> float4x2,
+
+
+
+modf__double: fn(double) -> double2,
+
+
+
+modf__double2: fn(double2) -> double2x2,
+
+
+
+modf__double3: fn(double3) -> double3x2,
+
+
+
+modf__double4: fn(double4) -> double4x2,
+
+
+
+normalize__float: fn(float) -> float,
+
+
+
+normalize__float2: fn(float2) -> float2,
+
+
+
+normalize__float3: fn(float3) -> float3,
+
+
+
+normalize__float4: fn(float4) -> float4,
+
+
+
+normalize__double: fn(double) -> double,
+
+
+
+normalize__double2: fn(double2) -> double2,
+
+
+
+normalize__double3: fn(double3) -> double3,
+
+
+
+normalize__double4: fn(double4) -> double4,
+
+
+
+pow__int_int: fn(int, int) -> int,
+
+
+
+pow__int2_int2: fn(int2, int2) -> int2,
+
+
+
+pow__int3_int3: fn(int3, int3) -> int3,
+
+
+
+pow__int4_int4: fn(int4, int4) -> int4,
+
+
+
+pow__float_float: fn(float, float) -> float,
+
+
+
+pow__float2_float2: fn(float2, float2) -> float2,
+
+
+
+pow__float3_float3: fn(float3, float3) -> float3,
+
+
+
+pow__float4_float4: fn(float4, float4) -> float4,
+
+
+
+pow__double_double: fn(double, double) -> double,
+
+
+
+pow__double2_double2: fn(double2, double2) -> double2,
+
+
+
+pow__double3_double3: fn(double3, double3) -> double3,
+
+
+
+pow__double4_double4: fn(double4, double4) -> double4,
+
+
+
+pow__int2_int: fn(int2, int) -> int2,
+
+
+
+pow__int3_int: fn(int3, int) -> int3,
+
+
+
+pow__int4_int: fn(int4, int) -> int4,
+
+
+
+pow__float2_float: fn(float2, float) -> float2,
+
+
+
+pow__float3_float: fn(float3, float) -> float3,
+
+
+
+pow__float4_float: fn(float4, float) -> float4,
+
+
+
+pow__double2_double: fn(double2, double) -> double2,
+
+
+
+pow__double3_double: fn(double3, double) -> double3,
+
+
+
+pow__double4_double: fn(double4, double) -> double4,
+
+
+
+pow__color_color: fn(color, color) -> color,
+
+
+
+pow__color_float: fn(color, float) -> color,
+
+
+
+radians__float: fn(float) -> float,
+
+
+
+radians__float2: fn(float2) -> float2,
+
+
+
+radians__float3: fn(float3) -> float3,
+
+
+
+radians__float4: fn(float4) -> float4,
+
+
+
+radians__double: fn(double) -> double,
+
+
+
+radians__double2: fn(double2) -> double2,
+
+
+
+radians__double3: fn(double3) -> double3,
+
+
+
+radians__double4: fn(double4) -> double4,
+
+
+
+round__float: fn(float) -> float,
+
+
+
+round__float2: fn(float2) -> float2,
+
+
+
+round__float3: fn(float3) -> float3,
+
+
+
+round__float4: fn(float4) -> float4,
+
+
+
+round__double: fn(double) -> double,
+
+
+
+round__double2: fn(double2) -> double2,
+
+
+
+round__double3: fn(double3) -> double3,
+
+
+
+round__double4: fn(double4) -> double4,
+
+
+
+rsqrt__float: fn(float) -> float,
+
+
+
+rsqrt__float2: fn(float2) -> float2,
+
+
+
+rsqrt__float3: fn(float3) -> float3,
+
+
+
+rsqrt__float4: fn(float4) -> float4,
+
+
+
+rsqrt__double: fn(double) -> double,
+
+
+
+rsqrt__double2: fn(double2) -> double2,
+
+
+
+rsqrt__double3: fn(double3) -> double3,
+
+
+
+rsqrt__double4: fn(double4) -> double4,
+
+
+
+rsqrt__color: fn(color) -> color,
+
+
+
+saturate__float: fn(float) -> float,
+
+
+
+saturate__float2: fn(float2) -> float2,
+
+
+
+saturate__float3: fn(float3) -> float3,
+
+
+
+saturate__float4: fn(float4) -> float4,
+
+
+
+saturate__double: fn(double) -> double,
+
+
+
+saturate__double2: fn(double2) -> double2,
+
+
+
+saturate__double3: fn(double3) -> double3,
+
+
+
+saturate__double4: fn(double4) -> double4,
+
+
+
+saturate__color: fn(color) -> color,
+
+
+
+sign__int: fn(int) -> int,
+
+
+
+sign__int2: fn(int2) -> int2,
+
+
+
+sign__int3: fn(int3) -> int3,
+
+
+
+sign__int4: fn(int4) -> int4,
+
+
+
+sign__float: fn(float) -> float,
+
+
+
+sign__float2: fn(float2) -> float2,
+
+
+
+sign__float3: fn(float3) -> float3,
+
+
+
+sign__float4: fn(float4) -> float4,
+
+
+
+sign__double: fn(double) -> double,
+
+
+
+sign__double2: fn(double2) -> double2,
+
+
+
+sign__double3: fn(double3) -> double3,
+
+
+
+sign__double4: fn(double4) -> double4,
+
+
+
+sin__float: fn(float) -> float,
+
+
+
+sin__float2: fn(float2) -> float2,
+
+
+
+sin__float3: fn(float3) -> float3,
+
+
+
+sin__float4: fn(float4) -> float4,
+
+
+
+sin__double: fn(double) -> double,
+
+
+
+sin__double2: fn(double2) -> double2,
+
+
+
+sin__double3: fn(double3) -> double3,
+
+
+
+sin__double4: fn(double4) -> double4,
+
+
+
+sincos__float: fn(float) -> float2,
+
+
+
+sincos__float2: fn(float2) -> float2x2,
+
+
+
+sincos__float3: fn(float3) -> float3x2,
+
+
+
+sincos__float4: fn(float4) -> float4x2,
+
+
+
+sincos__double: fn(double) -> double2,
+
+
+
+sincos__double2: fn(double2) -> double2x2,
+
+
+
+sincos__double3: fn(double3) -> double3x2,
+
+
+
+sincos__double4: fn(double4) -> double4x2,
+
+
+
+smoothstep__float_float_float: fn(float, float, float) -> float,
+
+
+
+smoothstep__float2_float2_float2: fn(float2, float2, float2) -> float2,
+
+
+
+smoothstep__float3_float3_float3: fn(float3, float3, float3) -> float3,
+
+
+
+smoothstep__float4_float4_float4: fn(float4, float4, float4) -> float4,
+
+
+
+smoothstep__double_double_double: fn(double, double, double) -> double,
+
+
+
+smoothstep__double2_double2_double2: fn(double2, double2, double2) -> double2,
+
+
+
+smoothstep__double3_double3_double3: fn(double3, double3, double3) -> double3,
+
+
+
+smoothstep__double4_double4_double4: fn(double4, double4, double4) -> double4,
+
+
+
+smoothstep__float2_float2_float: fn(float2, float2, float) -> float2,
+
+
+
+smoothstep__float3_float3_float: fn(float3, float3, float) -> float3,
+
+
+
+smoothstep__float4_float4_float: fn(float4, float4, float) -> float4,
+
+
+
+smoothstep__double2_double2_double: fn(double2, double2, double) -> double2,
+
+
+
+smoothstep__double3_double3_double: fn(double3, double3, double) -> double3,
+
+
+
+smoothstep__double4_double4_double: fn(double4, double4, double) -> double4,
+
+
+
+sqrt__float: fn(float) -> float,
+
+
+
+sqrt__float2: fn(float2) -> float2,
+
+
+
+sqrt__float3: fn(float3) -> float3,
+
+
+
+sqrt__float4: fn(float4) -> float4,
+
+
+
+sqrt__double: fn(double) -> double,
+
+
+
+sqrt__double2: fn(double2) -> double2,
+
+
+
+sqrt__double3: fn(double3) -> double3,
+
+
+
+sqrt__double4: fn(double4) -> double4,
+
+
+
+sqrt__color: fn(color) -> color,
+
+
+
+step__float_float: fn(float, float) -> float,
+
+
+
+step__float2_float2: fn(float2, float2) -> float2,
+
+
+
+step__float3_float3: fn(float3, float3) -> float3,
+
+
+
+step__float4_float4: fn(float4, float4) -> float4,
+
+
+
+step__double_double: fn(double, double) -> double,
+
+
+
+step__double2_double2: fn(double2, double2) -> double2,
+
+
+
+step__double3_double3: fn(double3, double3) -> double3,
+
+
+
+step__double4_double4: fn(double4, double4) -> double4,
+
+
+
+tan__float: fn(float) -> float,
+
+
+
+tan__float2: fn(float2) -> float2,
+
+
+
+tan__float3: fn(float3) -> float3,
+
+
+
+tan__float4: fn(float4) -> float4,
+
+
+
+tan__double: fn(double) -> double,
+
+
+
+tan__double2: fn(double2) -> double2,
+
+
+
+tan__double3: fn(double3) -> double3,
+
+
+
+tan__double4: fn(double4) -> double4,
+
+
+
+transpose__float2x2: fn(float2x2) -> float2x2,
+
+
+
+transpose__float2x3: fn(float2x3) -> float3x2,
+
+
+
+transpose__float3x2: fn(float3x2) -> float2x3,
+
+
+
+transpose__float3x3: fn(float3x3) -> float3x3,
+
+
+
+transpose__float4x2: fn(float4x2) -> float2x4,
+
+
+
+transpose__float2x4: fn(float2x4) -> float4x2,
+
+
+
+transpose__float3x4: fn(float3x4) -> float4x3,
+
+
+
+transpose__float4x3: fn(float4x3) -> float3x4,
+
+
+
+transpose__float4x4: fn(float4x4) -> float4x4,
+
+
+
+transpose__double2x2: fn(double2x2) -> double2x2,
+
+
+
+transpose__double2x3: fn(double2x3) -> double3x2,
+
+
+
+transpose__double3x2: fn(double3x2) -> double2x3,
+
+
+
+transpose__double3x3: fn(double3x3) -> double3x3,
+
+
+
+transpose__double4x2: fn(double4x2) -> double2x4,
+
+
+
+transpose__double2x4: fn(double2x4) -> double4x2,
+
+
+
+transpose__double3x4: fn(double3x4) -> double4x3,
+
+
+
+transpose__double4x3: fn(double4x3) -> double3x4,
+
+
+
+transpose__double4x4: fn(double4x4) -> double4x4,
+
+
+
+blackbody__float: fn(float) -> color,
+
+
+
+emission_color__float_arr_float_arr : fn(&[float], &[float]) -> color,
+
+
+emission_color__color: fn(color) -> color,
+
+
+
+DX__float: fn(float) -> float,
+
+
+
+DX__float2: fn(float2) -> float2,
+
+
+
+DX__float3: fn(float3) -> float3,
+
+
+
+DX__float4: fn(float4) -> float4,
+
+
+
+DY__float: fn(float) -> float,
+
+
+
+DY__float2: fn(float2) -> float2,
+
+
+
+DY__float3: fn(float3) -> float3,
+
+
+
+DY__float4: fn(float4) -> float4,
+
+
+
+DX__double: fn(double) -> double,
+
+
+
+DX__double2: fn(double2) -> double2,
+
+
+
+DX__double3: fn(double3) -> double3,
+
+
+
+DX__double4: fn(double4) -> double4,
+
+
+
+DY__double: fn(double) -> double,
+
+
+
+DY__double2: fn(double2) -> double2,
+
+
+
+DY__double3: fn(double3) -> double3,
+
+
+
+DY__double4: fn(double4) -> double4
+
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

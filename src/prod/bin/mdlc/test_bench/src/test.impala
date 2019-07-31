@@ -1,0 +1,1078 @@
+fn @fractional_uv__float_float_State_mdl_math(u_scale : float, v_scale : float,  state : State, math : mdl_math) -> float2{
+    let  uvw: float3 = float3__float3_mdl_math(
+        state.texture_coordinate_int(0, ),
+        math
+    );
+    return(float2__float_float_mdl_math(
+        math.frac__float(
+            mul__float_float_mdl_math(
+                uvw.x,
+                u_scale,
+                math
+            ),
+        ),
+        math.frac__float(
+            mul__float_float_mdl_math(
+                uvw.y,
+                v_scale,
+                math
+            ),
+        ),
+        math
+    ))
+}
+
+fn @scaled_uv_circle_color__float_float_color_State_mdl_math(u_scale : float, v_scale : float, outside_color : color,  state : State, math : mdl_math) -> color{
+    let  uv: float2 = float2__float2_mdl_math(
+        fractional_uv__float_float_State_mdl_math(
+            u_scale,
+            v_scale,
+            state,
+            math
+        ),
+        math
+    );
+    let  center: float2 = make_float2(0.500000f, 0.500000f, );
+    if (le__float_float_mdl_math(
+        math.distance__float2_float2(
+            uv,
+            center,
+        ),
+        0.500000f,
+        math
+    )) {
+        {
+            return(color__float_float_float_mdl_math(
+                float2_get(uv, 0),
+                float2_get(uv, 1),
+                0.000000f,
+                math
+            ))
+        }
+    } else {
+        {
+            return(outside_color)
+        }
+    }
+}
+
+fn @round_bump_normal__float_float_float_State_mdl_math(bump_scale : float, u_scale : float, v_scale : float,  state : State, math : mdl_math) -> float3{
+    let  uv: float2 = float2__float2_mdl_math(
+        fractional_uv__float_float_State_mdl_math(
+            u_scale,
+            v_scale,
+            state,
+            math
+        ),
+        math
+    );
+    let  center: float2 = make_float2(0.500000f, 0.500000f, );
+    let mut result: float3 = make_float3(0.000000f, 0.000000f, 0.000000f, );
+    if (leq__float_float_mdl_math(
+        math.distance__float2_float2(
+            uv,
+            center,
+        ),
+        0.500000f,
+        math
+    )) {
+        {
+            let  center_offset: float2 = float2__float2_mdl_math(
+                sub__float2_float2_mdl_math(
+                    uv,
+                    center,
+                    math
+                ),
+                math
+            );
+            let  new_tangent_u: float3 = float3__float3_mdl_math(
+                mul__float3_float_mdl_math(
+                    state.texture_tangent_u_int(0, ),
+                    float2_get(center_offset, 0),
+                    math
+                ),
+                math
+            );
+            let  new_tangent_v: float3 = float3__float3_mdl_math(
+                mul__float3_float_mdl_math(
+                    state.texture_tangent_v_int(0, ),
+                    float2_get(center_offset, 1),
+                    math
+                ),
+                math
+            );
+            let  tangent_sum: float3 = float3__float3_mdl_math(
+                add__float3_float3_mdl_math(
+                    new_tangent_u,
+                    new_tangent_v,
+                    math
+                ),
+                math
+            );
+            let  scaled_tangent_sum: float3 = float3__float3_mdl_math(
+                mul__float3_float_mdl_math(
+                    tangent_sum,
+                    bump_scale,
+                    math
+                ),
+                math
+            );
+            let  bent_normal: float3 = float3__float3_mdl_math(
+                add__float3_float3_mdl_math(
+                    state.normal(),
+                    scaled_tangent_sum,
+                    math
+                ),
+                math
+            );
+            let  normalized: float3 = float3__float3_mdl_math(
+                math.normalize__float3(
+                    bent_normal,
+                ),
+                math
+            );
+            result = normalized;
+        }
+    } else {
+        {
+            result = state.normal();
+        }
+    }
+    return(result)
+}
+
+fn @round_bumps__material_float_float_float_mdl_math(surface_material : fn(State) -> material, bump_scale : fn(State) -> float, u_scale : fn(State) -> float, v_scale : fn(State) -> float,  math : mdl_math) -> material {
+    let modified_normal = |state:State|{float3__float3_mdl_math(
+        round_bump_normal__float_float_float_State_mdl_math(
+            bump_scale(state),
+            u_scale(state),
+            v_scale(state),
+            state,
+            math
+        ),
+        math
+    )};
+    {
+        material__bool_material_surface_material_surface_color_material_volume_material_geometry_mdl_math(
+            |state:State|{false},
+            |state:State|{surface_material(state).surface},
+            |state:State|{material_surface__bsdf_material_emission_mdl_math(
+                |state:State|{bsdf__mdl_math(math)},
+                |state:State|{material_emission__edf_color_intensity_mode_mdl_math(
+                    |state:State|{edf__mdl_math(math)},
+                    |state:State|{make_color(0.000000f, 0.000000f, 0.000000f, )},
+                    |state:State|{intensity_mode_intensity_radiant_exitance},
+                    math
+                )},
+                math
+            )},
+            |state:State|{make_color(1.000000f, 1.000000f, 1.000000f, )},
+            |state:State|{material_volume__vdf_color_color_mdl_math(
+                |state:State|{vdf__mdl_math(math)},
+                |state:State|{make_color(0.000000f, 0.000000f, 0.000000f, )},
+                |state:State|{make_color(0.000000f, 0.000000f, 0.000000f, )},
+                math
+            )},
+            |state:State|{material_geometry__float3_float_float3_mdl_math(
+                |state:State|{make_float3(0.000000f, 0.000000f, 0.000000f, )},
+                |state:State|{1.000000f},
+                |state:State|{modified_normal(state)},
+                math
+            )},
+            math
+        )
+    }
+
+}
+
+fn @glossy__color_mdl_math(tt : fn(State) -> color,  math : mdl_math) -> material {
+    material__bool_material_surface_material_surface_color_material_volume_material_geometry_mdl_math(
+        |state:State|{false},
+        |state:State|{material_surface__bsdf_material_emission_mdl_math(
+            |state:State|{simple_glossy_bsdf__float_float_color_float3_scatter_mode_mdl_math(
+                |state:State|{0.500000f},
+                |state:State|{0.500000f},
+                |state:State|{tt(state)},
+                |state:State|{state.texture_tangent_u_int(0, )},
+                |state:State|{scatter_mode_scatter_reflect},
+                math
+            )},
+            |state:State|{material_emission__edf_color_intensity_mode_mdl_math(
+                |state:State|{edf__mdl_math(math)},
+                |state:State|{make_color(0.000000f, 0.000000f, 0.000000f, )},
+                |state:State|{intensity_mode_intensity_radiant_exitance},
+                math
+            )},
+            math
+        )},
+        |state:State|{material_surface__bsdf_material_emission_mdl_math(
+            |state:State|{bsdf__mdl_math(math)},
+            |state:State|{material_emission__edf_color_intensity_mode_mdl_math(
+                |state:State|{edf__mdl_math(math)},
+                |state:State|{make_color(0.000000f, 0.000000f, 0.000000f, )},
+                |state:State|{intensity_mode_intensity_radiant_exitance},
+                math
+            )},
+            math
+        )},
+        |state:State|{make_color(1.000000f, 1.000000f, 1.000000f, )},
+        |state:State|{material_volume__vdf_color_color_mdl_math(
+            |state:State|{vdf__mdl_math(math)},
+            |state:State|{make_color(0.000000f, 0.000000f, 0.000000f, )},
+            |state:State|{make_color(0.000000f, 0.000000f, 0.000000f, )},
+            math
+        )},
+        |state:State|{material_geometry__float3_float_float3_mdl_math(
+            |state:State|{make_float3(0.000000f, 0.000000f, 0.000000f, )},
+            |state:State|{1.000000f},
+            |state:State|{state.normal()},
+            math
+        )},
+        math
+    )
+}
+
+fn @glossy_round_bumps__float_float_float_mdl_math(bump_scale : fn(State) -> float, u_scale : fn(State) -> float, v_scale : fn(State) -> float,  math : mdl_math) -> material {
+    round_bumps__material_float_float_float_mdl_math(
+        |state:State|{glossy__color_mdl_math(
+            |state:State|{make_color(0.600000f, 0.400000f, 0.000000f, )},
+            math
+        )},
+        |state:State|{bump_scale(state)},
+        |state:State|{u_scale(state)},
+        |state:State|{v_scale(state)},
+        math
+    )
+}
+
+fn @uv_as_color_material__color_mdl_math(tt : fn(State) -> color,  math : mdl_math) -> material {
+    let diffuse_bsdf = |state:State|{bsdf__bsdf_mdl_math(
+        |state:State|{diffuse_reflection_bsdf__color_float_mdl_math(
+            |state:State|{tt(state)},
+            |state:State|{0.000000f},
+            math
+        )},
+        math
+    )};
+    {
+        material__bool_material_surface_material_surface_color_material_volume_material_geometry_mdl_math(
+            |state:State|{false},
+            |state:State|{material_surface__bsdf_material_emission_mdl_math(
+                |state:State|{diffuse_bsdf(state)},
+                |state:State|{material_emission__edf_color_intensity_mode_mdl_math(
+                    |state:State|{edf__mdl_math(math)},
+                    |state:State|{make_color(0.000000f, 0.000000f, 0.000000f, )},
+                    |state:State|{intensity_mode_intensity_radiant_exitance},
+                    math
+                )},
+                math
+            )},
+            |state:State|{material_surface__bsdf_material_emission_mdl_math(
+                |state:State|{bsdf__mdl_math(math)},
+                |state:State|{material_emission__edf_color_intensity_mode_mdl_math(
+                    |state:State|{edf__mdl_math(math)},
+                    |state:State|{make_color(0.000000f, 0.000000f, 0.000000f, )},
+                    |state:State|{intensity_mode_intensity_radiant_exitance},
+                    math
+                )},
+                math
+            )},
+            |state:State|{make_color(1.000000f, 1.000000f, 1.000000f, )},
+            |state:State|{material_volume__vdf_color_color_mdl_math(
+                |state:State|{vdf__mdl_math(math)},
+                |state:State|{make_color(0.000000f, 0.000000f, 0.000000f, )},
+                |state:State|{make_color(0.000000f, 0.000000f, 0.000000f, )},
+                math
+            )},
+            |state:State|{material_geometry__float3_float_float3_mdl_math(
+                |state:State|{make_float3(0.000000f, 0.000000f, 0.000000f, )},
+                |state:State|{1.000000f},
+                |state:State|{state.normal()},
+                math
+            )},
+            math
+        )
+    }
+
+}
+
+fn @gloss__color_float_float_mdl_math(tt : fn(State) -> color, ru : fn(State) -> float, rv : fn(State) -> float,  math : mdl_math) -> material {
+    material__bool_material_surface_material_surface_color_material_volume_material_geometry_mdl_math(
+        |state:State|{false},
+        |state:State|{material_surface__bsdf_material_emission_mdl_math(
+            |state:State|{simple_glossy_bsdf__float_float_color_float3_scatter_mode_mdl_math(
+                |state:State|{ru(state)},
+                |state:State|{rv(state)},
+                |state:State|{tt(state)},
+                |state:State|{state.texture_tangent_u_int(0, )},
+                |state:State|{scatter_mode_scatter_reflect},
+                math
+            )},
+            |state:State|{material_emission__edf_color_intensity_mode_mdl_math(
+                |state:State|{edf__mdl_math(math)},
+                |state:State|{make_color(0.000000f, 0.000000f, 0.000000f, )},
+                |state:State|{intensity_mode_intensity_radiant_exitance},
+                math
+            )},
+            math
+        )},
+        |state:State|{material_surface__bsdf_material_emission_mdl_math(
+            |state:State|{bsdf__mdl_math(math)},
+            |state:State|{material_emission__edf_color_intensity_mode_mdl_math(
+                |state:State|{edf__mdl_math(math)},
+                |state:State|{make_color(0.000000f, 0.000000f, 0.000000f, )},
+                |state:State|{intensity_mode_intensity_radiant_exitance},
+                math
+            )},
+            math
+        )},
+        |state:State|{make_color(1.000000f, 1.000000f, 1.000000f, )},
+        |state:State|{material_volume__vdf_color_color_mdl_math(
+            |state:State|{vdf__mdl_math(math)},
+            |state:State|{make_color(0.000000f, 0.000000f, 0.000000f, )},
+            |state:State|{make_color(0.000000f, 0.000000f, 0.000000f, )},
+            math
+        )},
+        |state:State|{material_geometry__float3_float_float3_mdl_math(
+            |state:State|{make_float3(0.000000f, 0.000000f, 0.000000f, )},
+            |state:State|{1.000000f},
+            |state:State|{state.normal()},
+            math
+        )},
+        math
+    )
+}
+
+type mapping_mode = int;
+static mapping_mode_uvw : int = 0;
+static mapping_mode_object : int = 1;
+static mapping_mode_world : int = 2;
+
+fn @object_position__State_mdl_math( state : State, math : mdl_math) -> float3{
+    return(state.transform_point_coordinate_space_coordinate_space_float3(coordinate_space_coordinate_internal, coordinate_space_coordinate_object, state.position(), ))
+}
+
+fn @uvw_position__State_mdl_math( state : State, math : mdl_math) -> float3{
+    return(state.texture_coordinate_int(0, ))
+}
+
+fn @world_position__State_mdl_math( state : State, math : mdl_math) -> float3{
+    return(state.transform_point_coordinate_space_coordinate_space_float3(coordinate_space_coordinate_internal, coordinate_space_coordinate_world, state.position(), ))
+}
+
+fn @position__mapping_mode_State_mdl_math(mode : mapping_mode,  state : State, math : mdl_math) -> float3{
+    let mut result: float3 = make_float3(0.000000f, 0.000000f, 0.000000f, );
+    while(true) {
+        let switch_condition = mode;
+        let mut fallthrough: bool = false;
+        if(fallthrough || switch_condition == mapping_mode_uvw){
+            fallthrough = true;
+            result = uvw_position__State_mdl_math(
+                state,
+                math
+            );
+            break()
+        }
+        if(fallthrough || switch_condition == mapping_mode_world){
+            fallthrough = true;
+            result = world_position__State_mdl_math(
+                state,
+                math
+            );
+            break()
+        }
+        if(fallthrough || switch_condition == mapping_mode_object){
+            fallthrough = true;
+            result = object_position__State_mdl_math(
+                state,
+                math
+            );
+            break()
+        }
+        break()
+    }
+    return(result)
+}
+
+fn @plerp__double_double_double_State_mdl_math(t : double, a : double, b : double,  state : State, math : mdl_math) -> double{
+    return(add__double_double_mdl_math(
+        a,
+        mul__double_double_mdl_math(
+            t,
+            sub__double_double_mdl_math(
+                b,
+                a,
+                math
+            ),
+            math
+        ),
+        math
+    ))
+}
+
+fn @fade__double_State_mdl_math(t : double,  state : State, math : mdl_math) -> double{
+    return(mul__double_double_mdl_math(
+        mul__double_double_mdl_math(
+            mul__double_double_mdl_math(
+                t,
+                t,
+                math
+            ),
+            t,
+            math
+        ),
+        add__double_double_mdl_math(
+            mul__double_double_mdl_math(
+                t,
+                sub__double_double_mdl_math(
+                    mul__double_double_mdl_math(
+                        t,
+                        6.000000,
+                        math
+                    ),
+                    15.000000,
+                    math
+                ),
+                math
+            ),
+            10.000000,
+            math
+        ),
+        math
+    ))
+}
+
+fn @grad__int_double_double_double_State_mdl_math(hash : int, x : double, y : double, z : double,  state : State, math : mdl_math) -> double{
+    let  h: int = int__int_mdl_math(
+        bit_and__int_int_mdl_math(
+            hash,
+            15,
+            math
+        ),
+        math
+    );
+    let  mut u: double = 0.000000;
+    let  mut v: double = 0.000000;
+    if (le__int_int_mdl_math(
+        h,
+        8,
+        math
+    )) {
+        u = x;
+    } else {
+        u = y;
+    }
+    if (le__int_int_mdl_math(
+        h,
+        4,
+        math
+    )) {
+        v = y;
+    } else {
+        {
+            if (or__bool_bool_mdl_math(
+                eq__int_int_mdl_math(
+                    h,
+                    12,
+                    math
+                ),
+                eq__int_int_mdl_math(
+                    h,
+                    14,
+                    math
+                ),
+                math
+            )) {
+                v = x;
+            } else {
+                v = z;
+            }
+        }
+    }
+    return(add__double_double_mdl_math(
+        if (eq__int_int_mdl_math(
+            bit_and__int_int_mdl_math(
+                h,
+                1,
+                math
+            ),
+            0,
+            math
+        )) {u} else {neg__double_mdl_math(u, math)},
+        if (eq__int_int_mdl_math(
+            bit_and__int_int_mdl_math(
+                h,
+                2,
+                math
+            ),
+            0,
+            math
+        )) {v} else {neg__double_mdl_math(v, math)},
+        math
+    ))
+}
+
+fn @perlin_noise__double3_State_mdl_math(pt : double3,  state : State, math : mdl_math) -> double{
+    let  p: [int*512] = [151,160,137,91,90,15,131,13,201,95,96,53,194,233,7,225,140,36,103,30,69,142,8,99,37,240,21,10,23,190,6,148,247,120,234,75,0,26,197,62,94,252,219,203,117,35,11,32,57,177,33,88,237,149,56,87,174,20,125,136,171,168,68,175,74,165,71,134,139,48,27,166,77,146,158,231,83,111,229,122,60,211,133,230,220,105,92,41,55,46,245,40,244,102,143,54,65,25,63,161,1,216,80,73,209,76,132,187,208,89,18,169,200,196,135,130,116,188,159,86,164,100,109,198,173,186,3,64,52,217,226,250,124,123,5,202,38,147,118,126,255,82,85,212,207,206,59,227,47,16,58,17,182,189,28,42,223,183,170,213,119,248,152,2,44,154,163,70,221,153,101,155,167,43,172,9,129,22,39,253,19,98,108,110,79,113,224,232,178,185,112,104,218,246,97,228,251,34,242,193,238,210,144,12,191,179,162,241,81,51,145,235,249,14,239,107,49,192,214,31,181,199,106,157,184,84,204,176,115,121,50,45,127,4,150,254,138,236,205,93,222,114,67,29,24,72,243,141,128,195,78,66,215,61,156,180,151,160,137,91,90,15,131,13,201,95,96,53,194,233,7,225,140,36,103,30,69,142,8,99,37,240,21,10,23,190,6,148,247,120,234,75,0,26,197,62,94,252,219,203,117,35,11,32,57,177,33,88,237,149,56,87,174,20,125,136,171,168,68,175,74,165,71,134,139,48,27,166,77,146,158,231,83,111,229,122,60,211,133,230,220,105,92,41,55,46,245,40,244,102,143,54,65,25,63,161,1,216,80,73,209,76,132,187,208,89,18,169,200,196,135,130,116,188,159,86,164,100,109,198,173,186,3,64,52,217,226,250,124,123,5,202,38,147,118,126,255,82,85,212,207,206,59,227,47,16,58,17,182,189,28,42,223,183,170,213,119,248,152,2,44,154,163,70,221,153,101,155,167,43,172,9,129,22,39,253,19,98,108,110,79,113,224,232,178,185,112,104,218,246,97,228,251,34,242,193,238,210,144,12,191,179,162,241,81,51,145,235,249,14,239,107,49,192,214,31,181,199,106,157,184,84,204,176,115,121,50,45,127,4,150,254,138,236,205,93,222,114,67,29,24,72,243,141,128,195,78,66,215,61,156,180];
+    let  X: int = int__int_mdl_math(
+        bit_and__int_int_mdl_math(
+            int__double_mdl_math(
+                math.floor__double(
+                    pt.x,
+                ),
+                math
+            ),
+            255,
+            math
+        ),
+        math
+    );
+    let  Y: int = int__int_mdl_math(
+        bit_and__int_int_mdl_math(
+            int__double_mdl_math(
+                math.floor__double(
+                    pt.y,
+                ),
+                math
+            ),
+            255,
+            math
+        ),
+        math
+    );
+    let  Z: int = int__int_mdl_math(
+        bit_and__int_int_mdl_math(
+            int__double_mdl_math(
+                math.floor__double(
+                    pt.z,
+                ),
+                math
+            ),
+            255,
+            math
+        ),
+        math
+    );
+    let  x: double = double__double_mdl_math(
+        sub__double_double_mdl_math(
+            pt.x,
+            math.floor__double(
+                pt.x,
+            ),
+            math
+        ),
+        math
+    );
+    let  y: double = double__double_mdl_math(
+        sub__double_double_mdl_math(
+            pt.y,
+            math.floor__double(
+                pt.y,
+            ),
+            math
+        ),
+        math
+    );
+    let  z: double = double__double_mdl_math(
+        sub__double_double_mdl_math(
+            pt.z,
+            math.floor__double(
+                pt.z,
+            ),
+            math
+        ),
+        math
+    );
+    let  u: double = double__double_mdl_math(
+        fade__double_State_mdl_math(
+            x,
+            state,
+            math
+        ),
+        math
+    );
+    let  v: double = double__double_mdl_math(
+        fade__double_State_mdl_math(
+            y,
+            state,
+            math
+        ),
+        math
+    );
+    let  w: double = double__double_mdl_math(
+        fade__double_State_mdl_math(
+            z,
+            state,
+            math
+        ),
+        math
+    );
+    let  A: int = int__int_mdl_math(
+        add__int_int_mdl_math(
+            p(X),
+            Y,
+            math
+        ),
+        math
+    );
+    let  AA: int = int__int_mdl_math(
+        add__int_int_mdl_math(
+            p(A),
+            Z,
+            math
+        ),
+        math
+    );
+    let  AB: int = int__int_mdl_math(
+        add__int_int_mdl_math(
+            p(add__int_int_mdl_math(
+                A,
+                1,
+                math
+            )),
+            Z,
+            math
+        ),
+        math
+    );
+    let  B: int = int__int_mdl_math(
+        add__int_int_mdl_math(
+            p(add__int_int_mdl_math(
+                X,
+                1,
+                math
+            )),
+            Y,
+            math
+        ),
+        math
+    );
+    let  BA: int = int__int_mdl_math(
+        add__int_int_mdl_math(
+            p(B),
+            Z,
+            math
+        ),
+        math
+    );
+    let  BB: int = int__int_mdl_math(
+        add__int_int_mdl_math(
+            p(add__int_int_mdl_math(
+                B,
+                1,
+                math
+            )),
+            Z,
+            math
+        ),
+        math
+    );
+    return(plerp__double_double_double_State_mdl_math(
+        w,
+        plerp__double_double_double_State_mdl_math(
+            v,
+            plerp__double_double_double_State_mdl_math(
+                u,
+                grad__int_double_double_double_State_mdl_math(
+                    p(AA),
+                    x,
+                    y,
+                    z,
+                    state,
+                    math
+                ),
+                grad__int_double_double_double_State_mdl_math(
+                    p(BA),
+                    sub__double_double_mdl_math(
+                        x,
+                        1.000000,
+                        math
+                    ),
+                    y,
+                    z,
+                    state,
+                    math
+                ),
+                state,
+                math
+            ),
+            plerp__double_double_double_State_mdl_math(
+                u,
+                grad__int_double_double_double_State_mdl_math(
+                    p(AB),
+                    x,
+                    sub__double_double_mdl_math(
+                        y,
+                        1.000000,
+                        math
+                    ),
+                    z,
+                    state,
+                    math
+                ),
+                grad__int_double_double_double_State_mdl_math(
+                    p(BB),
+                    sub__double_double_mdl_math(
+                        x,
+                        1.000000,
+                        math
+                    ),
+                    sub__double_double_mdl_math(
+                        y,
+                        1.000000,
+                        math
+                    ),
+                    z,
+                    state,
+                    math
+                ),
+                state,
+                math
+            ),
+            state,
+            math
+        ),
+        plerp__double_double_double_State_mdl_math(
+            v,
+            plerp__double_double_double_State_mdl_math(
+                u,
+                grad__int_double_double_double_State_mdl_math(
+                    p(add__int_int_mdl_math(
+                        AA,
+                        1,
+                        math
+                    )),
+                    x,
+                    y,
+                    sub__double_double_mdl_math(
+                        z,
+                        1.000000,
+                        math
+                    ),
+                    state,
+                    math
+                ),
+                grad__int_double_double_double_State_mdl_math(
+                    p(add__int_int_mdl_math(
+                        BA,
+                        1,
+                        math
+                    )),
+                    sub__double_double_mdl_math(
+                        x,
+                        1.000000,
+                        math
+                    ),
+                    y,
+                    sub__double_double_mdl_math(
+                        z,
+                        1.000000,
+                        math
+                    ),
+                    state,
+                    math
+                ),
+                state,
+                math
+            ),
+            plerp__double_double_double_State_mdl_math(
+                u,
+                grad__int_double_double_double_State_mdl_math(
+                    p(add__int_int_mdl_math(
+                        AB,
+                        1,
+                        math
+                    )),
+                    x,
+                    sub__double_double_mdl_math(
+                        y,
+                        1.000000,
+                        math
+                    ),
+                    sub__double_double_mdl_math(
+                        z,
+                        1.000000,
+                        math
+                    ),
+                    state,
+                    math
+                ),
+                grad__int_double_double_double_State_mdl_math(
+                    p(add__int_int_mdl_math(
+                        BB,
+                        1,
+                        math
+                    )),
+                    sub__double_double_mdl_math(
+                        x,
+                        1.000000,
+                        math
+                    ),
+                    sub__double_double_mdl_math(
+                        y,
+                        1.000000,
+                        math
+                    ),
+                    sub__double_double_mdl_math(
+                        z,
+                        1.000000,
+                        math
+                    ),
+                    state,
+                    math
+                ),
+                state,
+                math
+            ),
+            state,
+            math
+        ),
+        state,
+        math
+    ))
+}
+
+fn @perlin_noise_material__color_color_double_mapping_mode_mdl_math(color_1 : fn(State) -> color, color_2 : fn(State) -> color, scale : fn(State) -> double, space : fn(State) -> mapping_mode,  math : mdl_math) -> material {
+    let scaled_point = |state:State|{double3__double3_mdl_math(
+        mul__double_double3_mdl_math(
+            scale(state),
+            double3__float3_mdl_math(
+                position__mapping_mode_State_mdl_math(
+                    space(state),
+                    state,
+                    math
+                ),
+                math
+            ),
+            math
+        ),
+        math
+    )};
+    let noise_value = |state:State|{double__double_mdl_math(
+        add__double_double_mdl_math(
+            mul__double_double_mdl_math(
+                perlin_noise__double3_State_mdl_math(
+                    scaled_point(state),
+                    state,
+                    math
+                ),
+                0.500000,
+                math
+            ),
+            0.500000,
+            math
+        ),
+        math
+    )};
+    let noise_color = |state:State|{color__color_mdl_math(
+        math.lerp__color_color_float(
+            color_1(state),
+            color_2(state),
+            float__double_mdl_math(
+                noise_value(state),
+                math
+            ),
+        ),
+        math
+    )};
+    {
+        material__bool_material_surface_material_surface_color_material_volume_material_geometry_mdl_math(
+            |state:State|{false},
+            |state:State|{material_surface__bsdf_material_emission_mdl_math(
+                |state:State|{diffuse_reflection_bsdf__color_float_mdl_math(
+                    |state:State|{noise_color(state)},
+                    |state:State|{0.000000f},
+                    math
+                )},
+                |state:State|{material_emission__edf_color_intensity_mode_mdl_math(
+                    |state:State|{edf__mdl_math(math)},
+                    |state:State|{make_color(0.000000f, 0.000000f, 0.000000f, )},
+                    |state:State|{intensity_mode_intensity_radiant_exitance},
+                    math
+                )},
+                math
+            )},
+            |state:State|{material_surface__bsdf_material_emission_mdl_math(
+                |state:State|{bsdf__mdl_math(math)},
+                |state:State|{material_emission__edf_color_intensity_mode_mdl_math(
+                    |state:State|{edf__mdl_math(math)},
+                    |state:State|{make_color(0.000000f, 0.000000f, 0.000000f, )},
+                    |state:State|{intensity_mode_intensity_radiant_exitance},
+                    math
+                )},
+                math
+            )},
+            |state:State|{make_color(1.000000f, 1.000000f, 1.000000f, )},
+            |state:State|{material_volume__vdf_color_color_mdl_math(
+                |state:State|{vdf__mdl_math(math)},
+                |state:State|{make_color(0.000000f, 0.000000f, 0.000000f, )},
+                |state:State|{make_color(0.000000f, 0.000000f, 0.000000f, )},
+                math
+            )},
+            |state:State|{material_geometry__float3_float_float3_mdl_math(
+                |state:State|{make_float3(0.000000f, 0.000000f, 0.000000f, )},
+                |state:State|{1.000000f},
+                |state:State|{state.normal()},
+                math
+            )},
+            math
+        )
+    }
+
+}
+
+fn @summed_perlin_noise__double3_int_double_double_bool_State_mdl_math(point : double3, level_count : int, level_scale : double, point_scale : double, turbulence : bool,  state : State, math : mdl_math) -> double{
+    let mut scale: double = 1.000000;
+    let mut noise_sum: double = 0.000000;
+    let mut level_point: double3 = double3__double3_mdl_math(
+        point,
+        math
+    );
+    {
+        let mut i: int = int__int_mdl_math(
+            0,
+            math
+        );
+        {
+            while(le__int_int_mdl_math(
+                i,
+                level_count,
+                math
+            )) {
+                {
+                    let  noise_value: double = double__double_mdl_math(
+                        perlin_noise__double3_State_mdl_math(
+                            level_point,
+                            state,
+                            math
+                        ),
+                        math
+                    );
+                    noise_sum = add__double_double_mdl_math(
+                        noise_sum,
+                        mul__double_double_mdl_math(
+                            noise_value,
+                            scale,
+                            math
+                        ),
+                        math
+                    );
+                    scale = mul__double_double_mdl_math(
+                        scale,
+                        level_scale,
+                        math
+                    );
+                    level_point = mul__double3_double_mdl_math(
+                        level_point,
+                        point_scale,
+                        math
+                    );
+                }
+                pre_inc__int_mdl_math(&mut i, math);
+            }
+        }
+    }
+    if (turbulence) {
+        noise_sum = math.abs__double(
+            noise_sum,
+        );
+    } else {
+        noise_sum = add__double_double_mdl_math(
+            mul__double_double_mdl_math(
+                noise_sum,
+                0.500000,
+                math
+            ),
+            0.500000,
+            math
+        );
+    }
+    return(noise_sum)
+}
+
+fn @summed_noise_material__color_color_double_int_bool_mapping_mode_mdl_math(color_1 : fn(State) -> color, color_2 : fn(State) -> color, scale : fn(State) -> double, level_count : fn(State) -> int, turbulence : fn(State) -> bool, space : fn(State) -> mapping_mode,  math : mdl_math) -> material {
+    let scaled_point = |state:State|{double3__double3_mdl_math(
+        mul__double_double3_mdl_math(
+            scale(state),
+            double3__float3_mdl_math(
+                position__mapping_mode_State_mdl_math(
+                    space(state),
+                    state,
+                    math
+                ),
+                math
+            ),
+            math
+        ),
+        math
+    )};
+    let noise_value = |state:State|{double__double_mdl_math(
+        summed_perlin_noise__double3_int_double_double_bool_State_mdl_math(
+            scaled_point(state),
+            level_count(state),
+            0.500000,
+            2.000000,
+            turbulence(state),
+            state,
+            math
+        ),
+        math
+    )};
+    let noise_color = |state:State|{color__color_mdl_math(
+        math.lerp__color_color_float(
+            color_1(state),
+            color_2(state),
+            float__double_mdl_math(
+                noise_value(state),
+                math
+            ),
+        ),
+        math
+    )};
+    {
+        material__bool_material_surface_material_surface_color_material_volume_material_geometry_mdl_math(
+            |state:State|{false},
+            |state:State|{material_surface__bsdf_material_emission_mdl_math(
+                |state:State|{diffuse_reflection_bsdf__color_float_mdl_math(
+                    |state:State|{noise_color(state)},
+                    |state:State|{0.000000f},
+                    math
+                )},
+                |state:State|{material_emission__edf_color_intensity_mode_mdl_math(
+                    |state:State|{edf__mdl_math(math)},
+                    |state:State|{make_color(0.000000f, 0.000000f, 0.000000f, )},
+                    |state:State|{intensity_mode_intensity_radiant_exitance},
+                    math
+                )},
+                math
+            )},
+            |state:State|{material_surface__bsdf_material_emission_mdl_math(
+                |state:State|{bsdf__mdl_math(math)},
+                |state:State|{material_emission__edf_color_intensity_mode_mdl_math(
+                    |state:State|{edf__mdl_math(math)},
+                    |state:State|{make_color(0.000000f, 0.000000f, 0.000000f, )},
+                    |state:State|{intensity_mode_intensity_radiant_exitance},
+                    math
+                )},
+                math
+            )},
+            |state:State|{make_color(1.000000f, 1.000000f, 1.000000f, )},
+            |state:State|{material_volume__vdf_color_color_mdl_math(
+                |state:State|{vdf__mdl_math(math)},
+                |state:State|{make_color(0.000000f, 0.000000f, 0.000000f, )},
+                |state:State|{make_color(0.000000f, 0.000000f, 0.000000f, )},
+                math
+            )},
+            |state:State|{material_geometry__float3_float_float3_mdl_math(
+                |state:State|{make_float3(0.000000f, 0.000000f, 0.000000f, )},
+                |state:State|{1.000000f},
+                |state:State|{state.normal()},
+                math
+            )},
+            math
+        )
+    }
+
+}
+
+
