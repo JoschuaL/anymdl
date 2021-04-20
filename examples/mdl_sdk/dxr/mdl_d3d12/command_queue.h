@@ -1,5 +1,5 @@
 /******************************************************************************
- * Copyright (c) 2019, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2019-2020, NVIDIA CORPORATION. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -34,10 +34,12 @@
 #include "common.h"
 #include "base_application.h"
 
-namespace mdl_d3d12
+namespace mi { namespace examples { namespace mdl_d3d12
 {
     class Base_application;
     class Fence;
+
+    // --------------------------------------------------------------------------------------------
 
     class Command_queue
     {
@@ -70,12 +72,15 @@ namespace mdl_d3d12
         ComPtr<ID3D12CommandQueue> m_command_queue;
         Fence* m_fence;
 
+        std::mutex m_mtx;
         std::vector<ComPtr<ID3D12CommandAllocator>> m_all_command_allocators;
         std::queue<Allocator_queue_item> m_command_allocator_queue;
 
         std::vector<ComPtr<D3DCommandList>> m_all_command_lists;
         std::queue<D3DCommandList*> m_free_command_list_queue;
     };
+
+    // --------------------------------------------------------------------------------------------
 
     class Fence
     {
@@ -89,11 +94,12 @@ namespace mdl_d3d12
 
     private:
         Base_application* m_app;
+        std::mutex m_mtx;
         Command_queue* m_command_queue;
         ComPtr<ID3D12Fence> m_fence;
         HANDLE m_fence_event;
         UINT64 m_fence_value;
     };
-}
 
+}}} // mi::examples::mdl_d3d12
 #endif

@@ -1,5 +1,5 @@
 /***************************************************************************************************
- * Copyright (c) 2015-2019, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2015-2020, NVIDIA CORPORATION. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -34,21 +34,27 @@
 #include "i_mdl_elements_module.h"
 #include "i_mdl_elements_function_call.h"
 #include "i_mdl_elements_function_definition.h"
+#include "i_mdl_elements_material_definition.h"
 #include "i_mdl_elements_utilities.h"
 
+#include "mdl_elements_annotation_definition_proxy.h"
 #include "mdl_elements_expression.h"
 #include "mdl_elements_detail.h"
 #include "mdl_elements_type.h"
 #include "mdl_elements_utilities.h"
 #include "mdl_elements_value.h"
 
-#include <mi/neuraylib/istring.h>
 #include <cstring>
 #include <sstream>
+
+#include <mi/neuraylib/istring.h>
 #include <base/lib/mem/i_mem_consumption.h>
 #include <base/data/db/i_db_transaction.h>
 #include <base/data/db/i_db_access.h>
 #include <base/data/serial/i_serializer.h>
+
+// Disable false positives (claiming expressions involving "class_id" always being true or false)
+//-V:class_id:547 PVS
 
 namespace MI {
 
@@ -85,6 +91,24 @@ mi::Size Expression_parameter::get_memory_consumption() const
 {
     return sizeof( *this)
         + dynamic_memory_consumption( m_type);
+}
+
+DB::Tag Expression_direct_call::get_definition(DB::Transaction *transaction) const
+{
+    if (transaction == nullptr)
+        return m_definition_ident.first;
+
+    DB::Access<Mdl_module> module(m_module_tag, transaction);
+    SERIAL::Class_id class_id = transaction->get_class_id(m_definition_ident.first);
+    if (class_id == ID_MDL_MATERIAL_DEFINITION) {
+        if (module->has_material_definition(m_definition_db_name, m_definition_ident.second) == 0)
+            return m_definition_ident.first;
+    }
+    else if (class_id == ID_MDL_FUNCTION_DEFINITION) {
+        if (module->has_function_definition(m_definition_db_name, m_definition_ident.second) == 0)
+            return m_definition_ident.first;
+    }
+    return DB::Tag();
 }
 
 const IExpression_list* Expression_direct_call::get_arguments() const
@@ -124,14 +148,14 @@ mi::Size Expression_list::get_index( const char* name) const
 const char* Expression_list::get_name( mi::Size index) const
 {
     if( index >= m_index_name.size())
-        return 0;
+        return nullptr;
     return m_index_name[index].c_str();
 }
 
 const IExpression* Expression_list::get_expression( mi::Size index) const
 {
     if( index >= m_expressions.size())
-        return 0;
+        return nullptr;
     m_expressions[index]->retain();
     return m_expressions[index].get();
 }
@@ -140,7 +164,7 @@ const IExpression* Expression_list::get_expression( const char* name) const
 {
     mi::Size index = get_index( name);
     if( index == static_cast<mi::Size>( -1))
-        return 0;
+        return nullptr;
     return get_expression( index);
 }
 
@@ -186,14 +210,21 @@ mi::Size Expression_list::get_memory_consumption() const
         + dynamic_memory_consumption( m_expressions);
 }
 
-mi::Size Annotation_definition::get_parameter_count() const
+const char* Annotation_definition::get_mdl_parameter_type_name(mi::Size index) const
 {
-    return m_parameter_types->get_size();
+    if( index >= m_parameter_type_names.size())
+        return nullptr;
+    return m_parameter_type_names[index].c_str();
 }
 
 mi::neuraylib::IAnnotation_definition::Semantics Annotation_definition::get_semantic() const
 {
     return m_semantic;
+}
+
+mi::Size Annotation_definition::get_parameter_count() const
+{
+    return m_parameter_types->get_size();
 }
 
 const char* Annotation_definition::get_parameter_name(mi::Size index) const
@@ -253,7 +284,7 @@ const IAnnotation* Annotation_definition::create_annotation(const IExpression_li
     for (mi::Size i = 0, n = m_parameter_types->get_size(); i < n; ++i) {
 
         const char *name = m_parameter_types->get_name(i);
-        mi::base::Handle<const IExpression> arg(arguments->get_expression(name));
+        mi::base::Handle<const IExpression> arg(arguments->get_expression(name)); //-V522 PVS
         if (arg) {
             if (arg->get_kind() != IExpression::EK_CONSTANT)
                 return nullptr;
@@ -287,9 +318,18 @@ mi::Size Annotation_definition::get_memory_consumption() const
 {
     return sizeof(*this)
         + dynamic_memory_consumption(m_name)
+        + dynamic_memory_consumption(m_module_name)
+        + dynamic_memory_consumption(m_module_db_name)
+        + dynamic_memory_consumption(m_simple_name)
+        + dynamic_memory_consumption(m_parameter_type_names)
         + dynamic_memory_consumption(m_parameter_types)
         + dynamic_memory_consumption(m_parameter_defaults)
         + dynamic_memory_consumption(m_annotations);
+}
+
+std::string Annotation_definition::get_mdl_name_without_parameter_types() const
+{
+    return m_module_name + "::" + m_simple_name;
 }
 
 const IExpression_list* Annotation::get_arguments() const
@@ -298,20 +338,21 @@ const IExpression_list* Annotation::get_arguments() const
     return m_arguments.get();
 }
 
-const IAnnotation_definition* Annotation::get_definition(DB::Transaction* transaction) const
+const IAnnotation_definition* Annotation::get_definition( DB::Transaction* transaction) const
 {
-    auto p1 = m_name.rfind("(");
-    ASSERT(M_SCENE, p1 != std::string::npos);
-    auto p0 = m_name.rfind("::", p1);
-    ASSERT(M_SCENE, p0 != std::string::npos);
-    std::string module_db_name = add_mdl_db_prefix(m_name.substr(0, p0));
+    const std::string& db_name = get_db_name_annotation_definition( m_name);
+    DB::Tag definition_proxy_tag = transaction->name_to_tag( db_name.c_str());
+    if( !definition_proxy_tag)
+        return nullptr;
 
-    DB::Tag module_tag = transaction->name_to_tag(module_db_name.c_str());
-    ASSERT(M_SCENE, module_tag.is_valid());
+    DB::Access<Mdl_annotation_definition_proxy> definition_proxy( definition_proxy_tag, transaction);
+    std::string module_db_name = definition_proxy->get_db_module_name();
 
-    DB::Access<Mdl_module> module(module_tag, transaction);
+    DB::Tag module_tag = transaction->name_to_tag( module_db_name.c_str());
+    ASSERT( M_SCENE, module_tag.is_valid());
 
-    return module->get_annotation_definition(m_name.c_str());
+    DB::Access<Mdl_module> module( module_tag, transaction);
+    return module->get_annotation_definition( m_name.c_str());
 }
 
 mi::Size Annotation::get_memory_consumption() const
@@ -329,7 +370,7 @@ mi::Size Annotation_block::get_size() const
 const IAnnotation* Annotation_block::get_annotation( mi::Size index) const
 {
     if( index >= m_annotations.size())
-        return 0;
+        return nullptr;
     m_annotations[index]->retain();
     return m_annotations[index].get();
 }
@@ -376,14 +417,14 @@ mi::Size Annotation_list::get_index( const char* name) const
 const char* Annotation_list::get_name( mi::Size index) const
 {
     if( index >= m_index_name.size())
-        return 0;
+        return nullptr;
     return m_index_name[index].c_str();
 }
 
 const IAnnotation_block* Annotation_list::get_annotation_block( mi::Size index) const
 {
     if( index >= m_annotation_blocks.size())
-        return 0;
+        return nullptr;
     m_annotation_blocks[index]->retain();
     return m_annotation_blocks[index].get();
 }
@@ -392,7 +433,7 @@ const IAnnotation_block* Annotation_list::get_annotation_block( const char* name
 {
     mi::Size index = get_index( name);
     if( index == static_cast<mi::Size>( -1))
-        return 0;
+        return nullptr;
     return get_annotation_block( index);
 }
 
@@ -458,43 +499,55 @@ IValue_factory* Expression_factory::get_value_factory() const
 
 IExpression_constant* Expression_factory::create_constant( IValue* value) const
 {
-    return value ? new Expression_constant( value) : 0;
+    return value ? new Expression_constant( value) : nullptr;
+}
+
+const IExpression_constant* Expression_factory::create_constant( const IValue* value) const
+{
+    // The const_cast is safe here since we return a constant expression which does not give
+    // access to a mutable value.
+    return value ? new Expression_constant( const_cast<IValue*>( value)) : nullptr;
 }
 
 IExpression_call* Expression_factory::create_call( const IType* type, DB::Tag tag) const
 {
-    return type && tag ? new Expression_call( type, tag) : 0;
+    return type && tag ? new Expression_call( type, tag) : nullptr;
 }
 
 IExpression_parameter* Expression_factory::create_parameter(
     const IType* type, mi::Size index) const
 {
-    return type ? new Expression_parameter( type, index) : 0;
+    return type ? new Expression_parameter( type, index) : nullptr;
 }
 
 IExpression_direct_call* Expression_factory::create_direct_call(
-    const IType* type, DB::Tag tag, IExpression_list* arguments) const
+    const IType* type,
+    DB::Tag module_tag,
+    const Mdl_tag_ident& definition_ident,
+    const std::string& definition_db_name,
+    IExpression_list* arguments) const
 {
-    return type && tag && arguments ? new Expression_direct_call( type, tag, arguments) : 0;
+    return type && definition_ident.first && !definition_db_name.empty() && arguments
+        ? new Expression_direct_call(type, module_tag, definition_ident, definition_db_name, arguments) : nullptr;
 }
 
 IExpression_temporary* Expression_factory::create_temporary(
     const IType* type, mi::Size index) const
 {
-    return type ? new Expression_temporary( type, index) : 0;
+    return type ? new Expression_temporary( type, index) : nullptr;
 }
 
 IAnnotation* Expression_factory::create_annotation(
     const char* name, const IExpression_list* arguments) const
 {
     if( !name || !arguments)
-        return 0;
+        return nullptr;
 
     mi::Size n = arguments->get_size();
     for( mi::Size i = 0; i < n; ++i) {
         mi::base::Handle<const IExpression> argument( arguments->get_expression( i));
         if( argument->get_kind() != IExpression::EK_CONSTANT)
-            return 0;
+            return nullptr;
     }
 
     return new Annotation( name, arguments);
@@ -502,6 +555,9 @@ IAnnotation* Expression_factory::create_annotation(
 
 IAnnotation_definition* Expression_factory::create_annotation_definition(
     const char* name,
+    const char* module_name,
+    const char* simple_name,
+    const std::vector<std::string>& parameter_type_names,
     mi::neuraylib::IAnnotation_definition::Semantics sema,
     bool is_exported,
     const IType_list* parameter_types,
@@ -509,10 +565,11 @@ IAnnotation_definition* Expression_factory::create_annotation_definition(
     const IAnnotation_block* annotations) const
 {
     if (!name || !parameter_types)
-        return 0;
+        return nullptr;
 
     return new Annotation_definition(
-        name, sema, is_exported, parameter_types, parameter_defaults, annotations);
+        name, module_name, simple_name, parameter_type_names, sema, is_exported,
+        parameter_types, parameter_defaults, annotations);
 }
 
 IExpression_list* Expression_factory::create_expression_list() const
@@ -536,12 +593,12 @@ IAnnotation_definition_list* Expression_factory::create_annotation_definition_li
 }
 
 IExpression* Expression_factory::clone(
-    const IExpression* expr, 
+    const IExpression* expr,
     DB::Transaction* transaction,
     bool copy_immutable_calls) const
 {
     if( !expr)
-        return 0;
+        return nullptr;
 
     IExpression::Kind kind = expr->get_kind();
 
@@ -565,12 +622,10 @@ IExpression* Expression_factory::clone(
                 SERIAL::Class_id class_id = transaction->get_class_id(call_tag);
                 std::vector<mi::base::Handle<const IExpression> > dummy_context;
                 if (class_id == Mdl_function_call::id) {
-                    
                     DB::Access<Mdl_function_call> f_call(call_tag, transaction);
                     if (f_call->is_immutable())
                         return deep_copy(this, transaction, expr_call.get(), dummy_context);
-                }
-                else if (class_id == Mdl_material_instance::id) {
+                } else if (class_id == Mdl_material_instance::id) {
                     DB::Access<Mdl_material_instance> mat_inst(call_tag, transaction);
                     if (mat_inst->is_immutable())
                         return deep_copy(this, transaction, expr_call.get(), dummy_context);
@@ -591,8 +646,13 @@ IExpression* Expression_factory::clone(
             mi::base::Handle<const IExpression_list> arguments( expr_direct_call->get_arguments());
             mi::base::Handle<IExpression_list> clone_arguments(
                 clone( arguments.get(), transaction, copy_immutable_calls));
+            Mdl_tag_ident def_ident(
+                expr_direct_call->get_definition(/*transaction=*/nullptr),
+                expr_direct_call->get_definition_ident());
+
             return create_direct_call(
-                type.get(), expr_direct_call->get_definition(), clone_arguments.get());
+                type.get(), expr_direct_call->get_module(), def_ident,
+                expr_direct_call->get_definition_db_name(), clone_arguments.get());
         }
         case IExpression::EK_TEMPORARY: {
             mi::base::Handle<const IType> type( expr->get_type());
@@ -602,11 +662,11 @@ IExpression* Expression_factory::clone(
         }
         case IExpression::EK_FORCE_32_BIT:
             ASSERT( M_SCENE, false);
-            return 0;
+            return nullptr;
     }
 
     ASSERT( M_SCENE, false);
-    return 0;
+    return nullptr;
 }
 
 IExpression_list* Expression_factory::clone(
@@ -615,7 +675,7 @@ IExpression_list* Expression_factory::clone(
     bool copy_immutable_calls) const
 {
     if( !list)
-        return 0;
+        return nullptr;
 
     IExpression_list* result = create_expression_list();
     mi::Size n = list->get_size();
@@ -635,7 +695,7 @@ namespace {
 class String : public mi::base::Interface_implement<mi::IString>
 {
 public:
-    String( const char* str = 0) : m_string( str ? str : "") { }
+    String( const char* str = nullptr) : m_string( str ? str : "") { }
     const char* get_type_name() const { return "String"; }
     const char* get_c_str() const { return m_string.c_str(); }
     void set_c_str( const char* str) { m_string = str ? str : ""; }
@@ -748,7 +808,9 @@ IExpression* Expression_factory::create_cast(
     args->add_expression("cast", src_expr);
 
     if (direct_call) {
-        return create_direct_call(target_type, cast_def_tag, args.get());
+        return create_direct_call(target_type, cast_def->get_module(transaction),
+            Mdl_tag_ident(cast_def_tag, cast_def->get_ident()),
+            get_cast_operator_db_name(), args.get());
     }
 
     DB::Privacy_level level = 0;
@@ -825,8 +887,14 @@ void Expression_factory::serialize( SERIAL::Serializer* serializer, const IExpre
             tf->serialize( serializer, type.get());
             mi::base::Handle<const IExpression_direct_call> expr_direct_call(
                 expr->get_interface<IExpression_direct_call>());
-            DB::Tag tag = expr_direct_call->get_definition();
+            DB::Tag module_tag = expr_direct_call->get_module();
+            serializer->write(module_tag);
+            DB::Tag tag = expr_direct_call->get_definition(/*transaction=*/nullptr);
             serializer->write( tag);
+            Mdl_ident ident = expr_direct_call->get_definition_ident();
+            serializer->write(ident);
+            const char* definition_db_name = expr_direct_call->get_definition_db_name();
+            serializer->write(definition_db_name);
             mi::base::Handle<const IExpression_list> arguments( expr_direct_call->get_arguments());
             serialize_list( serializer, arguments.get());
             return;
@@ -877,10 +945,18 @@ IExpression* Expression_factory::deserialize( SERIAL::Deserializer* deserializer
         case IExpression::EK_DIRECT_CALL: {
             mi::base::Handle<IType_factory> tf( m_value_factory->get_type_factory());
             mi::base::Handle<const IType> type( tf->deserialize( deserializer));
+            DB::Tag module_tag;
+            deserializer->read(&module_tag);
             DB::Tag tag;
             deserializer->read( &tag);
+            Mdl_ident ident;
+            deserializer->read(&ident);
+            std::string definition_db_name;
+            deserializer->read(&definition_db_name);
             mi::base::Handle<IExpression_list> arguments( deserialize_list( deserializer));
-            return create_direct_call( type.get(), tag, arguments.get());
+            return create_direct_call(
+                type.get(),
+                module_tag, Mdl_tag_ident(tag, ident), definition_db_name, arguments.get());
         }
         case IExpression::EK_TEMPORARY: {
             mi::base::Handle<IType_factory> tf( m_value_factory->get_type_factory());
@@ -891,11 +967,11 @@ IExpression* Expression_factory::deserialize( SERIAL::Deserializer* deserializer
         }
         case IExpression::EK_FORCE_32_BIT:
             ASSERT( M_SCENE, false);
-            return 0;
+            return nullptr;
     }
 
     ASSERT( M_SCENE, false);
-    return 0;
+    return nullptr;
 }
 
 void Expression_factory::serialize_list(
@@ -946,17 +1022,25 @@ IAnnotation* Expression_factory::deserialize_annotation(
     return create_annotation( name.c_str(), arguments.get());
 }
 
-void Expression_factory::serialize_annotation_definition(SERIAL::Serializer* serializer, const IAnnotation_definition* anno_def) const
+void Expression_factory::serialize_annotation_definition(
+    SERIAL::Serializer* serializer, const IAnnotation_definition* anno_def) const
 {
-    std::string name = anno_def->get_name();
-    serializer->write(name);
+    serializer->write(anno_def->get_name());
+    serializer->write(anno_def->get_mdl_module_name());
+    serializer->write(anno_def->get_mdl_simple_name());
+
+    mi::base::Handle<const IType_list> type_list(anno_def->get_parameter_types());
+    size_t n = type_list->get_size();
+    serializer->write_size_t(n);
+    for(size_t i = 0; i < n; ++i)
+        serializer->write(anno_def->get_mdl_parameter_type_name(i));
+
     mi::neuraylib::IAnnotation_definition::Semantics sema = anno_def->get_semantic();
     serializer->write(static_cast<mi::Uint32>(sema));
 
     serializer->write(anno_def->is_exported());
 
     mi::base::Handle<IType_factory> tf(m_value_factory->get_type_factory());
-    mi::base::Handle<const IType_list> type_list(anno_def->get_parameter_types());
     tf->serialize_list(serializer, type_list.get());
 
     mi::base::Handle<const IExpression_list> defaults(anno_def->get_defaults());
@@ -972,6 +1056,21 @@ IAnnotation_definition* Expression_factory::deserialize_annotation_definition(
     std::string name;
     deserializer->read(&name);
 
+    std::string mdl_module_name;
+    deserializer->read(&mdl_module_name);
+
+    std::string mdl_simple_name;
+    deserializer->read(&mdl_simple_name);
+
+    size_t n;
+    deserializer->read_size_t(&n);
+    std::vector<std::string> mdl_parameter_type_names;
+    for(size_t i = 0; i < n; ++i) {
+        std::string s;
+        deserializer->read(&s);
+        mdl_parameter_type_names.push_back(s);
+    }
+
     mi::Uint32 semantic;
     deserializer->read(&semantic);
 
@@ -984,9 +1083,12 @@ IAnnotation_definition* Expression_factory::deserialize_annotation_definition(
     mi::base::Handle<IExpression_list> defaults(deserialize_list(deserializer));
 
     mi::base::Handle<IAnnotation_block> annotations(deserialize_annotation_block(deserializer));
-    
+
     return create_annotation_definition(
         name.c_str(),
+        mdl_module_name.c_str(),
+        mdl_simple_name.c_str(),
+        mdl_parameter_type_names,
         static_cast<mi::neuraylib::IAnnotation_definition::Semantics>(semantic),
         is_exported,
         parameter_types.get(), defaults.get(), annotations.get());
@@ -1009,7 +1111,7 @@ IAnnotation_block* Expression_factory::deserialize_annotation_block(
     mi::Size size;
     deserializer->read( &size);
     if( size == 0)
-        return 0;
+        return nullptr;
 
     IAnnotation_block* block = new Annotation_block;
     for( mi::Size i = 0; i < size; ++i) {
@@ -1149,7 +1251,7 @@ void Expression_factory::dump_static(
 #endif
             if( name)
                 s << name << " = ";
-            DB::Tag tag = expr_direct_call->get_definition();
+            DB::Tag tag = expr_direct_call->get_definition(/*transaction=*/nullptr);
             if( transaction)
                 s << "\"" << transaction->tag_to_name( tag) << "\" (";
             else
@@ -1321,8 +1423,8 @@ mi::Sint32 Expression_factory::compare_static( const IExpression* lhs, const IEx
     if(  lhs && !rhs) return +1;
     ASSERT( M_SCENE, lhs && rhs);
 
-    mi::base::Handle<const IType> lhs_type( lhs->get_type());
-    mi::base::Handle<const IType> rhs_type( rhs->get_type());
+    mi::base::Handle<const IType> lhs_type( lhs->get_type()); //-V522 PVS
+    mi::base::Handle<const IType> rhs_type( rhs->get_type()); //-V522 PVS
     mi::Sint32 result = Type_factory::compare_static( lhs_type.get(), rhs_type.get());
     if( result != 0)
         return result;
@@ -1370,10 +1472,14 @@ mi::Sint32 Expression_factory::compare_static( const IExpression* lhs, const IEx
                 lhs->get_interface<IExpression_direct_call>());
             mi::base::Handle<const IExpression_direct_call> rhs_direct_call(
                 rhs->get_interface<IExpression_direct_call>());
-            DB::Tag lhs_tag = lhs_direct_call->get_definition();
-            DB::Tag rhs_tag = rhs_direct_call->get_definition();
+            DB::Tag lhs_tag = lhs_direct_call->get_definition(/*transaction=*/nullptr);
+            DB::Tag rhs_tag = rhs_direct_call->get_definition(/*transaction=*/nullptr);
             if( lhs_tag < rhs_tag) return -1;
             if( lhs_tag > rhs_tag) return +1;
+            DB::Tag lhs_mtag = lhs_direct_call->get_module();
+            DB::Tag rhs_mtag = rhs_direct_call->get_module();
+            if (lhs_mtag < rhs_mtag) return -1;
+            if (lhs_mtag > rhs_mtag) return +1;
             mi::base::Handle<const IExpression_list> lhs_arguments(
                 lhs_direct_call->get_arguments());
             mi::base::Handle<const IExpression_list> rhs_arguments(
@@ -1408,8 +1514,8 @@ mi::Sint32 Expression_factory::compare_static(
     if(  lhs && !rhs) return +1;
     ASSERT( M_SCENE, lhs && rhs);
 
-    mi::Size lhs_n = lhs->get_size();
-    mi::Size rhs_n = rhs->get_size();
+    mi::Size lhs_n = lhs->get_size(); //-V522 PVS
+    mi::Size rhs_n = rhs->get_size(); //-V522 PVS
     if( lhs_n < rhs_n) return -1;
     if( lhs_n > rhs_n) return +1;
 

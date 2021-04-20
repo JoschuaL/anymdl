@@ -1,5 +1,5 @@
 /***************************************************************************************************
- * Copyright (c) 2011-2019, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2011-2020, NVIDIA CORPORATION. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -75,6 +75,7 @@ public:
         mi::Sint32* errors) const;
 
     IMipmap* create_mipmap(
+        Container_based,
         mi::neuraylib::IReader* reader,
         const std::string& archive_filename,
         const std::string& member_filename,
@@ -84,8 +85,10 @@ public:
         mi::Sint32* errors) const;
 
     IMipmap* create_mipmap(
+        Memory_based,
         mi::neuraylib::IReader* reader,
         const char* image_format,
+        const char* mdl_file_path,
         mi::Uint32 tile_width,
         mi::Uint32 tile_height,
         bool only_first_level,
@@ -95,8 +98,12 @@ public:
         std::vector<mi::base::Handle<mi::neuraylib::ICanvas> >& canvases,
         bool is_cubemap) const;
 
-    void create_mipmaps(std::vector<mi::base::Handle<mi::neuraylib::ICanvas> >& mipmaps,
-        const mi::neuraylib::ICanvas* base_canvas, mi::Float32 gamma) const;
+    void create_mipmaps(
+        std::vector<mi::base::Handle<mi::neuraylib::ICanvas> >& mipmaps,
+        const mi::neuraylib::ICanvas* base_canvas,
+        mi::Float32 gamma) const;
+
+    IMipmap* create_dummy_mipmap();
 
     mi::neuraylib::ICanvas* create_canvas(
         Pixel_type pixel_type,
@@ -116,6 +123,7 @@ public:
         mi::Sint32* errors) const;
 
     mi::neuraylib::ICanvas* create_canvas(
+        Container_based,
         mi::neuraylib::IReader* reader,
         const std::string& archive_filename,
         const std::string& member_filename,
@@ -125,8 +133,10 @@ public:
         mi::Sint32* errors) const;
 
     mi::neuraylib::ICanvas* create_canvas(
+        Memory_based,
         mi::neuraylib::IReader* reader,
         const char* image_format,
+        const char* mdl_file_path,
         mi::Uint32 miplevel,
         mi::Uint32 tile_width,
         mi::Uint32 tile_height,

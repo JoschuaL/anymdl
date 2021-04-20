@@ -1,5 +1,5 @@
 /******************************************************************************
- * Copyright (c) 2017-2019, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2017-2020, NVIDIA CORPORATION. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -29,6 +29,7 @@
 #ifndef EXAMPLE_DF_CUDA_H
 #define EXAMPLE_DF_CUDA_H
 
+#include <cstdint>
 #include <vector_types.h>
 #include <texture_types.h>
 
@@ -42,6 +43,8 @@ enum Mdl_test_type {
     MDL_TEST_NO_ENV  = 4,  // no environment sampling
     MDL_TEST_COUNT
 };
+
+const unsigned MAX_DF_HANDLES = 8;
 
 struct Env_accel {
     unsigned int alias;
@@ -71,11 +74,13 @@ struct Df_cuda_material
     Df_cuda_material()
         : compiled_material_index(0)
         , argument_block_index(~0)
+        , init(make_invalid())
         , bsdf(make_invalid())
         , edf(make_invalid())
         , emission_intensity(make_invalid())
         , volume_absorption(make_invalid())
         , thin_walled(make_invalid())
+        , contains_hair_bsdf(0)
     {
     }
 
@@ -84,6 +89,9 @@ struct Df_cuda_material
 
     // the argument block index of this material (~0 if not used)
     unsigned int argument_block_index;
+
+    // pair of target_code_index and function_index to identify the init function
+    uint2 init;
 
     // pair of target_code_index and function_index to identify the bsdf
     uint2 bsdf;
@@ -99,8 +107,23 @@ struct Df_cuda_material
 
     // pair of target_code_index and function_index for thin_walled
     uint2 thin_walled;
+
+    // maps 'material tags' to 'global tags' for the surface scattering distribution function
+    unsigned int bsdf_mtag_to_gtag_map[MAX_DF_HANDLES];
+    unsigned int bsdf_mtag_to_gtag_map_size;
+
+    // maps 'material tags' to 'global tags' for the emission distribution function
+    unsigned int edf_mtag_to_gtag_map[MAX_DF_HANDLES];
+    unsigned int edf_mtag_to_gtag_map_size;
+
+    unsigned int contains_hair_bsdf;
 };
 
+enum Geometry_type
+{
+    GT_SPHERE = 0,  // Intersect a sphere with unit radius located at the (0,0,0)
+    GT_HAIR = 1,    // Intersect an infinite cylinder at (0,0,0) oriented in y-direction
+};
 
 struct Kernel_params {
     // display
@@ -108,6 +131,10 @@ struct Kernel_params {
     float         exposure_scale;
     unsigned int *display_buffer;
     float3       *accum_buffer;
+    float3       *albedo_buffer;
+    float3       *normal_buffer;
+    bool          enable_auxiliary_output;
+    unsigned      display_buffer_index;
 
     // parameters
     unsigned int iteration_start;
@@ -124,20 +151,46 @@ struct Kernel_params {
     float3 cam_up;
     float  cam_focal;
 
+    // geometry
+    unsigned int geometry;
+
     // environment
     uint2                env_size;
     cudaTextureObject_t  env_tex;
     Env_accel           *env_accel;
+    float                env_intensity;         // scaling factor
+    uint32_t             env_gtag;              // global light group tag for handle 'env'
+    float                env_rotation;          // rotation of the environment
 
     // point light
     float3 light_pos;
-    float3 light_intensity;
+    float3 light_color;
+    float light_intensity;
+    uint32_t point_light_gtag;                  // global light group tag for handle 'point_light'
 
     // material data
     Target_code_data   *tc_data;
     char const        **arg_block_list;
     unsigned int        current_material;
     Df_cuda_material   *material_buffer;
+
+    // LPE state machine
+    uint32_t            lpe_num_states;         // number of states in the state machine
+    uint32_t            lpe_num_transitions;    // number of possible transitions between 2 states
+    uint32_t           *lpe_state_table;        // actual machine; size: #states x #transitions
+    uint32_t           *lpe_final_mask;         // encodes final states; size: #states
+    uint32_t            default_gtag;           // tag ID for the empty string
+    uint32_t            lpe_ouput_expression;   // the LPE evaluated for output
+                                                // only one here, but additional one analogously
+};
+
+enum Display_buffer_options
+{
+    DISPLAY_BUFFER_LPE = 0,
+    DISPLAY_BUFFER_ALBEDO,
+    DISPLAY_BUFFER_NORMAL,
+
+    DISPLAY_BUFFER_COUNT
 };
 
 #endif // EXAMPLE_DF_CUDA_H

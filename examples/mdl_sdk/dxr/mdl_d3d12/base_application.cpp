@@ -1,5 +1,5 @@
 /******************************************************************************
- * Copyright (c) 2019, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2019-2020, NVIDIA CORPORATION. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -30,66 +30,80 @@
 #include "command_queue.h"
 #include "descriptor_heap.h"
 #include "dxgidebug.h"
-#include "mdl_material.h"
+#include "mdl_sdk.h"
 #include "window.h"
 #include "window_image_file.h"
 #include "window_win32.h"
 
-
-namespace mdl_d3d12
+namespace mi { namespace examples { namespace mdl_d3d12
 {
-    Base_application_message_interface::Base_application_message_interface(
-        Base_application* app, 
-        HINSTANCE instance)
 
-        : m_app(app)
-        , m_instance(instance)
-    {
-    }
+Base_application_message_interface::Base_application_message_interface(
+    Base_application* app,
+    HINSTANCE instance)
 
-    void Base_application_message_interface::key_down(uint8_t key)
-    {
-        m_app->key_down(key);
-    }
+    : m_app(app)
+    , m_instance(instance)
+{
+}
 
-    void Base_application_message_interface::key_up(uint8_t key)
-    {
-        m_app->key_up(key);
-    }
+// ------------------------------------------------------------------------------------------------
 
-    void Base_application_message_interface::paint()
-    {
-        m_app->update();
-        m_app->render();
-    }
+void Base_application_message_interface::key_down(uint8_t key)
+{
+    m_app->key_down(key);
+}
 
-    void Base_application_message_interface::resize(size_t width, size_t height, double dpi)
-    {
-        m_app->flush_command_queues();
-        m_app->m_window->resize(width, height, dpi);
-    }
+void Base_application_message_interface::key_up(uint8_t key)
+{
+    m_app->key_up(key);
+}
 
+// ------------------------------------------------------------------------------------------------
+
+void Base_application_message_interface::paint()
+{
+    m_app->update();
+    m_app->render();
+}
+
+// ------------------------------------------------------------------------------------------------
+
+void Base_application_message_interface::resize(size_t width, size_t height, double dpi)
+{
+    m_app->flush_command_queues();
+    m_app->m_window->resize(width, height, dpi);
+}
+
+// ------------------------------------------------------------------------------------------------
+// ------------------------------------------------------------------------------------------------
 
 Base_application::Base_application()
     : m_window(nullptr)
+    , m_scene_is_updating_next(false)
 {
     m_update_args.frame_number = 0;
     m_update_args.elapsed_time = 0.0;
     m_update_args.total_time = 0.0;
 
+    m_render_args.frame_number = 0;
     m_render_args.back_buffer = nullptr;
     m_render_args.back_buffer_rtv = {0};
 }
 
-Base_application::~Base_application() {}
+// ------------------------------------------------------------------------------------------------
 
-
-int Base_application::run(const Base_options* options, HINSTANCE hInstance, int nCmdShow)
+Base_application::~Base_application()
 {
-    m_options = options;
+    log_set_file_path(nullptr); // close the file if there is one
+}
 
+// ------------------------------------------------------------------------------------------------
+
+int Base_application::run(Base_options* options, HINSTANCE hInstance, int nCmdShow)
+{
     // create graphics context, load MDL SDK, ...
-    if (!initialize()) return -1;
+    if (!initialize_internal(options)) return -1;
 
     // create the window
     Base_application_message_interface message_interface(this, hInstance);
@@ -102,30 +116,35 @@ int Base_application::run(const Base_options* options, HINSTANCE hInstance, int 
     m_render_args.backbuffer_width = m_window->get_width();
     m_render_args.backbuffer_height = m_window->get_height();
 
-    // load the applications content
-    if (!load()) return -1;
+    int return_code = 0;
+    // load the applications content and then run the main loop
+    if (load())
+    {
+        // show the window and run the message loop
+        int return_code = m_window->show(nCmdShow);
+        if (return_code != 0)
+            log_warning("Applications main loop stopped with issues.", SRC);
 
-    // show the window and run the message loop
-    int return_code = m_window->show(nCmdShow);
-    if (return_code != 0)
-        log_warning("Applications main loop stopped with issues.", SRC);
-
-    // complete the current work load
-    flush_command_queues();
+        // complete the current work load
+        flush_command_queues();
+    }
+    else
+        log_error("Loading Applications failed. Freeing already loaded content.", SRC);
 
     // unload the application
-    if (!unload()) return -1;
+    if (!unload())
+        log_error("Unloading Applications failed.", SRC);
 
     // release base application resources
     for (auto&& queue : m_command_queues)
         delete queue.second;
 
+    delete m_window;
     delete m_mdl_sdk;
     delete m_resource_descriptor_heap;
     delete m_render_target_descriptor_heap;
-    delete m_window;
-    m_device->Release();
-    m_factory->Release();
+    m_device = nullptr;
+    m_factory = nullptr;
 
     #if defined(_DEBUG)
     {
@@ -140,6 +159,8 @@ int Base_application::run(const Base_options* options, HINSTANCE hInstance, int 
     return return_code;
 }
 
+// ------------------------------------------------------------------------------------------------
+
 Command_queue* Base_application::get_command_queue(D3D12_COMMAND_LIST_TYPE type)
 {
     auto found = m_command_queues.find(type);
@@ -151,24 +172,37 @@ Command_queue* Base_application::get_command_queue(D3D12_COMMAND_LIST_TYPE type)
     return new_queue;
 }
 
+// ------------------------------------------------------------------------------------------------
+
 void Base_application::flush_command_queues()
 {
     for (auto&& it : m_command_queues)
         it.second->flush();
 }
 
+// ------------------------------------------------------------------------------------------------
+
 Descriptor_heap* Base_application::get_resource_descriptor_heap()
 {
     { return m_resource_descriptor_heap; }
 }
+
+// ------------------------------------------------------------------------------------------------
 
 Descriptor_heap* Base_application::get_render_target_descriptor_heap()
 {
     { return m_render_target_descriptor_heap; }
 }
 
-bool Base_application::initialize()
+// ------------------------------------------------------------------------------------------------
+
+bool Base_application::initialize_internal(Base_options* options)
 {
+    if (!initialize(options))
+        return false;
+
+    m_options = options;
+
     UINT dxgi_factory_flags = 0;
     D3D_FEATURE_LEVEL feature_level = D3D_FEATURE_LEVEL_12_0;
 
@@ -198,25 +232,73 @@ bool Base_application::initialize()
     }
     #endif
 
-    if (log_on_failure(CreateDXGIFactory2(dxgi_factory_flags, IID_PPV_ARGS(&m_factory)), 
-        "Failed to create DXGI Factory.", SRC)) 
+    if (log_on_failure(CreateDXGIFactory2(dxgi_factory_flags, IID_PPV_ARGS(&m_factory)),
+        "Failed to create DXGI Factory.", SRC))
         return false;
 
-    // check if a device fits the requirements 
-    ComPtr<IDXGIAdapter1> adapter;
+
+    // collect non-software adapters
     bool found_adapter = false;
+    struct adapter_pair
+    {
+        ComPtr<IDXGIAdapter1> adapter;
+        DXGI_ADAPTER_DESC1 desc;
+    };
+
+    std::deque<adapter_pair> available_adapters;
+
+    ComPtr<IDXGIAdapter1> adapter;
     for (UINT a = 0; DXGI_ERROR_NOT_FOUND != m_factory->EnumAdapters1(a, &adapter); ++a)
     {
         DXGI_ADAPTER_DESC1 desc;
         adapter->GetDesc1(&desc);
-        std::string name = wstr_to_str(desc.Description);
 
+        // check if a device fits the requirements
         if (desc.Flags & DXGI_ADAPTER_FLAG_SOFTWARE)
             continue;
 
+        available_adapters.push_back({adapter, desc});
+    }
+
+    // sort by dedicated memory, assuming that is a good heuristic
+    std::sort(available_adapters.begin(), available_adapters.end(),
+        [](const adapter_pair& a, const adapter_pair& b)
+        {
+            return a.desc.DedicatedVideoMemory > b.desc.DedicatedVideoMemory;
+        });
+
+    // allow the user to select a certain GPU
+    if (available_adapters.size() > 1)
+    {
+        std::string msg =
+            "Multiple GPUs detected, run with option '--gpu <num>' to select a specific one."
+            "\n                      Default is the first one (from the top) that supports RTX:";
+
+        for (size_t i = 0; i < available_adapters.size(); ++i)
+        {
+            msg += "\n                      - [" + std::to_string(i) + "] " +
+                mi::examples::strings::wstr_to_str(available_adapters[i].desc.Description);
+        }
+
+        log_info(msg);
+    }
+
+    // if the user picked one, move that to the top
+    if (options->gpu >= 0 && options->gpu < available_adapters.size())
+    {
+        adapter_pair selected = available_adapters[options->gpu];
+        available_adapters.erase(available_adapters.begin() + options->gpu);
+        available_adapters.push_front(selected);
+    }
+
+    // iterate over available devices and use the first that fits the requirements
+    for (adapter_pair& pair : available_adapters)
+    {
+        std::string name = mi::examples::strings::wstr_to_str(pair.desc.Description);
+
         // create the device context
         if (SUCCEEDED(D3D12CreateDevice(
-            adapter.Get(), feature_level, _uuidof(D3DDevice), &m_device)))
+            pair.adapter.Get(), feature_level, _uuidof(D3DDevice), &m_device)))
         {
             // check ray tracing support
             D3D12_FEATURE_DATA_D3D12_OPTIONS5 data;
@@ -244,7 +326,6 @@ bool Base_application::initialize()
         log_error("No D3D device found that fits the requirements.");
         return false;
     }
-    
 
     #if defined(_DEBUG)
     {
@@ -265,34 +346,41 @@ bool Base_application::initialize()
             NewFilter.DenyList.pSeverityList = Severities;
 
             if(log_on_failure(pInfoQueue->PushStorageFilter(&NewFilter),
-                "Failed to setup D3D debug messages", SRC)) 
+                "Failed to setup D3D debug messages", SRC))
                 return false;
         }
     }
     #endif
 
     // check if the device context is still valid
-    if(log_on_failure(m_device->GetDeviceRemovedReason(), 
+    if(log_on_failure(m_device->GetDeviceRemovedReason(),
        "Created device is in invalid state.", SRC))
        return false;
 
     // create a heap for all resources
     m_resource_descriptor_heap = new Descriptor_heap(
-        this, D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV, 1024 /* hard coded */, "ResourceHeap");
+        this, D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV, 4096 /* hard coded */, "ResourceHeap");
 
     m_render_target_descriptor_heap = new Descriptor_heap(
         this, D3D12_DESCRIPTOR_HEAP_TYPE_RTV, 8 /* hard coded */, "RenderTargetHeap");
 
     // load the MDL SDK and check for success
     m_mdl_sdk = new Mdl_sdk(this);
-    if(!m_mdl_sdk->is_running()) return false;
-
+    if (!m_mdl_sdk->is_valid())
+    {
+        log_error("MDL SDK not initialized properly.");
+        return false;
+    }
     return true;
 }
 
+// ------------------------------------------------------------------------------------------------
 
 void Base_application::update()
 {
+    m_update_args.scene_is_updating = m_scene_is_updating_next;
+    m_render_args.scene_is_updating = m_scene_is_updating_next;
+
     // allow the application to adapt to new resolutions
     if ((m_window->get_width() != m_render_args.backbuffer_width) ||
         (m_window->get_height() != m_render_args.backbuffer_height))
@@ -321,6 +409,8 @@ void Base_application::update()
     update(m_update_args);
 }
 
+// ------------------------------------------------------------------------------------------------
+
 void Base_application::render()
 {
     m_render_args.back_buffer = m_window->get_back_buffer();
@@ -329,6 +419,7 @@ void Base_application::render()
     m_window->present_back_buffer();
 
     m_update_args.frame_number++;
+    m_render_args.frame_number++;
 }
 
-} // mdl_d3d12
+}}} // mi::examples::mdl_d3d12

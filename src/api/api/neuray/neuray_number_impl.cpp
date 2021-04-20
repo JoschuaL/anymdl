@@ -1,5 +1,5 @@
 /***************************************************************************************************
- * Copyright (c) 2010-2019, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2010-2020, NVIDIA CORPORATION. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -52,7 +52,7 @@ mi::base::IInterface* Number_impl<I, T>::create_api_class(
     const mi::base::IInterface* argv[])
 {
     if( argc != 0)
-        return 0;
+        return nullptr;
     return new Number_impl<I, T>();
 }
 
@@ -219,14 +219,14 @@ mi::base::IInterface* Number_impl_proxy<I, T>::create_api_class(
     const mi::base::IInterface* argv[])
 {
     if( argc != 0)
-        return 0;
+        return nullptr;
     return (new Number_impl_proxy<I, T>())->cast_to_major();
 }
 
 template <typename I, typename T>
 Number_impl_proxy<I, T>::Number_impl_proxy()
 {
-    m_pointer = 0;
+    m_pointer = nullptr;
 }
 
 template <typename I, typename T>

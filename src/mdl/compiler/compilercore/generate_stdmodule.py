@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 #*****************************************************************************
-# Copyright (c) 2012-2019, NVIDIA CORPORATION. All rights reserved.
+# Copyright (c) 2012-2020, NVIDIA CORPORATION. All rights reserved.
 #
 # Redistribution and use in source and binary forms, with or without
 # modification, are permitted provided that the following conditions
@@ -61,11 +61,11 @@ def scan_src_file(prefix, filename):
     block.name, ext = os.path.splitext(os.path.basename(filename))
     block.name = prefix + "_" + block.name
 
-    in_file = file(filename)
+    in_file = open(filename)
     state = "header"
     for line in in_file:
         # rstrip removes the '\n' too
-        line = string.rstrip(line)
+        line = line.rstrip()
 
         if state == "header":
             # read header, lines must start with "//"
@@ -84,7 +84,7 @@ def scan_src_file(prefix, filename):
 
 def check_whitespace(src):
     """Check a given file for whitespace errors."""
-    f = file(src)
+    f = open(src)
     lineno = 1
     module = os.path.basename(src)
     s_re = re.compile("^[ ]*\t+[ ]*.*")
@@ -148,7 +148,7 @@ def generate_cpp_file(files,
     header_filename += '.h'
 
     # generate .cpp file
-    target = file(dst, "w+")
+    target = open(dst, "w+")
 
     write_cpp_header(module, blocks, target)
 
@@ -166,19 +166,28 @@ def generate_cpp_file(files,
         l = len(text)
         kl = len(key)
         target.write("unsigned char const " + block.name + "[%u] = {" % (l))
+        first = False
         if key:
             for i in range(l):
+                first = False
                 if i % 8 == 0:
                     target.write('\n  ')
+                    first = True
                 code = ord(text[i]) ^ ord(key[i % kl]) ^ (i & 0xFF)
                 start = code
-                target.write("0x%02x, " % code)
+                if not first:
+                    target.write(' ')
+                target.write("0x%02x," % code)
             target.write('\n};\n\n');
         else:
             for i in range(l):
+                first = False
                 if i % 8 == 0:
                     target.write('\n  ')
-                target.write("0x%02x, " % ord(text[i]))
+                    first = True
+                if not first:
+                    target.write(' ')
+                target.write("0x%02x," % ord(text[i]))
             target.write('\n};\n\n');
 
     # write footer
@@ -187,7 +196,7 @@ def generate_cpp_file(files,
 
 
     # generate header file
-    target = file(header_filename, "w+")
+    target = open(header_filename, "w+")
     write_cpp_header(module, blocks, target)
 
     guard = header_filename[:].replace("\\", "/")
@@ -302,11 +311,11 @@ def main():
         (options, args) = parser.parse_args()
 
     if len(args) == 0:
-        print "Must supply at least one mdl file as input"
+        print("Must supply at least one mdl file as input")
         sys.exit(1)
 
     if not options.silent:
-        print "Creating '%s' from '%s'" % (options.dst_path, ' '.join(args))
+        print("Creating '%s' from '%s'" % (options.dst_path, ' '.join(args)))
 
     generate_cpp_file(args,
                       options.dst_path,

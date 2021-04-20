@@ -1,5 +1,5 @@
 /******************************************************************************
- * Copyright (c) 2018-2019, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2018-2020, NVIDIA CORPORATION. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -133,7 +133,8 @@ public:
         unsigned                                             num_texture_spaces,
         unsigned                                             num_texture_results,
         bool                                                 enable_debug,
-        mi::mdl::LLVM_code_generator::Exported_function_list &exp_func_list);
+        mi::mdl::LLVM_code_generator::Exported_function_list &exp_func_list,
+        mi::mdl::Df_handle_slot_mode                         df_handle_slot_mode);
 
     void getAnalysisUsage(llvm::AnalysisUsage &usage) const final;
 
@@ -247,16 +248,25 @@ private:
     hlsl::Expr *translate_constant_data_array(llvm::ConstantDataArray *cv);
 
     /// Translate an LLVM ConstantStruct value to an HLSL expression.
-    hlsl::Expr *translate_constant_struct_expr(llvm::ConstantStruct *cv);
+    /// \param cv         the constant value
+    /// \param is_global  if true, compound expressions will be used,
+    ///                   otherwise constructor calls will be generated where needed
+    hlsl::Expr *translate_constant_struct_expr(llvm::ConstantStruct *cv, bool is_global);
 
     /// Translate an LLVM ConstantVector value to an HLSL Value.
     hlsl::Value *translate_constant_vector(llvm::ConstantVector *cv);
 
     /// Translate an LLVM ConstantArray value to an HLSL compound expression.
-    hlsl::Expr *translate_constant_array(llvm::ConstantArray *cv);
+    /// \param cv         the constant value
+    /// \param is_global  if true, compound expressions will be used,
+    ///                   otherwise constructor calls will be generated where needed
+    hlsl::Expr *translate_constant_array(llvm::ConstantArray *cv, bool is_global);
 
     /// Translate an LLVM ConstantAggregateZero value to an HLSL compound expression.
-    hlsl::Expr *translate_constant_array(llvm::ConstantAggregateZero *cv);
+    /// \param cv         the constant value
+    /// \param is_global  if true, compound expressions will be used,
+    ///                   otherwise constructor calls will be generated where needed
+    hlsl::Expr *translate_constant_array(llvm::ConstantAggregateZero *cv, bool is_global);
 
     /// Translate an LLVM ConstantArray value to an HLSL matrix value.
     hlsl::Value *translate_constant_matrix(llvm::ConstantArray *cv);
@@ -268,16 +278,16 @@ private:
     hlsl::Value *translate_constant(llvm::Constant *ci);
 
     /// Translate an LLVM Constant value to an HLSL expression.
-    hlsl::Expr *translate_constant_expr(llvm::Constant *ci);
+    ///
+    /// \param ci         the constant value
+    /// \param is_global  if true, compound expressions will be used,
+    ///                   otherwise constructor calls will be generated where needed
+    hlsl::Expr *translate_constant_expr(llvm::Constant *ci, bool is_global);
 
     /// Translate an LLVM value to an HLSL expression.
     ///
     /// \param value    the LLVM value to translate
-    /// \param dst_var  if non-NULL, store the resulting expression to this variable/parameter
-    hlsl::Expr *translate_expr(
-        llvm::Value      *value,
-        hlsl::Definition *dst_var
-    );
+    hlsl::Expr *translate_expr(llvm::Value *value);
 
     /// If a given type has an unsigned variant, return it.
     ///
@@ -365,8 +375,26 @@ private:
     /// Convert an LLVM struct type to an HLSL type.
     hlsl::Type *convert_struct_type(llvm::StructType *type);
 
-    /// Create the HLSL state struct for the corresponding LLVM struct type.
-    hlsl::Type_struct *create_state_struct_type(llvm::StructType *type);
+    /// Create an HLSL struct with the given names for the given LLVM struct type.
+    ///
+    /// \param type             the LLVM struct type
+    /// \param type_name        the name for the HLSL struct type
+    /// \param num_field_names  the number of field names, must match the number of fields
+    ///                         in the LLVM struct type
+    /// \param field_names      the names of the fields of the HLSL struct type
+    /// \param add_to_unit      if true, add the type to the unit, so it will be printed
+    hlsl::Type_struct *create_struct_from_llvm(
+        llvm::StructType *type,
+        char const *type_name,
+        size_t num_field_names,
+        char const * const *field_names,
+        bool add_to_unit);
+
+    /// Create the HLSL state core struct for the corresponding LLVM struct type.
+    hlsl::Type_struct *create_state_core_struct_type(llvm::StructType *type);
+
+    /// Create the HLSL state environment struct for the corresponding LLVM struct type.
+    hlsl::Type_struct *create_state_env_struct_type(llvm::StructType *type);
 
     /// Create the HLSL resource data struct for the corresponding LLVM struct type.
     hlsl::Type_struct *create_res_data_struct_type(llvm::StructType *type);
@@ -380,6 +408,9 @@ private:
     /// Create the Bsdf_pdf_data struct type used by libbsdf.
     hlsl::Type_struct *create_bsdf_pdf_data_struct_types(llvm::StructType *type);
 
+    /// Create the Bsdf_auxiliary_data struct type used by libbsdf.
+    hlsl::Type_struct *create_bsdf_auxiliary_data_struct_types(llvm::StructType *type);
+
     /// Create the Edf_sample_data struct type used by libbsdf.
     hlsl::Type_struct *create_edf_sample_data_struct_types(llvm::StructType *type);
 
@@ -388,6 +419,9 @@ private:
 
     /// Create the Edf_pdf_data struct type used by libbsdf.
     hlsl::Type_struct *create_edf_pdf_data_struct_types(llvm::StructType *type);
+
+    /// Create the Edf_auxiliary_data struct type used by libbsdf.
+    hlsl::Type_struct *create_edf_auxiliary_data_struct_types(llvm::StructType *type);
 
     /// Get an HLSL symbol for an LLVM string.
     hlsl::Symbol *get_sym(llvm::StringRef const &str);
@@ -510,15 +544,18 @@ private:
     /// \param args  the arguments to the constructor call
     /// \param loc   the location for the call
     hlsl::Expr *create_constructor_call(
-        hlsl::Type *type,
+        hlsl::Type                    *type,
         Array_ref<hlsl::Expr *> const &args,
-        hlsl::Location loc);
+        hlsl::Location                 loc);
 
     /// Generates a new local variable for an HLSL symbol and an LLVM type.
     ///
     /// \param var_sym  the variable symbol
     /// \param type     the LLVM type of the local to create
-    hlsl::Def_variable *create_local_var(hlsl::Symbol *var_sym, llvm::Type *type);
+    hlsl::Def_variable *create_local_var(
+        hlsl::Symbol *var_sym,
+        llvm::Type   *type,
+        bool          add_decl_statement = true);
 
     /// Generates a new local variable for an LLVM value and use this variable as the value's
     /// result in further generated HLSL code.
@@ -527,7 +564,8 @@ private:
     /// \param do_not_register  if true, do not map this variable as the result for value
     hlsl::Def_variable *create_local_var(
         llvm::Value *value,
-        bool        do_not_register = false);
+        bool        do_not_register = false,
+        bool        add_decl_statement = true);
 
     /// Generates a new local const variable to hold an LLVM constant.
     ///
@@ -562,6 +600,14 @@ private:
     /// Convert the LLVM debug location (if any is attached to the given instruction)
     /// to an HLSL location.
     hlsl::Location convert_location(llvm::Instruction *inst);
+
+    /// Returns true, if the expression is a reference to the given definition.
+    bool is_ref_to_def(hlsl::Expr *expr, hlsl::Definition *def) {
+        if (hlsl::Expr_ref *ref = hlsl::as<hlsl::Expr_ref>(expr)) {
+            return ref->get_definition() == def;
+        }
+        return false;
+    }
 
 private:
     /// MDL allocator used for generating the HLSL AST.
@@ -655,6 +701,9 @@ private:
     /// The number of texture result entries.
     unsigned m_num_texture_results;
 
+    /// Specified the layout of the BSDF_evaluate_data and BSDF_auxiliary_data structs.
+    mi::mdl::Df_handle_slot_mode m_df_handle_slot_mode;
+
     /// If true, use debug info.
     bool m_use_dbg;
 
@@ -670,6 +719,9 @@ private:
 
     /// Debug info regarding struct types.
     Struct_info_map  m_struct_dbg_info;
+
+    /// ID used to create unique names.
+    unsigned m_next_unique_name_id;
 };
 
 /// Creates a HLSL writer pass.
@@ -680,6 +732,7 @@ private:
 /// \param[in]  num_texture_spaces   the number of supported texture spaces
 /// \param[in]  num_texture_results  the number of texture result entries
 /// \param[in]  enable_debug         true, if debug info should be generated
+/// \param[in]  df_handle_slot_mode  the layout of the BSDF_{evaluate, auxiliary}_data structs
 /// \param[out] exp_func_list        list of exported functions
 llvm::Pass *createHLSLWriterPass(
     mi::mdl::IAllocator                                  *alloc,
@@ -688,6 +741,7 @@ llvm::Pass *createHLSLWriterPass(
     unsigned                                             num_texture_spaces,
     unsigned                                             num_texture_results,
     bool                                                 enable_debug,
+    mi::mdl::Df_handle_slot_mode                         df_handle_slot_mode,
     mi::mdl::LLVM_code_generator::Exported_function_list &exp_func_list);
 
 }  // hlsl

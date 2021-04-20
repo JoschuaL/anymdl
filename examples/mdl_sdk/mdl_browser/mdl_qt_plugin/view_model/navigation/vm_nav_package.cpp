@@ -1,5 +1,5 @@
 /******************************************************************************
- * Copyright (c) 2018-2019, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2018-2020, NVIDIA CORPORATION. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -69,7 +69,7 @@ QVariant VM_nav_package::data(int role) const
 
 QString VM_nav_package::get_name() const 
 {
-    return m_node->get_simple_name(); 
+    return m_node->get_entity_name(); 
 }
 
 bool VM_nav_package::get_is_module() const 

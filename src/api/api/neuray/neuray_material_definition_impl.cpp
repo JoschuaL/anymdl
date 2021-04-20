@@ -1,5 +1,5 @@
 /***************************************************************************************************
- * Copyright (c) 2015-2019, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2015-2020, NVIDIA CORPORATION. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -37,6 +37,7 @@
 #include "neuray_expression_impl.h"
 #include "neuray_material_definition_impl.h"
 #include "neuray_material_instance_impl.h"
+#include "neuray_mdl_execution_context_impl.h"
 #include "neuray_transaction_impl.h"
 #include "neuray_type_impl.h"
 
@@ -55,7 +56,7 @@ DB::Element_base* Material_definition_impl::create_db_element(
     const mi::base::IInterface* argv[])
 {
     if( argc != 0)
-        return 0;
+        return nullptr;
     return new MDL::Mdl_material_definition;
 }
 
@@ -65,7 +66,7 @@ mi::base::IInterface* Material_definition_impl::create_api_class(
     const mi::base::IInterface* argv[])
 {
     if( argc != 0)
-        return 0;
+        return nullptr;
     return (new Material_definition_impl())->cast_to_major();
 }
 
@@ -84,10 +85,26 @@ const char* Material_definition_impl::get_mdl_name() const
     return get_db_element()->get_mdl_name();
 }
 
+const char* Material_definition_impl::get_mdl_module_name() const
+{
+    return get_db_element()->get_mdl_module_name();
+}
+
+const char*  Material_definition_impl::get_mdl_simple_name() const
+{
+    return get_db_element()->get_mdl_simple_name();
+}
+
 const char* Material_definition_impl::get_prototype() const
 {
     DB::Tag tag = get_db_element()->get_prototype();
     return get_db_transaction()->tag_to_name( tag);
+}
+
+void Material_definition_impl::get_mdl_version(
+    mi::neuraylib::Mdl_version& since, mi::neuraylib::Mdl_version& removed) const
+{
+    return get_db_element()->get_mdl_version( since, removed);
 }
 
 bool Material_definition_impl::is_exported() const
@@ -163,6 +180,14 @@ const char* Material_definition_impl::get_thumbnail() const
     return get_db_element()->get_thumbnail();
 }
 
+bool Material_definition_impl::is_valid(mi::neuraylib::IMdl_execution_context* context) const
+{
+    MDL::Execution_context default_context;
+    MDL::Execution_context *mdl_context = unwrap_and_clear_context(context, default_context);
+
+    return get_db_element()->is_valid(get_db_transaction(), mdl_context);
+}
+
 mi::neuraylib::IMaterial_instance* Material_definition_impl::create_material_instance(
     const mi::neuraylib::IExpression_list* arguments, mi::Sint32* errors) const
 {
@@ -172,13 +197,40 @@ mi::neuraylib::IMaterial_instance* Material_definition_impl::create_material_ins
         get_db_element()->create_material_instance(
             get_db_transaction(), arguments_int.get(), errors));
     if( !db_instance)
-        return 0;
+        return nullptr;
     mi::neuraylib::IMaterial_instance* api_instance
         = get_transaction()->create<mi::neuraylib::IMaterial_instance>(
             "__Material_instance");
     static_cast<Material_instance_impl* >( api_instance)->get_db_element()->swap(
         *db_instance.get());
     return api_instance;
+}
+
+const mi::neuraylib::IExpression_direct_call* Material_definition_impl::get_body() const
+{
+    mi::base::Handle<Expression_factory> ef( get_transaction()->get_expression_factory());
+    mi::base::Handle<const MDL::IExpression_direct_call> result_int(
+        get_db_element()->get_body( get_db_transaction()));
+    return ef->create<mi::neuraylib::IExpression_direct_call>(
+        result_int.get(), this->cast_to_major());
+}
+
+mi::Size Material_definition_impl::get_temporary_count() const
+{
+    return get_db_element()->get_temporary_count( get_db_transaction());
+}
+
+const mi::neuraylib::IExpression* Material_definition_impl::get_temporary( mi::Size index) const
+{
+    mi::base::Handle<Expression_factory> ef( get_transaction()->get_expression_factory());
+    mi::base::Handle<const MDL::IExpression> result_int(
+        get_db_element()->get_temporary( get_db_transaction(), index));
+    return ef->create( result_int.get(), this->cast_to_major());
+}
+
+const char* Material_definition_impl::get_temporary_name( mi::Size index) const
+{
+    return get_db_element()->get_temporary_name( get_db_transaction(), index );
 }
 
 } // namespace NEURAY

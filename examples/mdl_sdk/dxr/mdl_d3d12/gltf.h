@@ -1,5 +1,5 @@
 /******************************************************************************
- * Copyright (c) 2019, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2019-2020, NVIDIA CORPORATION. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -34,21 +34,22 @@
 #include "common.h"
 #include "scene.h"
 
-namespace mdl_d3d12
+namespace mi { namespace examples { namespace mdl_d3d12
 {
     class Loader_gltf : public IScene_loader
     {
     public:
         virtual ~Loader_gltf() = default;
 
-        bool load(const std::string& file_name) override;
+        bool load(const std::string& file_name, const Scene_options& options) override;
         const Scene& get_scene() const override { return m_scene; }
 
-        void replace_all_materials(const std::string& mdl_name);
+        // replace all materials in the scene by one specified on the command line
+        void replace_all_materials(const std::string& material_name);
 
     private:
         Scene m_scene;
     };
-}
 
+}}} // mi::examples::mdl_d3d12
 #endif

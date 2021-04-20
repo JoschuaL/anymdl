@@ -1,5 +1,5 @@
 #*****************************************************************************
-# Copyright (c) 2018-2019, NVIDIA CORPORATION. All rights reserved.
+# Copyright (c) 2018-2020, NVIDIA CORPORATION. All rights reserved.
 #
 # Redistribution and use in source and binary forms, with or without
 # modification, are permitted provided that the following conditions
@@ -55,7 +55,7 @@ if(NOT _PYTHON_VERSION_STRING)
 else()
     # parse version number
     STRING(REGEX MATCH "[0-9]+\\.[0-9]+\\.[0-9]+" _PYTHON_VERSION_STRING ${_PYTHON_VERSION_STRING})
-    if(${_PYTHON_VERSION_STRING} VERSION_GREATER_EQUAL "3.0.0" OR ${_PYTHON_VERSION_STRING} VERSION_LESS "2.7.0")
-        message(FATAL_ERROR "Python 2.7 is required but Python ${_PYTHON_VERSION_STRING} was found instead. Please set the CMake option 'python_PATH' that needs to point to a python 2.7 interpreter.")
+    if((${_PYTHON_VERSION_STRING} VERSION_GREATER_EQUAL "3.0.0" OR ${_PYTHON_VERSION_STRING} VERSION_LESS "2.7.0") AND (${_PYTHON_VERSION_STRING} VERSION_GREATER_EQUAL "4.0.0" OR ${_PYTHON_VERSION_STRING} VERSION_LESS "3.7.0"))
+        message(FATAL_ERROR "Python 2.7 or 3.7 is required but Python ${_PYTHON_VERSION_STRING} was found instead. Please set the CMake option 'python_PATH' that needs to point to a Python 2.7 or 3.7 interpreter.")
     endif()
 endif()

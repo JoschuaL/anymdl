@@ -1,5 +1,5 @@
 /******************************************************************************
- * Copyright (c) 2012-2019, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2012-2020, NVIDIA CORPORATION. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -127,7 +127,7 @@ void *Base_pointer_deserializer::get_pointer(Tag_t tag) const
 // Write an int.
 void Base_serializer::write_int(int v)
 {
-    size_t code = v < 0 ? ~(v << 1) : v << 1;
+    size_t code = v < 0 ? ~(unsigned(v) << 1) : unsigned(v) << 1;
 
     write_encoded_tag(code);
 }
@@ -387,9 +387,10 @@ void Buffer_serializer::write(Byte b)
         // reached end of current buffer
 
         // allocate a new header
-        Header *h = reinterpret_cast<Header *>(m_alloc->malloc(sizeof(*h)));
+        Header *h = reinterpret_cast<Header *>(m_alloc->malloc(sizeof(*h) - 1 + LOAD_SIZE));
 
         h->next = NULL;
+        h->size = LOAD_SIZE;
 
         if (m_first == NULL)
             m_first = h;
@@ -398,7 +399,7 @@ void Buffer_serializer::write(Byte b)
         m_curr = h;
 
         m_next = h->load;
-        m_end  = m_next + sizeof(h->load);
+        m_end  = &h->load[h->size];
     }
     *m_next = b;
     ++m_next;
@@ -430,7 +431,33 @@ Buffer_serializer::~Buffer_serializer()
 // Get the data stream.
 Buffer_serializer::Byte const *Buffer_serializer::get_data() const
 {
-    return NULL;
+    if (m_size == 0) {
+        return NULL;
+    }
+    if (m_size > m_first->size) {
+        // data is in several headers, combine into one
+        Header *dst = reinterpret_cast<Header *>(m_alloc->malloc(sizeof(*dst) - 1 + m_size));
+
+        dst->next = NULL;
+        dst->size = m_size;
+
+        Header *h = m_first;
+        Byte   *p = dst->load;
+        for (size_t s = m_size; s > 0;) {
+            size_t c = s < h->size ? s : h->size;
+
+            memcpy(p, h->load, c);
+            p += c;
+            s -= c;
+            Header *n = h->next;
+            m_alloc->free(h);
+            h = n;
+        }
+        m_first = m_curr = dst;
+        m_next  = m_end  = &dst->load[dst->size];
+    }
+    // all data is now in the first header
+    return m_first->load;
 }
 
 // Read a byte.
@@ -1143,7 +1170,11 @@ struct IValue_less {
                     if (g_v != g_w)
                         return g_v < g_w;
 
-                    return r_v->get_tag_value() < r_w->get_tag_value();
+                    int tag_v = r_v->get_tag_value();
+                    int tag_w = r_w->get_tag_value();
+                    if (tag_v != tag_w)
+                        return tag_v < tag_w;
+                    return r_v->get_bsdf_data_kind() < r_w->get_bsdf_data_kind();
                 }
 
             case IValue::VK_LIGHT_PROFILE:
@@ -1429,6 +1460,7 @@ void Factory_serializer::write_value(IValue const *v)
             write_db_tag(rv->get_tag_value());
             write_unsigned(rv->get_tag_version());
             write_int(rv->get_gamma_mode());
+            write_int(rv->get_bsdf_data_kind());
         }
         DEC_SCOPE();
         break;
@@ -1922,6 +1954,11 @@ void Module_serializer::write_decl(
             IAnnotation_block const *annos = s_decl->get_annotations();
             write_annos(annos);
 
+            IDefinition const *def = s_decl->get_definition();
+            Tag_t def_tag = get_definition_tag(def);
+            write_encoded_tag(def_tag);
+            DOUT(("def %u\n", unsigned(def_tag)));
+
             int f_count = s_decl->get_field_count();
             write_unsigned(f_count);
             DOUT(("#fields %d\n", f_count));
@@ -1960,6 +1997,11 @@ void Module_serializer::write_decl(
 
             IAnnotation_block const *annos = e_decl->get_annotations();
             write_annos(annos);
+
+            IDefinition const *def = e_decl->get_definition();
+            Tag_t def_tag = get_definition_tag(def);
+            write_encoded_tag(def_tag);
+            DOUT(("def %u\n", unsigned(def_tag)));
 
             int v_count = e_decl->get_value_count();
             write_unsigned(v_count);
@@ -2081,6 +2123,21 @@ void Module_serializer::write_decl(
 
             IAnnotation_block const *annos = f_decl->get_annotations();
             write_annos(annos);
+        }
+        DEC_SCOPE();
+        break;
+
+    case IDeclaration::DK_NAMESPACE_ALIAS:
+        DOUT(("Namespace_alias\n"));
+        INC_SCOPE();
+        {
+            IDeclaration_namespace_alias const *n_decl = cast<IDeclaration_namespace_alias>(decl);
+
+            ISimple_name const *alias = n_decl->get_alias();
+            write_name(alias);
+
+            IQualified_name const *ns = n_decl->get_namespace();
+            write_name(ns);
         }
         DEC_SCOPE();
         break;
@@ -2362,6 +2419,10 @@ void Module_serializer::write_expr(IExpression const *expr)
             IExpression_unary::Operator op = u_expr->get_operator();
             write_unsigned(op);
             DOUT(("op %u\n", unsigned(op)));
+
+            if (op == IExpression_unary::OK_CAST) {
+                write_name(u_expr->get_type_name());
+            }
         }
         DEC_SCOPE();
         break;
@@ -2711,22 +2772,34 @@ void Module_serializer::write_pos(Position const *pos)
 // Write all initializer expressions unreferenced so far.
 void Module_serializer::write_unreferenced_init_expressions()
 {
-    // copy them into vector because write_expt will delete them from the pointer map
-    vector<IExpression const *>::Type inits(m_alloc);
-    for (Pointer_serializer<IExpression const>::const_iterator
-            it(m_init_exprs.begin()), end(m_init_exprs.end());
-         it != end;
-         ++it)
-    {
-        inits.push_back((IExpression const *)it->first);
-    }
+    typedef Pointer_serializer<IExpression> PS;
+
+    struct Entry {
+        Entry(PS::value_type v) : expr((IExpression const *)v.first), tag(v.second) {}
+
+        IExpression const *expr;
+        Tag_t             tag;
+    };
+
+    // sort value types by tags.
+    struct Tag_comparator {
+        bool operator()(Entry const &a, Entry const &b) {
+            return a.tag < b.tag;
+        }
+    };
+
+    // copy them into vector because we need to sort them and write_expr() will
+    // delete them from the pointer map
+    vector<Entry>::Type inits(m_init_exprs.begin(), m_init_exprs.end(), m_alloc);
+
+    std::sort(inits.begin(), inits.end(), Tag_comparator());
 
     size_t count = inits.size();
     write_encoded_tag(count);
     DOUT(("#unref expr %u\n", unsigned(count)));
 
     for (size_t i = 0; i < count; ++i) {
-        write_expr(inits[i]);
+        write_expr(inits[i].expr);
     }
 
     MDL_ASSERT(m_init_exprs.empty() && "init expressions still not empty");
@@ -3273,7 +3346,11 @@ IValue const *Factory_deserializer::read_value(Value_factory &vf)
             unsigned    vv_tag = read_db_tag();
             unsigned    vv_ver = read_unsigned();
             IValue_texture::gamma_mode gamma = IValue_texture::gamma_mode(read_int());
-            IValue const *v = vf.create_texture(rt, vv, gamma, vv_tag, vv_ver);
+            IValue_texture::Bsdf_data_kind bsdf_data_kind =
+                IValue_texture::Bsdf_data_kind(read_int());
+            IValue const *v = rt->get_shape() == IType_texture::TS_BSDF_DATA ?
+                vf.create_bsdf_data_texture(bsdf_data_kind, vv_tag, vv_ver) :
+                vf.create_texture(rt, vv, gamma, vv_tag, vv_ver);
 
             register_value(value_tag, v);
             DEC_SCOPE();
@@ -3541,6 +3618,11 @@ IDeclaration *Module_deserializer::read_decl(Module &mod)
 
             IDeclaration_type_struct *s_decl = df->create_struct(sname, annos, exported);
 
+            Tag_t def_tag = read_encoded_tag();
+            IDefinition const *def = get_definition(def_tag);
+            s_decl->set_definition(def);
+            DOUT(("def %u\n", unsigned(def_tag)));
+
             int f_count = read_unsigned();
             DOUT(("#fields %d\n", f_count));
             INC_SCOPE();
@@ -3571,6 +3653,11 @@ IDeclaration *Module_deserializer::read_decl(Module &mod)
             ISimple_name const      *sname  = read_sname(mod);
             IAnnotation_block const *annos  = read_annos(mod);
             IDeclaration_type_enum  *e_decl = df->create_enum(sname, annos, exported);
+
+            Tag_t def_tag = read_encoded_tag();
+            IDefinition const *def = get_definition(def_tag);
+            e_decl->set_definition(def);
+            DOUT(("def %u\n", unsigned(def_tag)));
 
             int v_count = read_unsigned();
             DOUT(("#values %d\n", v_count));
@@ -3673,12 +3760,24 @@ IDeclaration *Module_deserializer::read_decl(Module &mod)
         break;
 
     case IDeclaration::DK_MODULE:
-        DOUT(("module_decl\n"));
+        DOUT(("Module_decl\n"));
         INC_SCOPE();
         {
             IAnnotation_block const *annos = read_annos(mod);
             IDeclaration_module *m_decl = df->create_module(annos);
             decl = m_decl;
+        }
+        DEC_SCOPE();
+        break;
+
+    case IDeclaration::DK_NAMESPACE_ALIAS:
+        DOUT(("Namespace_alias\n"));
+        INC_SCOPE();
+        {
+            ISimple_name const    *alias = read_sname(mod);
+            IQualified_name const *ns    = read_qname(mod);
+            IDeclaration_namespace_alias *a_decl = df->create_namespace_alias(alias, ns);
+            decl = a_decl;
         }
         DEC_SCOPE();
         break;
@@ -3972,7 +4071,11 @@ IExpression *Module_deserializer::read_expr(Module &mod)
             IExpression_unary::Operator op = IExpression_unary::Operator(read_unsigned());
             DOUT(("op %u\n", unsigned(op)));
 
-            expr = ef->create_unary(op, children[0]);
+            IExpression_unary *u_expr = ef->create_unary(op, children[0]);
+            if (op == IExpression_unary::OK_CAST) {
+                u_expr->set_type_name(read_tname(mod));
+            }
+            expr = u_expr;
         }
         DEC_SCOPE();
         break;
@@ -4320,17 +4423,23 @@ void Module_deserializer::read_pos(Position &pos)
     DOUT(("pos %d,%d %d,%d %u\n", sl, sc, el, ec, unsigned(id)));
 }
 
-#if 0
+}  // mdl
+}  // mi
 
-static unsigned indent = 0;
+#if 0
 
 #include <cstdarg>
 #include <cstdio>
 
+namespace mi {
+namespace mdl {
+
+static unsigned indent = 0;
+
 void dprintf(char const *fmt, ...)
 {
     va_list ap;
-    
+
     va_start(ap, fmt);
     for (unsigned i = 0, n = indent; i < n; ++i)
         printf(" ");
@@ -4351,7 +4460,7 @@ void dprintf_decscope()
     --indent;
 }
 
-#endif
-
 }  // mdl
 }  // mi
+
+#endif

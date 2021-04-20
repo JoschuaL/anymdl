@@ -1,5 +1,5 @@
 /******************************************************************************
- * Copyright (c) 2013-2019, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2013-2020, NVIDIA CORPORATION. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -44,6 +44,19 @@
 
 namespace mi {
 namespace mdl {
+
+namespace {
+
+/// Calculate the name hash.
+static size_t calc_name_hash(char const *name)
+{
+    size_t hash = 0;
+    for (size_t i = 0; name[i] != '\0'; ++i)
+        hash = hash * 9 ^ size_t(name[i]);
+    return hash;
+}
+
+}
 
 // -------------------------- DAG IR node --------------------------
 
@@ -219,8 +232,8 @@ private:
     : Base(id)
     , m_semantic(sema)
     , m_ret_type(ret_type)
-    , m_name(Arena_strdup(*arena, name))
-    , m_name_hash(calc_name_hash(name) ^ size_t(sema * 9))
+    , m_name(name)
+    , m_name_hash(calc_name_hash(name) ^ size_t(sema) * 9)
     , m_parameter_names(arena)
     , m_arguments(arena)
     {
@@ -234,18 +247,7 @@ private:
             m_arguments[i]       = call_args[i].arg;
         }
 
-        MDL_ASSERT(
-            sema != operator_to_semantic(IExpression::OK_SELECT) &&
-            sema != operator_to_semantic(IExpression::OK_ARRAY_INDEX));
-    }
-
-    /// Calculate the name hash.
-    static size_t calc_name_hash(char const *name)
-    {
-        size_t hash = 0;
-        for (size_t i = 0; name[i] != '\0'; ++i)
-            hash = hash * 9 ^ size_t(name[i]);
-        return hash;
+        MDL_ASSERT(sema != operator_to_semantic(IExpression::OK_SELECT));
     }
 
 private:
@@ -312,7 +314,8 @@ size_t DAG_node_factory_impl::Hash_dag_node::operator()(
     DAG_node const *node) const
 {
     DAG_node::Kind kind = node->get_kind();
-    size_t         hash = 0;
+    auto           it   = m_temp_name_map.find(node);
+    size_t         hash = it != m_temp_name_map.end() ? calc_name_hash(it->second) : 0;
 
     switch (kind) {
     case DAG_node::EK_CONSTANT:
@@ -355,6 +358,17 @@ bool DAG_node_factory_impl::Equal_dag_node::operator()(
 
     if (kind != b->get_kind())
         return false;
+
+    auto it_a = m_temp_name_map.find(a);
+    auto it_b = m_temp_name_map.find(b);
+    bool has_name_a = it_a != m_temp_name_map.end();
+    bool has_name_b = it_b != m_temp_name_map.end();
+    if (has_name_a != has_name_b)
+        return false;
+
+    if (has_name_a && strcmp(it_a->second, it_b->second) != 0)
+        return false;
+
     switch (kind) {
     case DAG_node::EK_CONSTANT:
         {
@@ -418,11 +432,14 @@ DAG_node_factory_impl::DAG_node_factory_impl(
 : m_builder(arena)
 , m_mdl(mi::base::make_handle_dup(mdl))
 , m_value_factory(value_factory)
+, m_sym_tab(*value_factory.get_type_factory()->get_symbol_table())
 , m_internal_space(Arena_strdup(arena, internal_space))
 , m_call_evaluator(NULL)
 , m_next_id(0)
 , m_cse_enabled(true)
 , m_opt_enabled(true)
+, m_unsafe_math_opt(true)
+, m_expose_names_of_let_expressions(false)
 , m_inline_allowed(true)
 , m_noinline_ignored(false)
 , m_needs_state_import(false)
@@ -433,7 +450,16 @@ DAG_node_factory_impl::DAG_node_factory_impl(
 , m_mdl_meters_per_scene_unit(1.0f)
 , m_state_wavelength_min(380.0f)
 , m_state_wavelength_max(780.0f)
-, m_value_table(0, Value_table::hasher(), Value_table::key_equal(), arena.get_allocator())
+, m_temp_name_map(
+    0,
+    Definition_temporary_name_map::hasher(),
+    Definition_temporary_name_map::key_equal(),
+    arena.get_allocator())
+, m_value_table(
+    0,
+    Value_table::hasher(m_temp_name_map),
+    Value_table::key_equal(m_temp_name_map),
+    arena.get_allocator())
 {
 }
 
@@ -714,28 +740,7 @@ DAG_node const *DAG_node_factory_impl::build_texture_ternary(
     DAG_node const *true_expr,
     DAG_node const *false_expr)
 {
-    IType const *ret_type   = true_expr->get_type()->skip_type_alias();
-    char const  *sig_suffix = "";
-
-    IType_texture const *tex_type = cast<IType_texture>(ret_type);
-
-    switch (tex_type->get_shape()) {
-    case IType_texture::TS_2D:
-        sig_suffix = "(bool,texture_2d,texture_2d)";
-        break;
-    case IType_texture::TS_3D:
-        sig_suffix = "(bool,texture_3d,texture_3d)";
-        break;
-    case IType_texture::TS_CUBE:
-        sig_suffix = "(bool,texture_cube,texture_cube)";
-        break;
-    case IType_texture::TS_PTEX:
-        sig_suffix = "(bool,texture_ptex,texture_ptex)";
-        break;
-    }
-
-    string name(DAG_builder::ternary_op_to_name(), get_allocator());
-    name.append(sig_suffix);
+    IType const *ret_type = true_expr->get_type()->skip_type_alias();
 
     DAG_call::Call_argument args[3];
 
@@ -749,10 +754,10 @@ DAG_node const *DAG_node_factory_impl::build_texture_ternary(
     args[2].param_name = "false_exp";
 
     return create_call(
-        name.c_str(),
+        get_ternary_operator_signature(),
         operator_to_semantic(IExpression::OK_TERNARY),
         args,
-        3,
+        dimension_of(args),
         ret_type);
 }
 
@@ -899,9 +904,6 @@ DAG_node const *DAG_node_factory_impl::create_call(
                     ret_type);
             }
             break;
-
-
-
     case IDefinition::DS_TEXTURE_CONSTRUCTOR:
         if (m_avoid_non_const_gamma && num_call_args == 2) {
             DAG_node const *url   = call_args[0].arg;
@@ -1031,7 +1033,187 @@ DAG_node const *DAG_node_factory_impl::create_call(
             return create_call(name, sema, n_call_args, 5, ret_type);
         }
         break;
-    case IDefinition::DS_INTRINSIC_STATE_METERS_PER_SCENE_UNIT:
+    case IDefinition::DS_INTRINSIC_DF_SIMPLE_GLOSSY_BSDF:
+        if (num_call_args == 6) {
+            // MDL 1.5 -> 1.6: insert multiscatter_tint parameter
+            DAG_call::Call_argument n_call_args[7];
+            IValue_float const *zero = m_value_factory.create_float(0.0f);
+
+            // insert the multiscatter_tint parameter
+            n_call_args[0] = call_args[0];
+            n_call_args[1] = call_args[1];
+            n_call_args[2] = call_args[2];
+            n_call_args[3].param_name = "multiscatter_tint";
+            n_call_args[3].arg = create_constant(
+                m_value_factory.create_rgb_color(zero, zero, zero));
+            n_call_args[4] = call_args[3];
+            n_call_args[5] = call_args[4];
+            n_call_args[6] = call_args[5];
+
+            MDL_ASSERT(strcmp(name,
+                "::df::simple_glossy_bsdf$1.5"
+                "(float,float,color,float3,::df::scatter_mode,string)") == 0);
+            name =
+                "::df::simple_glossy_bsdf"
+                "(float,float,color,color,float3,::df::scatter_mode,string)";
+            return create_call(name, sema, n_call_args, 7, ret_type);
+        }
+        break;
+    case IDefinition::DS_INTRINSIC_DF_BACKSCATTERING_GLOSSY_REFLECTION_BSDF:
+        if (num_call_args == 5) {
+            // MDL 1.5 -> 1.6: insert multiscatter_tint parameter
+            DAG_call::Call_argument n_call_args[6];
+            IValue_float const *zero = m_value_factory.create_float(0.0f);
+
+            // insert the multiscatter_tint parameter
+            n_call_args[0] = call_args[0];
+            n_call_args[1] = call_args[1];
+            n_call_args[2] = call_args[2];
+            n_call_args[3].param_name = "multiscatter_tint";
+            n_call_args[3].arg = create_constant(
+                m_value_factory.create_rgb_color(zero, zero, zero));
+            n_call_args[4] = call_args[3];
+            n_call_args[5] = call_args[4];
+
+            MDL_ASSERT(strcmp(name,
+                "::df::backscattering_glossy_reflection_bsdf$1.5"
+                "(float,float,color,float3,string)") == 0);
+            name =
+                "::df::backscattering_glossy_reflection_bsdf"
+                "(float,float,color,color,float3,string)";
+            return create_call(name, sema, n_call_args, 6, ret_type);
+        }
+        break;
+    case IDefinition::DS_INTRINSIC_DF_MICROFACET_BECKMANN_SMITH_BSDF:
+        if (num_call_args == 6) {
+            // MDL 1.5 -> 1.6: insert multiscatter_tint parameter
+            DAG_call::Call_argument n_call_args[7];
+            IValue_float const *zero = m_value_factory.create_float(0.0f);
+
+            // insert the multiscatter_tint parameter
+            n_call_args[0] = call_args[0];
+            n_call_args[1] = call_args[1];
+            n_call_args[2] = call_args[2];
+            n_call_args[3].param_name = "multiscatter_tint";
+            n_call_args[3].arg = create_constant(
+                m_value_factory.create_rgb_color(zero, zero, zero));
+            n_call_args[4] = call_args[3];
+            n_call_args[5] = call_args[4];
+            n_call_args[6] = call_args[5];
+
+            MDL_ASSERT(strcmp(name,
+                "::df::microfacet_beckmann_smith_bsdf$1.5"
+                "(float,float,color,float3,::df::scatter_mode,string)") == 0);
+            name =
+                "::df::microfacet_beckmann_smith_bsdf"
+                "(float,float,color,color,float3,::df::scatter_mode,string)";
+            return create_call(name, sema, n_call_args, 7, ret_type);
+        }
+        break;
+    case IDefinition::DS_INTRINSIC_DF_MICROFACET_GGX_SMITH_BSDF:
+        if (num_call_args == 6) {
+            // MDL 1.5 -> 1.6: insert multiscatter_tint parameter
+            DAG_call::Call_argument n_call_args[7];
+            IValue_float const *zero = m_value_factory.create_float(0.0f);
+
+            // insert the multiscatter_tint parameter
+            n_call_args[0] = call_args[0];
+            n_call_args[1] = call_args[1];
+            n_call_args[2] = call_args[2];
+            n_call_args[3].param_name = "multiscatter_tint";
+            n_call_args[3].arg        = create_constant(
+                m_value_factory.create_rgb_color(zero, zero, zero));
+            n_call_args[4] = call_args[3];
+            n_call_args[5] = call_args[4];
+            n_call_args[6] = call_args[5];
+
+            MDL_ASSERT(strcmp(name,
+                "::df::microfacet_ggx_smith_bsdf$1.5"
+                "(float,float,color,float3,::df::scatter_mode,string)") == 0);
+            name =
+                "::df::microfacet_ggx_smith_bsdf"
+                "(float,float,color,color,float3,::df::scatter_mode,string)";
+            return create_call(name, sema, n_call_args, 7, ret_type);
+        }
+        break;
+    case IDefinition::DS_INTRINSIC_DF_MICROFACET_BECKMANN_VCAVITIES_BSDF:
+        if (num_call_args == 6) {
+            // MDL 1.5 -> 1.6: insert multiscatter_tint parameter
+            DAG_call::Call_argument n_call_args[7];
+            IValue_float const *zero = m_value_factory.create_float(0.0f);
+
+            // insert the multiscatter_tint parameter
+            n_call_args[0] = call_args[0];
+            n_call_args[1] = call_args[1];
+            n_call_args[2] = call_args[2];
+            n_call_args[3].param_name = "multiscatter_tint";
+            n_call_args[3].arg = create_constant(
+                m_value_factory.create_rgb_color(zero, zero, zero));
+            n_call_args[4] = call_args[3];
+            n_call_args[5] = call_args[4];
+            n_call_args[6] = call_args[5];
+
+            MDL_ASSERT(strcmp(name,
+                "::df::microfacet_beckmann_vcavities_bsdf$1.5"
+                "(float,float,color,float3,::df::scatter_mode,string)") == 0);
+            name =
+                "::df::microfacet_beckmann_vcavities_bsdf"
+                "(float,float,color,color,float3,::df::scatter_mode,string)";
+            return create_call(name, sema, n_call_args, 7, ret_type);
+        }
+        break;
+    case IDefinition::DS_INTRINSIC_DF_MICROFACET_GGX_VCAVITIES_BSDF:
+         if (num_call_args == 6) {
+             // MDL 1.5 -> 1.6: insert multiscatter_tint parameter
+             DAG_call::Call_argument n_call_args[7];
+             IValue_float const *zero = m_value_factory.create_float(0.0f);
+
+             // insert the multiscatter_tint parameter
+             n_call_args[0] = call_args[0];
+             n_call_args[1] = call_args[1];
+             n_call_args[2] = call_args[2];
+             n_call_args[3].param_name = "multiscatter_tint";
+             n_call_args[3].arg        = create_constant(
+                 m_value_factory.create_rgb_color(zero, zero, zero));
+             n_call_args[4] = call_args[3];
+             n_call_args[5] = call_args[4];
+             n_call_args[6] = call_args[5];
+
+             MDL_ASSERT(strcmp(name,
+                 "::df::microfacet_ggx_vcavities_bsdf$1.5"
+                 "(float,float,color,float3,::df::scatter_mode,string)") == 0);
+             name =
+                 "::df::microfacet_ggx_vcavities_bsdf"
+                 "(float,float,color,color,float3,::df::scatter_mode,string)";
+             return create_call(name, sema, n_call_args, 7, ret_type);
+         }
+         break;
+    case IDefinition::DS_INTRINSIC_DF_WARD_GEISLER_MORODER_BSDF:
+        if (num_call_args == 5) {
+            // MDL 1.5 -> 1.6: insert multiscatter_tint parameter
+            DAG_call::Call_argument n_call_args[6];
+            IValue_float const *zero = m_value_factory.create_float(0.0f);
+
+            // insert the multiscatter_tint parameter
+            n_call_args[0] = call_args[0];
+            n_call_args[1] = call_args[1];
+            n_call_args[2] = call_args[2];
+            n_call_args[3].param_name = "multiscatter_tint";
+            n_call_args[3].arg = create_constant(
+                m_value_factory.create_rgb_color(zero, zero, zero));
+            n_call_args[4] = call_args[3];
+            n_call_args[5] = call_args[4];
+
+            MDL_ASSERT(strcmp(name,
+                "::df::ward_geisler_moroder_bsdf$1.5"
+                "(float,float,color,float3,string)") == 0);
+            name =
+                "::df::ward_geisler_moroder_bsdf"
+                "(float,float,color,color,float3,string)";
+            return create_call(name, sema, n_call_args, 6, ret_type);
+        }
+        break;
+     case IDefinition::DS_INTRINSIC_STATE_METERS_PER_SCENE_UNIT:
         if (m_enable_scene_conv_fold) {
             return create_constant(
                 m_value_factory.create_float(m_mdl_meters_per_scene_unit));
@@ -1177,9 +1359,76 @@ DAG_node const *DAG_node_factory_impl::create_call(
         break;
     }
 
-    if (m_opt_enabled) {
+    if (m_opt_enabled && all_args_without_name(call_args, num_call_args)) {
+
         if (semantic_is_operator(sema)) {
             IExpression::Operator op = semantic_to_operator(sema);
+
+            if (op == IExpression::OK_ARRAY_INDEX) {
+                if (is<DAG_constant>(call_args[1].arg)) {
+                    DAG_node const *base = call_args[0].arg;
+
+                    if (is<DAG_call>(base)) {
+                        // check if arg[0] is an elemental constructor
+                        DAG_call const *a = cast<DAG_call>(base);
+
+                        IDefinition::Semantics sema = a->get_semantic();
+                        if (sema == IDefinition::DS_ELEM_CONSTRUCTOR ||
+                            sema == IDefinition::DS_INTRINSIC_DAG_ARRAY_CONSTRUCTOR)
+                        {
+                            // T(x_0, ..., x_n, ..., x_m)[n] ==> x_n
+                            IType const *ret_type = a->get_type()->skip_type_alias();
+
+                            DAG_constant const *i  = cast<DAG_constant>(call_args[1].arg);
+                            IValue_int const   *iv = cast<IValue_int>(i->get_value());
+                            int                idx = iv->get_value();
+
+                            switch (ret_type->get_kind()) {
+                            case IType::TK_VECTOR:
+                            case IType::TK_MATRIX:
+                            case IType::TK_ARRAY:
+                                if (0 <= idx && idx < a->get_argument_count()) {
+                                    return a->get_argument(idx);
+                                }
+                                // this CAN happen, because MDL does not enforce valid array indexes
+                                break;
+                            default:
+                                // this should NOT happen
+                                MDL_ASSERT(!"Unexpected index on non-indexable type");
+                                break;
+                            }
+                        } else if (sema == IDefinition::DS_CONV_CONSTRUCTOR) {
+                            // vectorX(v)[n] ==> v, iff type(v) == element_type(vectorX)
+                            IType_vector const *v_tp = as<IType_vector>(a->get_type());
+                            if (v_tp != NULL && a->get_argument_count() == 1) {
+                                DAG_node const *node    = a->get_argument(0);
+                                IType const    *node_tp = node->get_type();
+
+                                if (ret_type->skip_type_alias() == node_tp->skip_type_alias()) {
+                                    DAG_constant const *i  = cast<DAG_constant>(call_args[1].arg);
+                                    IValue_int const   *iv = cast<IValue_int>(i->get_value());
+                                    int                idx = iv->get_value();
+
+                                    if (0 <= idx && idx < v_tp->get_size()) {
+                                        return node;
+                                    }
+                                    // this CAN happen, because MDL does not enforce valid
+                                    // array indexes
+                                }
+                            }
+                        }
+                    } else if (is<DAG_constant>(base)) {
+                        DAG_constant const      *i  = cast<DAG_constant>(call_args[1].arg);
+                        IValue_int_valued const *iv = cast<IValue_int_valued>(i->get_value());
+                        int                     idx = iv->get_value();
+
+                        IValue const *v = cast<DAG_constant>(base)->get_value();
+                        v = v->extract(&m_value_factory, idx);
+                        if (!is<IValue_bad>(v))
+                            return create_constant(v);
+                    }
+                }
+            }
             if (op != IExpression::OK_CALL)
                 return create_operator_call(name, op, call_args, ret_type);
         } else if (sema == IDefinition::DS_CONV_OPERATOR || mi::mdl::is_constructor(sema)) {
@@ -1225,52 +1474,6 @@ DAG_node const *DAG_node_factory_impl::create_call(
                             return create_constant(v);
                         }
                     }
-                }
-            }
-            break;
-        case IDefinition::DS_INTRINSIC_DAG_INDEX_ACCESS:
-            if (is<DAG_constant>(call_args[1].arg)) {
-                DAG_node const *base = call_args[0].arg;
-
-                if (is<DAG_call>(base)) {
-                    // check if arg[0] is an elemental constructor
-                    DAG_call const *a = cast<DAG_call>(base);
-
-                    IDefinition::Semantics sema = a->get_semantic();
-                    if (sema == IDefinition::DS_ELEM_CONSTRUCTOR ||
-                        sema == IDefinition::DS_INTRINSIC_DAG_ARRAY_CONSTRUCTOR)
-                    {
-                        // T(x_0, ..., x_n, ..., x_m)[n] ==> x_n
-                        IType const *ret_type = a->get_type()->skip_type_alias();
-
-                        DAG_constant const *i  = cast<DAG_constant>(call_args[1].arg);
-                        IValue_int const   *iv = cast<IValue_int>(i->get_value());
-                        int                idx = iv->get_value();
-
-                        switch (ret_type->get_kind()) {
-                        case IType::TK_VECTOR:
-                        case IType::TK_MATRIX:
-                        case IType::TK_ARRAY:
-                            if (0 <= idx && idx < a->get_argument_count()) {
-                                return a->get_argument(idx);
-                            }
-                            // this CAN happen, because MDL does not enforce valid array indexes
-                            break;
-                        default:
-                            // this should NOT happen
-                            MDL_ASSERT(!"Unexpected index on non-indexable type");
-                            break;
-                        }
-                    }
-                } else if (is<DAG_constant>(base)) {
-                    DAG_constant const      *i  = cast<DAG_constant>(call_args[1].arg);
-                    IValue_int_valued const *iv = cast<IValue_int_valued>(i->get_value());
-                    int                     idx = iv->get_value();
-
-                    IValue const *v = cast<DAG_constant>(base)->get_value();
-                    v = v->extract(&m_value_factory, idx);
-                    if (!is<IValue_bad>(v))
-                        return create_constant(v);
                 }
             }
             break;
@@ -1364,22 +1567,47 @@ DAG_node const *DAG_node_factory_impl::create_call(
             }
             break;
         case IDefinition::DS_INTRINSIC_DF_TINT:
-            if (num_call_args == 2) {
-                DAG_node const *tint = call_args[0].arg;
-                if (is<DAG_constant>(tint)) {
-                    IValue const *v = cast<DAG_constant>(tint)->get_value();
+            switch (num_call_args) {
+            case 2:
+                {
+                    DAG_node const *tint = call_args[0].arg;
+                    if (is<DAG_constant>(tint)) {
+                        IValue const *v = cast<DAG_constant>(tint)->get_value();
 
-                    if (is<IValue_rgb_color>(v)) {
-                        if (v->is_all_one()) {
-                            // df::tint(color(1.0), x) ==> x
-                            return call_args[1].arg;
-                        }
-                        if (v->is_zero()) {
-                            // df::tint(color(0.0), x) ==> df()
-                            return create_default_df_constructor(cast<IType_df>(ret_type));
+                        if (is<IValue_rgb_color>(v)) {
+                            if (v->is_all_one()) {
+                                // df::tint(color(1.0), x) ==> x
+                                return call_args[1].arg;
+                            }
+                            if (v->is_zero()) {
+                                // df::tint(color(0.0), x) ==> df()
+                                return create_default_df_constructor(cast<IType_df>(ret_type));
+                            }
                         }
                     }
                 }
+                break;
+            case 3:
+                {
+                    DAG_node const *reflection_tint   = call_args[0].arg;
+                    DAG_node const *transmission_tint = call_args[1].arg;
+                    if (is<DAG_constant>(reflection_tint) && is<DAG_constant>(transmission_tint)) {
+                        IValue const *r_v = cast<DAG_constant>(reflection_tint)->get_value();
+                        IValue const *t_v = cast<DAG_constant>(transmission_tint)->get_value();
+
+                        if (is<IValue_rgb_color>(r_v) && is<IValue_rgb_color>(t_v)) {
+                            if (r_v->is_all_one() && t_v->is_all_one()) {
+                                // df::tint(color(1.0), color(1.0), x) ==> x
+                                return call_args[2].arg;
+                            }
+                            if (r_v->is_zero() && t_v->is_zero()) {
+                                // df::tint(color(0.0), color(0.0), x) ==> df()
+                                return create_default_df_constructor(cast<IType_df>(ret_type));
+                            }
+                        }
+                    }
+                }
+                break;
             }
             break;
         case IDefinition::DS_INTRINSIC_DF_FRESNEL_LAYER:
@@ -1693,13 +1921,27 @@ IValue_matrix const *DAG_node_factory_impl::create_identity_matrix(
 }
 
 /// Check if the given expression is of matrix type.
+static bool is_matrix_typed(IType const *type) {
+    if (is_deriv_type(type))
+        type = get_deriv_base_type(type);
+    return as<IType_matrix>(type) != NULL;
+}
+
+/// Check if the given expression is of vector type.
+static bool is_vector_typed(IType const *type) {
+    if (is_deriv_type(type))
+        type = get_deriv_base_type(type);
+    return as<IType_vector>(type) != NULL;
+}
+
+/// Check if the given expression is of matrix type.
 static bool is_matrix_typed(DAG_node const *node) {
-    return as<IType_matrix>(node->get_type()) != NULL;
+    return is_matrix_typed(node->get_type());
 }
 
 /// Check if the given expression is of vector type.
 static bool is_vector_typed(DAG_node const *node) {
-    return as<IType_vector>(node->get_type()) != NULL;
+    return is_vector_typed(node->get_type());
 }
 
 // Normalize the arguments of a binary expression for better CSE support.
@@ -1716,7 +1958,7 @@ bool DAG_node_factory_impl::normalize(
             IType const *l_tp = l->get_type()->skip_type_alias();
             IType const *r_tp = r->get_type()->skip_type_alias();
 
-            if (is<IType_matrix>(l_tp) || is<IType_matrix>(r_tp)) {
+            if (is_matrix_typed(l_tp) || is_matrix_typed(r_tp)) {
                 // matrix multiplication is not symmetric
                 break;
             }
@@ -1725,11 +1967,11 @@ bool DAG_node_factory_impl::normalize(
             // The reason is simple: otherwise a vector*float inside a material class could be
             // turned into a float*vector inside a material instance, which might not be available
             // in the Db because it was never referenced ...
-            if (is<IType_vector>(r_tp) && !is<IType_vector>(l_tp)) {
+            if (is_vector_typed(r_tp) && !is_vector_typed(l_tp)) {
                 // swap
                 swap_args = true;
                 break;
-            } else if (is<IType_vector>(l_tp) && !is<IType_vector>(r_tp)) {
+            } else if (is_vector_typed(l_tp) && !is_vector_typed(r_tp)) {
                 // do nothing
                 break;
             }
@@ -1928,6 +2170,15 @@ IValue const *DAG_node_factory_impl::convert(
     return NULL;
 }
 
+/// Check if the given compound type has hidden fields.
+static bool have_hidden_fields(IType_compound const *c_type) {
+    if (IType_struct const *s_type = as<IType_struct>(c_type)) {
+        // currently, only the material emission type has hidden fields
+        return s_type->get_predefined_id() == IType_struct::SID_MATERIAL_EMISSION;
+    }
+    return false;
+}
+
 // Evaluate a constructor call.
 IValue const *DAG_node_factory_impl::evaluate_constructor(
     IValue_factory         &value_factory,
@@ -1937,7 +2188,6 @@ IValue const *DAG_node_factory_impl::evaluate_constructor(
 {
     switch (sema) {
     case IDefinition::DS_COPY_CONSTRUCTOR:
-        // there should be no copy constructors anymore at this point, but anyway
         MDL_ASSERT(arguments.size() == 1);
         return arguments[0];
     case IDefinition::DS_CONV_CONSTRUCTOR:
@@ -1954,10 +2204,38 @@ IValue const *DAG_node_factory_impl::evaluate_constructor(
                 }
             }
 
-            size_t n = c_type->get_compound_size();
-            MDL_ASSERT(arguments.size() == n);
+            size_t n_fields = c_type->get_compound_size();
+            size_t n_args   = arguments.size();
 
-            return value_factory.create_compound(c_type, n > 0 ? &arguments[0] : NULL, n);
+            if (n_fields != n_args && !have_hidden_fields(c_type)) {
+                // cannot fold
+                MDL_ASSERT(!"unexpected elemental constructor");
+                break;
+            }
+
+            VLA<IValue const *> values(get_allocator(), n_fields);
+
+            for (size_t i = 0; i < n_args; ++i) {
+                values[i] = arguments[i];
+            }
+
+            // fill hidden fields by their defaults
+            bool failed = false;
+            for (size_t i = n_args; i < n_fields; ++i) {
+                IType const *f_type = c_type->get_compound_type(int(i));
+
+                if (IType_enum const *e_type = as<IType_enum>(f_type)) {
+                    // for enum types, the default is always the first one
+                    values[i] = value_factory.create_enum(e_type, 0);
+                } else {
+                    failed = true;
+                    break;
+                }
+            }
+
+            if (!failed) {
+                return value_factory.create_compound(c_type, values.data(), n_fields);
+            }
         }
         // cannot fold
         break;
@@ -1988,7 +2266,7 @@ IValue const *DAG_node_factory_impl::evaluate_constructor(
 
             MDL_ASSERT(arguments.size() == n_cols * n_rows);
 
-            int idx = 0;
+            size_t idx = 0;
             for (size_t col = 0; col < n_cols; ++col) {
                 IValue const *row_vals[4];
                 for (size_t row = 0; row < n_rows; ++row, ++idx) {
@@ -2093,58 +2371,6 @@ IValue const *DAG_node_factory_impl::evaluate_intrinsic_function(
     return NULL;
 }
 
-// Set a tag, version pair into a resource literal.
-void DAG_node_factory_impl::set_resource_tag(
-    DAG_constant const *c,
-    int                tag,
-    unsigned           ver)
-{
-    MDL_ASSERT(identify_empty() && "cannot set resource tags if CSE is enabled");
-
-    IValue const *v = c->get_value();
-    if (IValue_resource const *r = as<IValue_resource>(v)) {
-        IValue_resource const *n = NULL;
-        switch (r->get_kind()) {
-        case IValue::VK_TEXTURE:
-            {
-                IValue_texture const *t = cast<IValue_texture>(r);
-                n = m_value_factory.create_texture(
-                    t->get_type(),
-                    t->get_string_value(),
-                    t->get_gamma_mode(),
-                    tag,
-                    ver);
-            }
-            break;
-        case IValue::VK_LIGHT_PROFILE:
-            {
-                IValue_light_profile const *l = cast<IValue_light_profile>(r);
-                n = m_value_factory.create_light_profile(
-                    l->get_type(),
-                    l->get_string_value(),
-                    tag,
-                    ver);
-            }
-            break;
-        case IValue::VK_BSDF_MEASUREMENT:
-            {
-                IValue_bsdf_measurement const *b = cast<IValue_bsdf_measurement>(r);
-                n = m_value_factory.create_bsdf_measurement(
-                    b->get_type(),
-                    b->get_string_value(),
-                    tag,
-                    ver);
-            }
-            break;
-        default:
-            break;
-        }
-        if (n != NULL) {
-            ((Constant_impl *)c)->set_value(n);
-        }
-    }
-}
-
 // Enable the folding of scene unit conversion functions.
 void DAG_node_factory_impl::enable_unit_conv_fold(float mdl_meters_per_scene_unit)
 {
@@ -2167,6 +2393,97 @@ void DAG_node_factory_impl::enable_wavelength_fold(
 bool DAG_node_factory_impl::is_owner(DAG_node const *n) const
 {
     return m_builder.get_arena()->contains(n);
+}
+
+// Adds a name to a given DAG node.
+void DAG_node_factory_impl::add_node_name(
+    DAG_node const *node,
+    char const     *name)
+{
+    m_temp_name_map[node] = Arena_strdup(*m_builder.get_arena(), name);
+}
+
+// Return true iff all arguments are without name.
+bool DAG_node_factory_impl::all_args_without_name(
+    DAG_node const *args[],
+    size_t         n_args) const
+{
+    if (!m_expose_names_of_let_expressions) {
+        MDL_ASSERT(m_temp_name_map.empty());
+        return true;
+    }
+
+    for (size_t i = 0; i < n_args; ++i) {
+        if (m_temp_name_map.find(args[i]) != m_temp_name_map.end())
+            return false;
+    }
+    return true;
+}
+
+// Return true iff all arguments are without name.
+bool DAG_node_factory_impl::all_args_without_name(
+    DAG_call::Call_argument const args[],
+    size_t                        n_args) const
+{
+    if (!m_expose_names_of_let_expressions) {
+        MDL_ASSERT(m_temp_name_map.empty());
+        return true;
+    }
+
+    for (size_t i = 0; i < n_args; ++i) {
+        if (m_temp_name_map.find(args[i].arg) != m_temp_name_map.end())
+            return false;
+    }
+    return true;
+}
+
+DAG_node const *DAG_node_factory_impl::shallow_copy(DAG_node const *node)
+{
+    No_CSE_scope scope(*this);
+
+    switch (node->get_kind())
+    {
+        case DAG_node::EK_CONSTANT:
+        {
+            DAG_constant const *c     = cast<DAG_constant>(node);
+            IValue const       *value = c->get_value();
+            return create_constant(value);
+        }
+        case DAG_node::EK_PARAMETER:
+        {
+            DAG_parameter const *p    = cast<DAG_parameter>(node);
+            IType const         *type = p->get_type();
+            int                 index = p->get_index();
+            return create_parameter(type, index);
+        }
+        case DAG_node::EK_TEMPORARY:
+        {
+            DAG_temporary const *t    = cast<DAG_temporary>(node);
+            DAG_node const      *expr = t->get_expr();
+            int                 index = t->get_index();
+            return create_temporary(expr, index);
+        }
+        case DAG_node::EK_CALL:
+        {
+            DAG_call const         *call    = cast<DAG_call>(node);
+            int                    n_params = call->get_argument_count();
+            IDefinition::Semantics sema     = call->get_semantic();
+            char const             *name    = call->get_name();
+            IType const            *type    = call->get_type();
+
+            VLA<DAG_call::Call_argument> args(get_allocator(), n_params);
+
+            for (int i = 0; i < n_params; ++i) {
+                args[i].param_name = call->get_parameter_name(i);
+                args[i].arg        = call->get_argument(i);
+            }
+
+            return create_call(name, sema, args.data(), args.size(), type);
+        }
+    }
+
+    MDL_ASSERT(!"Unsupported DAG node kind");
+    return node;
 }
 
 // Create an operator call.
@@ -2246,7 +2563,7 @@ DAG_node_factory_impl::create_operator_call(
         case IExpression_binary::OK_GREATER_OR_EQUAL:
         case IExpression_binary::OK_EQUAL:
             if (left == right) {
-                if (is_finite(left)) {
+                if (m_unsafe_math_opt || is_finite(left)) {
                     // x <= x == true
                     // x >= x == true
                     // x == x == true
@@ -2256,11 +2573,18 @@ DAG_node_factory_impl::create_operator_call(
             break;
         case IExpression_binary::OK_LESS:
         case IExpression_binary::OK_GREATER:
-        case IExpression_binary::OK_NOT_EQUAL:
             if (left == right) {
-                if (is_finite(left)) {
+                if (m_unsafe_math_opt || is_finite(left)) {
                     // x < x == false
                     // x > x == false
+                    return create_constant(m_value_factory.create_bool(false));
+                }
+            }
+            break;
+        case IExpression_binary::OK_NOT_EQUAL:
+            if (left == right) {
+                // do not kill the NaN check: really do this only for finite values
+                if (is_finite(left)) {
                     // x != x == false
                     return create_constant(m_value_factory.create_bool(false));
                 }
@@ -2370,7 +2694,7 @@ DAG_node_factory_impl::create_operator_call(
                         return left;
                 }
             } else if (is_zero(right)) {
-                if (is_finite(left)) {
+                if (m_unsafe_math_opt || is_finite(left)) {
                     // x * 0 ==> PROMOTE(0)
                     IValue const *zero = m_value_factory.create_zero(ret_type);
                     return create_constant(zero);
@@ -2386,7 +2710,7 @@ DAG_node_factory_impl::create_operator_call(
                         return right;
                 }
             } else if (is_zero(left)) {
-                if (is_finite(right)) {
+                if (m_unsafe_math_opt || is_finite(right)) {
                     // 0 * x ==> PROMOTE(0)
                     IValue const *zero = m_value_factory.create_zero(ret_type);
                     return create_constant(zero);
@@ -2634,44 +2958,17 @@ DAG_node_factory_impl::create_ternary_call(
 
     IAllocator *alloc = get_allocator();
 
-    Name_printer printer(alloc, m_mdl.get());
-
     IType const *type = t_expr->get_type()->skip_type_alias();
 
     string name("", alloc);
 
     // special handling for internal derivative types
-    if (IType_struct const *st = as<IType_struct>(type)) {
-        if (st->get_symbol()->get_name()[0] == '#') {
-            // prefix name with '#' and use base type for the rest
-            name += '#';
-            type = st->get_compound_type(0);
-        }
+    if (is_deriv_type(type)) {
+        // prefix name with '#' and use base type for the rest
+        name += '#';
+        type = get_deriv_base_type(type);
     }
-
-    if (DAG_builder::is_user_type(type)) {
-        // in case of a user type, the operator is "defined" locally in the module
-        // of the type, extract that from the type name
-
-        printer.print(type);
-        name = printer.get_line();
-
-        size_t pos = name.rfind("::");
-        MDL_ASSERT(pos != string::npos);
-
-        name = name.substr(0, pos + 2);
-    }
-
-    name += DAG_builder::ternary_op_to_name();
-    printer.print('(');
-    printer.print(cond->get_type());
-    printer.print(',');
-    printer.print(type);
-    printer.print(',');
-    printer.print(type);
-    printer.print(')');
-
-    name += printer.get_line();
+    name += get_ternary_operator_signature();
 
     DAG_call::Call_argument args[3];
 
@@ -2682,11 +2979,61 @@ DAG_node_factory_impl::create_ternary_call(
     args[2].arg = f_expr;
     args[2].param_name = "false_exp";
 
-
     DAG_node *res = alloc_call(
-        name.c_str(), operator_to_semantic(IExpression::OK_TERNARY), args, 3, ret_type);
+        name.c_str(),
+        operator_to_semantic(IExpression::OK_TERNARY),
+        args,
+        dimension_of(args),
+        ret_type);
 
     return static_cast<Call_impl *>(identify_remember(res));
+}
+
+/// Get the name of a conversion constructor if there is one.
+static char const *conv_constructor_name(IType const *tp)
+{
+    tp = tp->skip_type_alias();
+    if (is<IType_color>(tp)) {
+        return "color(float)";
+    }
+    if (IType_vector const *v_tp = as<IType_vector>(tp)) {
+        IType_atomic const *e_tp = v_tp->get_element_type();
+        int                n     = v_tp->get_size();
+
+        switch (e_tp->get_kind()) {
+        case IType::TK_BOOL:
+            switch (n) {
+            case 2: return "bool2(bool)";
+            case 3: return "bool3(bool)";
+            case 4: return "bool4(bool)";
+            }
+            break;
+        case IType::TK_INT:
+            switch (n) {
+            case 2: return "int2(int)";
+            case 3: return "int3(int)";
+            case 4: return "int4(int)";
+            }
+            break;
+        case IType::TK_FLOAT:
+            switch (n) {
+            case 2: return "float2(float)";
+            case 3: return "float3(float)";
+            case 4: return "float4(float)";
+            }
+            break;
+        case IType::TK_DOUBLE:
+            switch (n) {
+            case 2: return "double2(double)";
+            case 3: return "double3(double)";
+            case 4: return "double4(double)";
+            }
+            break;
+        default:
+            break;
+        }
+    }
+    return NULL;
 }
 
 // Create a constructor call.
@@ -2698,19 +3045,25 @@ DAG_node_factory_impl::create_constructor_call(
     int                           num_call_args,
     IType const                   *ret_type)
 {
+    if (sema == IDefinition::DS_COPY_CONSTRUCTOR) {
+        // Remove copy constructor. This will not remove any names, so no check is needed here.
+        return call_args[0].arg;
+    }
+
     Value_vector values(num_call_args, NULL, get_allocator());
 
-    bool all_const = true;
+    bool all_args_const = true;
     for (int i = 0; i < num_call_args; ++i) {
         DAG_node const *arg = call_args[i].arg;
         if (is<DAG_constant>(arg)) {
             values[i] = cast<DAG_constant>(arg)->get_value();
         } else {
-            all_const = false;
+            all_args_const = false;
             break;
         }
     }
-    if (all_const) {
+
+    if (all_args_const && all_args_without_name(call_args, num_call_args)) {
         if (IValue const *v = evaluate_constructor(
                 m_value_factory, sema, ret_type, values)) {
             return create_constant(v);
@@ -2745,22 +3098,7 @@ DAG_node_factory_impl::create_constructor_call(
     }
 
     if (m_opt_enabled && res == NULL) {
-        if (strcmp(name, "color(float,float,float)") == 0) {
-            // color(x,x,x) ==> color(x)
-            DAG_node const *r = call_args[0].arg;
-            if (r == call_args[1].arg && r == call_args[2].arg) {
-                DAG_call::Call_argument n_call_args[1];
-
-                n_call_args[0].arg = r;
-                n_call_args[0].param_name = "value";
-
-                res = alloc_call(
-                    "color(float)",
-                    IDefinition::DS_CONV_CONSTRUCTOR,
-                    n_call_args, 1,
-                    ret_type);
-            }
-        } else if (strcmp(name, "color(float3)") == 0) {
+        if (strcmp(name, "color(float3)") == 0) {
             // color(float3(x)) ==> color(x)
             DAG_node const *f3 = call_args[0].arg;
 
@@ -2780,18 +3118,74 @@ DAG_node_factory_impl::create_constructor_call(
                         ret_type);
                 }
             }
-        } else if (strcmp(name, "float3(float,float,float)") == 0) {
-            // float3(x,x,x)) ==> float3(x)
-            DAG_node const *x = call_args[0].arg;
+        } else if (sema == IDefinition::DS_ELEM_CONSTRUCTOR) {
+            DAG_node const *x;
+            bool           all_same = false;
 
-            if (x == call_args[1].arg && x == call_args[2].arg) {
+            if (is<IType_vector>(ret_type->skip_type_alias())) {
+                // vectorX(x,...,x)) ==> vectorX(x)
+                x = call_args[0].arg;
+                all_same = true;
+                for (int i = 1; i < num_call_args; ++i) {
+                    if (x != call_args[i].arg) {
+                        all_same = false;
+                        break;
+                    }
+                }
+
+                // check for vectorX(a.x, a.y, a.z, ...) ==> a
+                if (!all_same) {
+                    if (DAG_call const *xc = as<DAG_call>(x)) {
+                        if (xc->get_semantic() ==
+                            operator_to_semantic(IExpression::OK_ARRAY_INDEX))
+                        {
+                            x = xc->get_argument(0);
+
+                            if (x->get_type()->skip_type_alias()== ret_type->skip_type_alias()) {
+                                unsigned num_fields = 0;
+                                for (int i = 0; i < num_call_args; ++i) {
+                                    DAG_call const *arg = as<DAG_call>(call_args[i].arg);
+                                    if (arg == NULL)
+                                        break;
+                                    if (arg->get_semantic() !=
+                                        operator_to_semantic(IExpression::OK_ARRAY_INDEX))
+                                        break;
+                                    if (arg->get_argument(0) != x)
+                                        break;
+
+                                    DAG_constant const *c = as<DAG_constant>(arg->get_argument(1));
+                                    if (c == NULL)
+                                        break;
+                                    IValue_int const *iv = cast<IValue_int>(c->get_value());
+                                    if (iv->get_value() != i)
+                                        break;
+                                    ++num_fields;
+                                }
+
+                                if (num_fields == num_call_args) {
+                                    // all elements are used
+                                    return x;
+                                }
+                            }
+                        }
+                    }
+                }
+            } else if (strcmp(name, "color(float,float,float)") == 0) {
+                // color(x,x,x) ==> color(x)
+                x = call_args[0].arg;
+                if (x == call_args[1].arg && x == call_args[2].arg) {
+                    all_same = true;
+                }
+            }
+
+            if (all_same) {
                 DAG_call::Call_argument n_call_args[1];
 
                 n_call_args[0].arg = x;
                 n_call_args[0].param_name = "value";
 
                 res = alloc_call(
-                    "float3(float)",
+                    conv_constructor_name(ret_type),
                     IDefinition::DS_CONV_CONSTRUCTOR,
                     n_call_args, 1,
                     ret_type);
@@ -3075,22 +3469,22 @@ DAG_node const *DAG_node_factory_impl::remove_clamped_components(
 DAG_node *DAG_node_factory_impl::identify_remember(
     DAG_node *node)
 {
-    if (m_cse_enabled) {
-        Value_table::iterator it = m_value_table.find(node);
-        if (it == m_value_table.end()) {
-            m_value_table.insert(node);
-            return node;
-        }
-        // already known, drop this and return the other
-        size_t id = node->get_id();
-        if (id + 1 == m_next_id) {
-            // recover the ID
-            --m_next_id;
-        }
-        m_builder.get_arena()->drop(node);
-        return *it;
+    if (!m_cse_enabled)
+        return node;
+
+    Value_table::iterator it = m_value_table.find(node);
+    if (it == m_value_table.end()) {
+        m_value_table.insert(node);
+        return node;
     }
-    return node;
+    // already known, drop this and return the other
+    size_t id = node->get_id();
+    if (id + 1 == m_next_id) {
+        // recover the ID
+        --m_next_id;
+    }
+    m_builder.get_arena()->drop(node);
+    return *it;
 }
 
 // Create a df::*_mix() call.
@@ -3126,8 +3520,15 @@ Call_impl *DAG_node_factory_impl::alloc_call(
     size_t                        num_call_args,
     IType const                   *ret_type)
 {
+    ISymbol const *shared = m_sym_tab.get_shared_symbol(name);
     return m_builder.create<Call_impl>(
-        m_next_id++, m_builder.get_arena(), name, sema, call_args, num_call_args, ret_type);
+        m_next_id++,
+        m_builder.get_arena(),
+        shared->get_name(),
+        sema,
+        call_args,
+        num_call_args,
+        ret_type);
 }
 
 // Set the index of an parameter.

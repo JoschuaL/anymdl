@@ -1,5 +1,5 @@
 /******************************************************************************
- * Copyright (c) 2013-2019, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2013-2020, NVIDIA CORPORATION. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -51,15 +51,16 @@ class Function_context;
 class IMDL;
 class IValue_resource;
 
-/// An entry in the resource attribute map.
-struct Resource_entry {
+/// A value entry in the resource attribute map.
+struct Resource_attr_entry {
     size_t index;               ///< The "index" value of this resource.
     bool valid;                 ///< True if this resource is valid.
     union {
         struct {
-            unsigned width;     ///< texture width
-            unsigned height;    ///< texture height
-            unsigned depth;     ///< texture depth
+            unsigned width;              ///< texture width
+            unsigned height;             ///< texture height
+            unsigned depth;              ///< texture depth
+            IType_texture::Shape shape;  ///< texture shape
         } tex;
         struct {
             float power;        ///< light profile power
@@ -68,7 +69,29 @@ struct Resource_entry {
     } u;
 };
 
-typedef ptr_hash_map<IValue const, Resource_entry>::Type Resource_attr_map;
+struct Resource_hasher {
+    size_t operator()(Resource_tag_tuple const &p) const {
+        cstring_hash cstring_hasher;
+
+        return size_t(p.m_kind) ^ cstring_hasher(p.m_url) ^ p.m_tag;
+    }
+};
+
+struct Resource_equal_to {
+    bool operator()(Resource_tag_tuple const &a, Resource_tag_tuple const &b) const {
+        if (a.m_kind != b.m_kind)
+            return false;
+        if (a.m_tag != b.m_tag)
+            return false;
+
+        cstring_equal_to cstring_cmp;
+
+        return cstring_cmp(a.m_url, b.m_url);
+    }
+};
+
+typedef hash_map<Resource_tag_tuple, Resource_attr_entry, Resource_hasher, Resource_equal_to>::Type
+    Resource_attr_map;
 
 /// This class handles the creation and compilation of lambda functions.
 ///
@@ -168,38 +191,54 @@ public:
 
     /// Enumerate all used texture resources of this lambda function.
     ///
+    /// \param resolver    a call name resolver
     /// \param enumerator  the enumerator interface
     /// \param root        if non-NULL, the root expression to enumerate, else enumerate
     ///                    all roots of a switch function
     void enumerate_resources(
+        ICall_name_resolver const   &resolver,
         ILambda_resource_enumerator &enumerator,
         DAG_node const              *root = NULL) const MDL_FINAL;
 
     /// Register a texture resource mapping.
     ///
-    /// \param res     the texture resource value (or an invalid ref)
-    /// \param idx     the mapped index value representing the resource in a lookup table
-    /// \param valid   true if this is a valid resource, false otherwise
-    /// \param width   the width of the texture
-    /// \param height  the height of the texture
-    /// \param depth   the depth of the texture
+    /// \param res_kind        the kind of the resource (texture or invalid reference)
+    /// \param res_url         the URL of the texture resource if any
+    /// \param gamma           the gamma mode of this resource
+    /// \param bsdf_data_kind  the kind of BSDF data in case of BSDF data textures
+    /// \param shape           the shape of this resource
+    /// \param res_tag         the tag of the texture resource
+    /// \param idx             the mapped index value representing the resource in a lookup table
+    /// \param valid           true if this is a valid resource, false otherwise
+    /// \param width           the width of the texture
+    /// \param height          the height of the texture
+    /// \param depth           the depth of the texture
     void map_tex_resource(
-        IValue const *res,
-        size_t       idx,
-        bool         valid,
-        int          width,
-        int          height,
-        int          depth) MDL_FINAL;
+        IValue::Kind                   res_kind,
+        char const                     *res_url,
+        IValue_texture::gamma_mode     gamma,
+        IValue_texture::Bsdf_data_kind bsdf_data_kind,
+        IType_texture::Shape           shape,
+        int                            res_tag,
+        size_t                         idx,
+        bool                           valid,
+        int                            width,
+        int                            height,
+        int                            depth) MDL_FINAL;
 
     /// Register a light profile resource mapping.
     ///
-    /// \param res      the light profile resource value (or an invalid ref)
-    /// \param idx      the mapped index value representing the resource in a lookup table
-    /// \param valid    true if this is a valid resource, false otherwise
-    /// \param power    the power of this light profile
-    /// \param maximum  the maximum of this light profile
+    /// \param res_kind  the kind of the resource (texture or invalid reference)
+    /// \param res_url   the URL of the texture resource if any
+    /// \param res_tag   the tag of the texture resource
+    /// \param idx       the mapped index value representing the resource in a lookup table
+    /// \param valid     true if this is a valid resource, false otherwise
+    /// \param power     the power of this light profile
+    /// \param maximum   the maximum of this light profile
     void map_lp_resource(
-        IValue const *res,
+        IValue::Kind res_kind,
+        char const   *res_url,
+        int          res_tag,
         size_t       idx,
         bool         valid,
         float        power,
@@ -207,11 +246,15 @@ public:
 
     /// Register a bsdf measurement resource mapping.
     ///
-    /// \param res      the bsdf measurement resource value (or an invalid ref)
-    /// \param idx      the mapped index value representing the resource in a lookup table
-    /// \param valid    true if this is a valid resource, false otherwise
+    /// \param res_kind  the kind of the resource (texture or invalid reference)
+    /// \param res_url   the URL of the texture resource if any
+    /// \param res_tag   the tag of the texture resource
+    /// \param idx       the mapped index value representing the resource in a lookup table
+    /// \param valid     true if this is a valid resource, false otherwise
     void map_bm_resource(
-        IValue const *res,
+        IValue::Kind res_kind,
+        char const   *res_url,
+        int          res_tag,
         size_t       idx,
         bool         valid) MDL_FINAL;
 
@@ -233,7 +276,7 @@ public:
     /// \param[in]  call_evaluator  a call evaluator for handling some intrinsic functions
     void optimize(
         ICall_name_resolver const *name_resolver,
-        ICall_evaluator *call_evaluator) MDL_FINAL;
+        ICall_evaluator           *call_evaluator) MDL_FINAL;
 
     /// Returns true if a switch function was "modified", by adding a new
     /// root expression.
@@ -326,7 +369,34 @@ public:
     /// Sets whether the resource attribute table contains valid attributes.
     void set_has_resource_attributes(bool avail) MDL_FINAL;
 
+    /// Set a tag, version pair for a resource value that might be reachable from this
+    /// function.
+    ///
+    /// \param res_kind        the resource kind
+    /// \param res_url         the resource url
+    /// \param tag             the tag value
+    void set_resource_tag(
+        Resource_tag_tuple::Kind const res_kind,
+        char const                     *res_url,
+        int                            tag) MDL_FINAL;
+
+    /// Remap a resource value according to the resource map.
+    ///
+    /// \param r  the resource
+    int get_resource_tag(IValue_resource const *r) const MDL_FINAL;
+
+    /// Get the number of entires in the resource map.
+    size_t get_resource_entries_count() const MDL_FINAL;
+
+    /// Get the i'th entry of the resource map.
+    Resource_tag_tuple const *get_resource_entry(size_t index) const MDL_FINAL;
+
     // --------------- non-interface members ---------------
+
+    typedef vector<Resource_tag_tuple>::Type Resource_tag_map;
+
+    /// Get the resource tag map.
+    Resource_tag_map const &get_resource_tag_map() const { return m_resource_tag_map; }
 
     /// Get the derivative information if they have been initialized.
     Derivative_infos const *get_derivative_infos() const;
@@ -405,6 +475,28 @@ public:
     /// \param expr   the lambda root expression
     /// \param name   the name of the file dump
     void dump(DAG_node const *expr, char const *name) const;
+
+    private:
+    /// Find the resource tag of a resource.
+    ///
+    /// \param res_kind        the resource kind
+    /// \param res_url         the resource url
+    ///
+    /// \return 0 if not found, else the assigned tag
+    int find_resource_tag(
+        Resource_tag_tuple::Kind const res_kind,
+        char const                     *res_url) const;
+
+    /// Add tag, version pair for a resource value that might be reachable from this
+    /// function.
+    ///
+    /// \param res_kind        the resource kind
+    /// \param res_url         the resource url
+    /// \param tag             the tag value
+    void add_resource_tag(
+        Resource_tag_tuple::Kind const res_kind,
+        char const                     *res_url,
+        int                            tag);
 
 private:
     typedef ILambda_function::Lambda_execution_context Lambda_execution_context;
@@ -551,6 +643,9 @@ private:
 
     /// The derivative analysis information, if requested during initialization.
     Derivative_infos m_deriv_infos;
+
+    /// The resource tag map, mapping resource values to (tag, version) pair.
+    Resource_tag_map m_resource_tag_map;
 };
 
 /// This class holds the DF and non-DF parts of an MDL material surface.
@@ -561,13 +656,14 @@ class Distribution_function : public Allocator_interface_implement<IDistribution
 
 public:
     /// Initialize this distribution function object for the given material
-    /// with the given distribution function node. Any additionally required
-    /// expressions from the material will also be handled.
-    /// Any material parameters must already be registered in the main DF lambda at this point.
-    /// The DAG nodes must already be owned by the main DF lambda.
+    /// with the given requested functions.
+    /// Any additionally required expressions from the material will also be handled.
+    /// Any material parameters must already be registered in the root lambda at this point.
+    /// The DAG nodes must already be owned by the root lambda.
     ///
     /// \param material_constructor       the DAG node of the material constructor
-    /// \param path                       the path of the distribution function
+    /// \param requested_functions        the expressions for which functions will be generated
+    /// \param num_functions              the number of requested functions
     /// \param include_geometry_normal    if true, the geometry normal will be handled
     /// \param calc_derivative_infos      if true, derivative information will be calculated
     /// \param allow_double_expr_lambdas  if true, expression lambdas may be created for double
@@ -577,14 +673,30 @@ public:
     /// \returns EC_NONE, if initialization was successful, an error code otherwise.
     Error_code initialize(
         DAG_node const            *material_constructor,
-        char const                *df_path,
+        Requested_function        *requested_functions,
+        size_t                     num_functions,
         bool                       include_geometry_normal,
         bool                       calc_derivative_infos,
         bool                       allow_double_expr_lambdas,
         ICall_name_resolver const *name_resolver) MDL_FINAL;
 
-    /// Get the main DF function representing a DF DAG call.
-    ILambda_function *get_main_df() const MDL_FINAL;
+    /// Get the root lambda function used to build nodes and manage parameters and resources.
+    ILambda_function *get_root_lambda() const MDL_FINAL;
+
+    /// Add the given function as main lambda function.
+    ///
+    /// \param lambda  the function to add
+    size_t add_main_function(ILambda_function *lambda);
+
+    /// Get the main lambda function for the given index, representing a requested function.
+    ///
+    /// \param index  the index of the main lambda
+    ///
+    /// \returns  the requested main lambda function or NULL, if the index is invalid
+    ILambda_function *get_main_function(size_t index) const MDL_FINAL;
+
+    /// Get the number of main lambda functions.
+    size_t get_main_function_count() const MDL_FINAL;
 
     /// Add the given expression lambda function to the distribution function.
     /// The index as a decimal string can be used as name in DAG call nodes with the semantics
@@ -621,6 +733,70 @@ public:
     ///           the special lambda function has not been set
     size_t get_special_lambda_function_index(Special_kind kind) const MDL_FINAL;
 
+    /// Returns the number of distribution function handles referenced by this
+    /// distribution function.
+    size_t get_df_handle_count() const MDL_FINAL;
+
+    /// Returns a distribution function handle referenced by this distribution function.
+    ///
+    /// \param index  the index of the handle to return
+    ///
+    /// \return the name of the handle, or \c NULL, if the \p index was out of range.
+    char const *get_df_handle(size_t index) const MDL_FINAL;
+
+    /// Register a distribution function handle.
+    ///
+    /// \param handle_name  the name of the new handle
+    ///
+    /// \return the index of the handle
+    size_t add_df_handle(char const *handle_name)
+    {
+        m_df_handles.push_back(handle_name);
+        return m_df_handles.size() - 1;
+    }
+
+    /// Register a distribution function handle for a main function.
+    ///
+    /// \param main_func_index  the index of the main function
+    /// \param handle_name      the name of the new handle
+    ///
+    /// \return the index of the handle
+    size_t add_main_func_df_handle(size_t main_func_index, char const *handle_name)
+    {
+        MDL_ASSERT(main_func_index < m_main_func_df_handles.size());
+        m_main_func_df_handles[main_func_index].push_back(handle_name);
+        return m_main_func_df_handles[main_func_index].size() - 1;
+    }
+
+    /// Returns the number of distribution function handles referenced by a given main function.
+    ///
+    /// \param main_func_index  the index of the main function
+    ///
+    /// \returns  the requested count or ~0, if the index is invalid
+    size_t get_main_func_df_handle_count(size_t main_func_index) const MDL_FINAL;
+
+    /// Returns a distribution function handle referenced by a given main function.
+    ///
+    /// \param main_func_index  the index of the main function
+    /// \param index            the index of the handle to return
+    ///
+    /// \return the name of the handle, or \c NULL, if the \p index was out of range.
+    char const *get_main_func_df_handle(size_t main_func_index, size_t index) const MDL_FINAL;
+
+    /// Get the resource attribute map of this distribution function.
+    Resource_attr_map const &get_resource_attribute_map() const;
+
+    /// Set a tag, version pair for a resource value that might be reachable from this
+    /// function.
+    ///
+    /// \param res_kind        the resource kind
+    /// \param res_url         the resource url
+    /// \param tag             the tag value
+    void set_resource_tag(
+        Resource_tag_tuple::Kind const res_kind,
+        char const                     *res_url,
+        int                            tag) MDL_FINAL;
+
     /// Get the derivative information if they were requested during initialization.
     Derivative_infos const *get_derivative_infos() const;
 
@@ -634,6 +810,28 @@ public:
     Derivative_infos *get_writable_derivative_infos() { return &m_deriv_infos; }
 
 private:
+    /// Find the resource tag of a resource.
+    ///
+    /// \param res_kind        the resource kind
+    /// \param res_url         the resource url
+    ///
+    /// \return 0 if not found, else the assigned tag
+    int find_resource_tag(
+        Resource_tag_tuple::Kind const res_kind,
+        char const                     *res_url) const;
+
+    /// Add tag, version pair for a resource value that might be reachable from this
+    /// function.
+    ///
+    /// \param res_kind        the resource kind
+    /// \param res_url         the resource url
+    /// \param tag             the tag value
+    void add_resource_tag(
+        Resource_tag_tuple::Kind res_kind,
+        char const               *res_url,
+        int                      tag);
+
+private:
     /// Constructor.
     ///
     /// \param alloc             The allocator.
@@ -645,8 +843,11 @@ private:
     /// The MDL compiler.
     mi::base::Handle<MDL> m_mdl;
 
-    /// The root lambda function.
-    mi::base::Handle<ILambda_function> m_main_df;
+    /// One lambda function, which owns all nodes and values, and manages parameters and resources.
+    mi::base::Handle<ILambda_function> m_root_lambda;
+
+    /// The main lambda functions, which will be exported.
+    vector<mi::base::Handle<ILambda_function> >::Type m_main_functions;
 
     /// Collection of expression lambdas generated from the DAG.
     vector<mi::base::Handle<ILambda_function> >::Type m_expr_lambdas;
@@ -661,6 +862,20 @@ private:
 
     /// The derivative analysis information, if requested during initialization.
     Derivative_infos m_deriv_infos;
+
+    /// List of DF handle strings owned by the value factory of all main functions.
+    vector<char const *>::Type m_df_handles;
+
+    /// List of DF handle strings owned by the value factory per main function.
+    vector<vector<char const *>::Type>::Type m_main_func_df_handles;
+
+    typedef vector<Resource_tag_tuple>::Type Resource_tag_map;
+
+    // arena for strings.
+    Memory_arena m_arena;
+
+    /// The resource to tag map.
+    Resource_tag_map m_resource_tag_map;
 };
 
 }  // mdl

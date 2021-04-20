@@ -1,5 +1,5 @@
 /******************************************************************************
- * Copyright (c) 2019, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2019-2020, NVIDIA CORPORATION. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -33,19 +33,31 @@
 
 #include "common.h"
 
-namespace mdl_d3d12
+namespace mi { namespace examples { namespace gui
+{
+    class Root;
+}}}
+
+namespace mi { namespace examples { namespace mdl_d3d12
 {
     class Texture;
+
+    // ------------------------------------------------------------------------
 
     class IWindow
     {
     public:
+
+        // --------------------------------------------------------------------
+
         enum class Mode
         {
             Windowed,
             Fullsceen,
             // Borderless_windowed /*not implemented*/
         };
+
+        // --------------------------------------------------------------------
 
         virtual ~IWindow() = default;
 
@@ -54,6 +66,9 @@ namespace mdl_d3d12
 
         /// closes the window after finishing the current frame
         virtual void close() = 0;
+
+        /// returns true if the window is the foreground window
+        virtual bool has_focus() const = 0;
 
         virtual Texture* get_back_buffer() const = 0;
         virtual D3D12_CPU_DESCRIPTOR_HANDLE get_back_buffer_rtv() const = 0;
@@ -69,6 +84,10 @@ namespace mdl_d3d12
 
         virtual void set_window_mode(Mode mode) = 0;
         virtual Mode get_window_mode() const = 0;
+
+        // get the windows main UI instance
+        virtual mi::examples::gui::Root* get_gui() = 0;
     };
-}
+
+}}} // mi::examples::mdl_d3d12
 #endif

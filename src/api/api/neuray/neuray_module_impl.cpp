@@ -1,5 +1,5 @@
 /***************************************************************************************************
- * Copyright (c) 2015-2019, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2015-2020, NVIDIA CORPORATION. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -33,6 +33,8 @@
 #include "pch.h"
 
 #include "neuray_expression_impl.h"
+#include "neuray_impexp_utilities.h"
+#include "neuray_mdl_execution_context_impl.h"
 #include "neuray_module_impl.h"
 #include "neuray_transaction_impl.h"
 #include "neuray_type_impl.h"
@@ -42,11 +44,13 @@
 #include <mi/mdl/mdl_mdl.h>
 #include <mi/mdl/mdl_modules.h>
 #include <mi/neuraylib/idynamic_array.h>
+#include <mi/neuraylib/ireader.h>
 #include <mi/neuraylib/istring.h>
 #include <base/system/main/access_module.h>
 #include <mdl/integration/mdlnr/i_mdlnr.h>
 #include <io/scene/mdl_elements/i_mdl_elements_module.h>
 #include <io/scene/mdl_elements/i_mdl_elements_utilities.h>
+#include <io/scene/scene/i_scene_journal_types.h>
 
 namespace MI {
 
@@ -58,9 +62,9 @@ DB::Element_base* Module_impl::create_db_element(
     const mi::base::IInterface* argv[])
 {
     if( !transaction)
-        return 0;
+        return nullptr;
     if( argc != 0)
-        return 0;
+        return nullptr;
     return new MDL::Mdl_module;
 }
 
@@ -70,9 +74,9 @@ mi::base::IInterface* Module_impl::create_api_class(
     const mi::base::IInterface* argv[])
 {
     if( !transaction)
-        return 0;
+        return nullptr;
     if( argc != 0)
-        return 0;
+        return nullptr;
     return (new Module_impl())->cast_to_major();
 }
 
@@ -89,6 +93,26 @@ const char* Module_impl::get_filename() const
 const char* Module_impl::get_mdl_name() const
 {
     return get_db_element()->get_mdl_name();
+}
+
+mi::Size Module_impl::get_mdl_package_component_count() const
+{
+    return get_db_element()->get_mdl_package_component_count();
+}
+
+const char* Module_impl::get_mdl_package_component_name( mi::Size index) const
+{
+    return get_db_element()->get_mdl_package_component_name( index);
+}
+
+const char* Module_impl::get_mdl_simple_name() const
+{
+    return get_db_element()->get_mdl_simple_name();
+}
+
+mi::neuraylib::Mdl_version Module_impl::get_mdl_version() const
+{
+    return get_db_element()->get_mdl_version();
 }
 
 mi::Size Module_impl::get_import_count() const
@@ -151,11 +175,16 @@ bool Module_impl::is_standard_module() const
     return get_db_element()->is_standard_module();
 }
 
+bool Module_impl::is_mdle_module() const
+{
+    return get_db_element()->is_mdle_module();
+}
+
 const mi::IArray* Module_impl::get_function_overloads(
     const char* name, const mi::neuraylib::IExpression_list* arguments) const
 {
     if( !name)
-        return 0;
+        return nullptr;
 
     mi::base::Handle<const MDL::IExpression_list> arguments_int(
         get_internal_expression_list( arguments));
@@ -177,14 +206,23 @@ const mi::IArray* Module_impl::get_function_overloads(
 }
 
 const mi::IArray* Module_impl::get_function_overloads(
-    const char* name, const char* param_sig) const
+    const char* name, const mi::IArray* parameter_types) const
 {
     if( !name)
-        return 0;
+        return nullptr;
+
+    std::vector<const char*> paramter_types_vector;
+    size_t n = parameter_types ? parameter_types->get_length() : 0;
+    for( size_t i = 0; i < n; ++i) {
+        mi::base::Handle<const mi::IString> element( parameter_types->get_element<mi::IString>( i));
+        if( !element)
+            return nullptr;
+        paramter_types_vector.push_back( element->get_c_str());
+    }
 
     const std::vector<std::string>& tmp =
         get_db_element()->get_function_overloads_by_signature(
-            get_db_transaction(), name, param_sig);
+            name, paramter_types_vector);
 
     mi::base::Handle<mi::IDynamic_array> result(
         get_transaction()->create<mi::IDynamic_array>( "String[]"));
@@ -248,6 +286,102 @@ const mi::neuraylib::IAnnotation_definition* Module_impl::get_annotation_definit
         get_db_element()->get_annotation_definition(name));
     mi::base::Handle<Expression_factory> ef(get_transaction()->get_expression_factory());
     return ef->create_annotation_definition(result_int.get(), this->cast_to_major());
+}
+
+bool Module_impl::is_valid(mi::neuraylib::IMdl_execution_context* context) const
+{
+    MDL::Execution_context default_context;
+    return get_db_element()->is_valid(
+        get_db_transaction(),
+        unwrap_and_clear_context(context, default_context));
+}
+
+mi::Sint32 Module_impl::reload(
+    bool recursive,
+    mi::neuraylib::IMdl_execution_context* context)
+{
+    MDL::Execution_context default_context;
+    mi::Sint32 result = get_db_element()->reload(
+        get_db_transaction(),
+        recursive,
+        unwrap_and_clear_context(context, default_context));
+
+    add_journal_flag(SCENE::JOURNAL_CHANGE_SHADER_ATTRIBUTE);
+    return result;
+}
+
+mi::Sint32 Module_impl::reload_from_string(
+    const char* module_source,
+    bool recursive,
+    mi::neuraylib::IMdl_execution_context* context)
+{
+    MDL::Execution_context default_context;
+    MDL::Execution_context* ctx = unwrap_and_clear_context(context, default_context);
+    if (!module_source || strlen(module_source) == 0) {
+        return MDL::add_context_error(ctx, "Module source cannot be empty.", -1);
+    }
+
+    mi::base::Handle<mi::neuraylib::IReader> reader(
+        Impexp_utilities::create_reader(module_source, strlen(module_source)));
+    mi::Sint32 result = get_db_element()->reload_from_string(
+        get_db_transaction(),
+        reader.get(),
+        recursive,
+        ctx);
+
+    add_journal_flag(SCENE::JOURNAL_CHANGE_SHADER_ATTRIBUTE);
+    return result;
+}
+
+const mi::IArray* Module_impl::deprecated_get_function_overloads(
+    const char* name, const char* param_sig) const
+{
+    if( !name)
+        return nullptr;
+
+    // Split param_sig at commas, ignore optional parentheses.
+    std::vector<std::string> parameter_types_vector;
+    if( param_sig) {
+        std::string parameter_types( param_sig);
+        if( parameter_types[0] == '(')
+            parameter_types = parameter_types.substr( 1);
+        size_t n = parameter_types.size();
+        if( n > 0 && parameter_types[n-1] == ')')
+            parameter_types = parameter_types.substr( 0, n-1);
+        if( !parameter_types.empty()) {
+            size_t start = 0;
+            size_t comma = parameter_types.find( ',', start);
+            while( comma != std::string::npos) {
+                if( comma == start)
+                    return nullptr;
+                parameter_types_vector.push_back( parameter_types.substr( start, comma-start));
+                start = comma + 1;
+                comma = parameter_types.find( ',', start);
+            }
+            if( start < parameter_types.size())
+                parameter_types_vector.push_back( parameter_types.substr( start));
+        }
+    }
+
+    std::vector<const char*> parameter_types_vector_c_str;
+    for( const auto& s: parameter_types_vector)
+        parameter_types_vector_c_str.push_back( s.c_str());
+
+    const std::vector<std::string>& tmp =
+        get_db_element()->get_function_overloads_by_signature(
+            name, parameter_types_vector_c_str);
+
+    mi::base::Handle<mi::IDynamic_array> result(
+        get_transaction()->create<mi::IDynamic_array>( "String[]"));
+    result->set_length( tmp.size());
+
+    for( mi::Size i = 0, n = tmp.size(); i < n; ++i) {
+        mi::base::Handle<mi::IString> element( result->get_element<mi::IString>( i));
+        element->set_c_str( tmp[i].c_str());
+    }
+
+    result->retain();
+    return result.get();
 }
 
 } // namespace NEURAY

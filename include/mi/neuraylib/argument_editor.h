@@ -1,5 +1,5 @@
 /***************************************************************************************************
- * Copyright (c) 2015-2019, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2015-2020, NVIDIA CORPORATION. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -48,6 +48,8 @@ namespace mi {
 
 namespace neuraylib {
 
+class IMdl_execution_context;
+
 /** \addtogroup mi_neuray_mdl_elements
 @{
 */
@@ -92,6 +94,26 @@ public:
     /// material instance or function call. This method should be immediately called after invoking
     /// the constructor. If it returns \c false, no other methods of this class should be called.
     bool is_valid() const;
+
+    /// Indicates whether the material instance or function call referenced by this argument editor
+    /// is valid. A material instance or function call is valid if itself and all calls attached
+    /// to its arguments point to a valid definition.
+    ///
+    /// \param context  Execution context that can be queried for error messages
+    ///                 after the operation has finished. Can be \c NULL.
+    ///
+    /// \return \c True, if the instance is valid, \c false otherwise.
+    bool is_valid_instance(IMdl_execution_context* context) const;
+
+    /// Attempts to repair an invalid material instance or function call.
+    ///
+    /// \param flags    Repair options, see #mi::neuraylib::Mdl_repair_options.
+    /// \param context  Execution context that can be queried for error messages
+    ///                 after the operation has finished. Can be \c NULL.
+    /// \return
+    ///     -   0:   Success.
+    ///     -  -1:   Repair failed. Check the \c context for details.
+    mi::Sint32 repair(mi::Uint32 flags, IMdl_execution_context* context);
 
     /// Indicates whether the argument editor acts on a material instance or on a function call.
     ///
@@ -498,7 +520,7 @@ public:
     const IScene_element* get_scene_element() const;
 
     /// Get the MDL function call or material instance.
-    IScene_element* get_scene_element(); 
+    IScene_element* get_scene_element();
 
     /// Get the element type.
     Element_type get_element_type() const;
@@ -547,6 +569,38 @@ inline bool Argument_editor::is_valid() const
         && (m_type == ELEMENT_TYPE_MATERIAL_INSTANCE ||  m_type == ELEMENT_TYPE_FUNCTION_CALL);
 }
 
+inline bool Argument_editor::is_valid_instance(IMdl_execution_context* context) const
+{
+    if (m_type == ELEMENT_TYPE_MATERIAL_INSTANCE) {
+
+        base::Handle<const IMaterial_instance> mi(m_access->get_interface<IMaterial_instance>());
+        return mi->is_valid(context);
+    }
+    else if (m_type == ELEMENT_TYPE_FUNCTION_CALL) {
+
+        base::Handle<const IFunction_call> fc(m_access->get_interface<IFunction_call>());
+        return fc->is_valid(context);
+    }
+    else
+        return false;
+}
+
+inline mi::Sint32 Argument_editor::repair(mi::Uint32 flags, IMdl_execution_context* context)
+{
+    promote_to_edit_if_needed();
+    if (m_type == ELEMENT_TYPE_MATERIAL_INSTANCE) {
+        base::Handle<IMaterial_instance> mi(m_edit->get_interface<IMaterial_instance>());
+        return mi->repair(flags, context);
+    }
+    else if (m_type == ELEMENT_TYPE_FUNCTION_CALL) {
+
+        base::Handle<IFunction_call> fc(m_edit->get_interface<IFunction_call>());
+        return fc->repair(flags, context);
+    }
+    else
+        return -1;
+}
+
 inline Element_type Argument_editor::get_type() const
 {
     return m_type;
@@ -585,7 +639,7 @@ inline const char* Argument_editor::get_mdl_definition() const
 }
 
 inline bool Argument_editor::is_array_constructor() const
-{ 
+{
     if( m_type == ELEMENT_TYPE_MATERIAL_INSTANCE) {
 
         return false;
@@ -1761,7 +1815,7 @@ inline const IScene_element* Argument_editor::get_scene_element() const
     return m_access.get();
 }
 
-inline IScene_element* Argument_editor::get_scene_element()
+inline IScene_element* Argument_editor::get_scene_element() //-V659 PVS
 {
     promote_to_edit_if_needed();
 

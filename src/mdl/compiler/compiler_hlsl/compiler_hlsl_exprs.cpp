@@ -1,5 +1,5 @@
 /******************************************************************************
- * Copyright (c) 2018-2019, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2018-2020, NVIDIA CORPORATION. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -430,7 +430,11 @@ Value *Expr_conditional::fold(
 /// Get the return type from an callee.
 static Type *type_from_callee(Expr *callee)
 {
-    // FIXME
+    if (Type *tp = callee->get_type()) {
+        if (Type_function *f_tp = as<Type_function>(tp)) {
+            return f_tp->get_return_type();
+        }
+    }
     return NULL;
 }
 
@@ -907,6 +911,9 @@ Expr *Expr_factory::create_binary(
     Expr                  *right)
 {
     HLSL_ASSERT(left != NULL && right != NULL);
+    HLSL_ASSERT(
+        op != Expr_binary::OK_SELECT ||
+        (right->get_kind()== Expr::EK_INVALID || right->get_kind()== Expr::EK_REFERENCE));
     Expr_binary *res = m_builder.create<Expr_binary>(op, left, right);
     Value *val = res->fold(m_vf);
     if (!is<Value_bad>(val))

@@ -1,5 +1,5 @@
 /******************************************************************************
- * Copyright (c) 2008-2019, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2008-2020, NVIDIA CORPORATION. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -50,6 +50,9 @@ Section for a description of how the example programs can be compiled.
 - \subpage mi_neuray_example_compilation <br>
   Class and instance compilation of material instances.
 
+- \subpage mi_neuray_example_code_gen <br>
+  Generating HLSL, GLSL, or PTX code for a compiled material.
+
 - \subpage mi_neuray_example_execution_native <br>
   Executes material sub-expressions of a compiled MDL material for the native (CPU) backend.
 
@@ -67,13 +70,13 @@ Section for a description of how the example programs can be compiled.
 - \subpage mi_neuray_example_derivatives <br>
   Enable automatic derivatives for texture filtering.
 
-- \subpage mi_neuray_example_user_state_module <br>
-  Adapts the access to the renderer state in the generated code to your renderer.
-
 \if  MDL_BIN_RELEASE
 - \subpage mi_neuray_example_distilling <br>
   Distilling of compiled materials and baking of material sub-expressions.
   
+- \subpage mi_neuray_example_distilling_unity <br>
+  Distilling of compiled materials and baking of material sub-expressions for Unity
+
 - \subpage mi_neuray_example_distilling_glsl <br>
   Mapping distilled materials to a GLSL shader.
 \endif
@@ -92,6 +95,9 @@ Section for a description of how the example programs can be compiled.
 
 - \subpage mi_neuray_example_dxr <br>
   Rendering glTF scenes using MDL materials.
+
+- \subpage mi_neuray_example_optix7 <br>
+  Optimize evaluation of materials.
 
 \subpage mi_neuray_example_topics
 

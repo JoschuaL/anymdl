@@ -1,5 +1,5 @@
 #*****************************************************************************
-# Copyright (c) 2018-2019, NVIDIA CORPORATION. All rights reserved.
+# Copyright (c) 2018-2020, NVIDIA CORPORATION. All rights reserved.
 #
 # Redistribution and use in source and binary forms, with or without
 # modification, are permitted provided that the following conditions
@@ -38,7 +38,6 @@ set(PROJECT_HEADERS
     "module.h"
     "module_registration.h"
     "module_registration_entry.h"
-    "neuray_cc_conf.h"
     "platform.h"
     "types.h"
     )

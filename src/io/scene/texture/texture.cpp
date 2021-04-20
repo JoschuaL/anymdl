@@ -1,5 +1,5 @@
 /***************************************************************************************************
- * Copyright (c) 2007-2019, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2007-2020, NVIDIA CORPORATION. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -61,14 +61,6 @@ Texture::Texture()
     m_compression = TEXTURE_NO_COMPRESSION;
 }
 
-Texture::Texture( const Texture& other)
-  : SCENE::Scene_element<Texture, ID_TEXTURE>( other)
-{
-    m_image       = other.m_image;
-    m_gamma       = other.m_gamma;
-    m_compression = other.m_compression;
-}
-
 void Texture::set_image( DB::Tag image)
 {
     m_image = image;
@@ -97,7 +89,7 @@ mi::Float32 Texture::get_effective_gamma(
       return m_gamma;
 
     DB::Access<DBIMAGE::Image> image( m_image, transaction);
-    mi::base::Handle<const IMAGE::IMipmap> mipmap( image->get_mipmap( uvtile_id));
+    mi::base::Handle<const IMAGE::IMipmap> mipmap( image->get_mipmap( transaction, uvtile_id));
     if( !mipmap)
         return m_gamma;
     mi::base::Handle<const mi::neuraylib::ICanvas> canvas( mipmap->get_level( 0));
@@ -176,26 +168,35 @@ void Texture::get_scene_element_references( DB::Tag_set* result) const
         result->insert( m_image);
 }
 
-MI::DB::Tag load_mdl_texture(
+DB::Tag load_mdl_texture(
     DB::Transaction* transaction,
     DBIMAGE::Image_set* image_set,
-    bool shared,
+    const mi::base::Uuid& impl_hash,
+    bool shared_proxy,
     mi::Float32 gamma)
 {
-    if(image_set->get_length() == 0)
+    if( !image_set || image_set->get_length() == 0)
         return DB::Tag( 0);
 
-    std::string resolved_filename = image_set->is_mdl_container() ?
-        image_set->get_container_filename() + std::string("_") +
-        image_set->get_container_membername(0) : image_set->get_resolved_filename(0);
+    std::string identifier;
+    if( image_set->is_mdl_container()) {
+        identifier = image_set->get_container_filename() + std::string( "_")
+            + image_set->get_container_membername( 0);
+    } else {
+        identifier = image_set->get_resolved_filename( 0);
+        if( identifier.empty()) {
+            identifier = "without_name";
+            // Never share the proxy for memory-based resources.
+            shared_proxy = false;
+        }
+    }
 
-    std::string db_texture_name = shared ? "MI_default_" : "";
-    db_texture_name += "texture_" + resolved_filename + "_" + 
-        std::string(STRING::lexicographic_cast_s<std::string>(gamma));
-
-    if( !shared)
+    std::string db_texture_name = shared_proxy ? "MI_default_" : "";
+    db_texture_name += "texture_" + identifier + "_" +
+        std::string( STRING::lexicographic_cast_s<std::string>( gamma));
+    if( !shared_proxy)
         db_texture_name
-        = MDL::DETAIL::generate_unique_db_name( transaction, db_texture_name.c_str());
+            = MDL::DETAIL::generate_unique_db_name( transaction, db_texture_name.c_str());
 
     DB::Tag texture_tag = transaction->name_to_tag( db_texture_name.c_str());
     if( texture_tag)
@@ -203,15 +204,15 @@ MI::DB::Tag load_mdl_texture(
 
     DB::Privacy_level privacy_level = transaction->get_scope()->get_level();
 
-    std::string db_image_name = shared ? "MI_default_" : "";
-    db_image_name += "image_" + resolved_filename;
-    if( !shared)
+    std::string db_image_name = shared_proxy ? "MI_default_" : "";
+    db_image_name += "image_" + identifier;
+    if( !shared_proxy)
         db_image_name = MDL::DETAIL::generate_unique_db_name( transaction, db_image_name.c_str());
 
     DB::Tag image_tag = transaction->name_to_tag( db_image_name.c_str());
     if( !image_tag) {
         DBIMAGE::Image* image = new DBIMAGE::Image();
-        image->reset( image_set);
+        image->reset_image_set( transaction, image_set, impl_hash);
         image_tag = transaction->store_for_reference_counting(
             image, db_image_name.c_str(), privacy_level);
     }
@@ -224,7 +225,6 @@ MI::DB::Tag load_mdl_texture(
         texture, db_texture_name.c_str(), privacy_level);
     return texture_tag;
 }
-
 
 } // namespace TEXTURE
 

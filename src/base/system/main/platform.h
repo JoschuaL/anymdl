@@ -1,5 +1,5 @@
 /******************************************************************************
- * Copyright (c) 2006-2019, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2006-2020, NVIDIA CORPORATION. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -43,8 +43,8 @@
 // The ANSI standard X3.159-1989 ("ANSI C") mandates use of the preprocessor
 // symbol "NDEBUG" to signify that a non-debugging version (release version) of
 // the software is being built. Defining NDEBUG will typically disable calls to
-// assert() and other consistency checks. 3rd-party software such as
-// base/lib/regex relies on this behavior. Proprietary Mental Images code,
+// assert() and other consistency checks. 3rd-party software
+// relies on this behavior. Proprietary Mental Images code,
 // however, uses the preprocessor define "DEBUG" with a reversed meaning: a
 // non-debugging build is signified by the absence of that symbol.
 //

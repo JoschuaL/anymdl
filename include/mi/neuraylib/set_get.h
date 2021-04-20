@@ -1,5 +1,5 @@
 /***************************************************************************************************
- * Copyright (c) 2012-2019, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2012-2020, NVIDIA CORPORATION. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -109,6 +109,14 @@ inline mi::Sint32 set_value( mi::IData* data, const char* value)
         return result == 0 ? 0 : -2;
     }
     return -1;
+}
+
+/// This specialization handles #mi::IString and #mi::IRef.
+///
+/// It expects a \c const std::string& argument. See #mi::set_value() for details.
+inline mi::Sint32 set_value( mi::IData* data, const std::string& value)
+{
+    return set_value(data,value.c_str());
 }
 
 /// This specialization handles #mi::IUuid.

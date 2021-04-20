@@ -1,5 +1,5 @@
 /******************************************************************************
- * Copyright (c) 2011-2019, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2011-2020, NVIDIA CORPORATION. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -66,219 +66,6 @@ namespace mdl {
 
 namespace {
 
-/// A simple lexer for DAG be signatures.
-class Signature_lexer {
-public:
-    enum Token_type {
-        TT_SCOPE = 256,
-        TT_ID,
-        TT_OPERATOR,
-        TT_ARR_TYPE,
-        TT_EOF,
-        TT_ERROR
-    };
-public:
-    /// Constructor.
-    ///
-    /// \param signature  a DAG backend signature
-    Signature_lexer(char const *signature)
-    : m_sig(signature)
-    , m_curr(signature)
-    , m_start(signature)
-    , m_len(0)
-    , m_scope_is_token(true)
-    {
-    }
-
-    /// Get the token parser current position.
-    char const *get_position() const { return m_curr; }
-
-    /// Reset the token parser to the given position.
-    void reset_position(char const *pos) {
-        m_curr = pos;
-        m_len  = 0;
-    }
-
-    /// Get the token text (start) of the last read token.
-    char const *get_token_text() const { return m_start; }
-
-    /// Get the token length of the last read token.
-    size_t get_token_length() const  { return m_len; }
-
-    /// Get the next token type.
-    int next_token() {
-#define NEXT_CHAR  do { ++m_len; ++m_curr; c = m_curr[0]; } while(0)
-
-        m_start = m_curr;
-        m_len   = 0;
-
-        char c = m_curr[0];
-
-        if (c == '\0') {
-            return TT_EOF;
-        } // check for absolute paths; Unix, Windows UNC and Windows paths starting with "X:/"
-        else if (c == '/' || (isalpha(c) && m_curr[1] == ':' && m_curr[2] == '/')) {
-            unsigned index = 0;
-            do {
-                NEXT_CHAR;
-                if (c == '\0')
-                    return TT_ERROR;
-                if (c == index[".mdle::"])
-                    ++index;
-                else
-                    index = 0;
-            } while (index < 6);
-            // found an MDLE file path
-            return TT_ID;
-        } else if (c == ':') {
-            if (m_curr[1] == ':') {
-                if (m_scope_is_token) {
-                    // scope is a token
-                    m_len = 2;
-                    m_curr += 2;
-                    return TT_SCOPE;
-                } else {
-                    // scope is part of an identifier
-                    m_len = 1;
-                    ++m_curr;
-                    NEXT_CHAR;
-                    // check for absolute paths; Unix, Windows UNC and 
-                    // Windows paths starting with "X:/"
-                    if (c == '/' || (isalpha(c) && m_curr[1] == ':' && m_curr[2] == '/')) {
-                        unsigned index = 0;
-                        do {
-                            NEXT_CHAR;
-                            if (c == '\0')
-                                return TT_ERROR;
-                            if (c == index[".mdle::"])
-                                ++index;
-                            else
-                                index = 0;
-                        } while (index < 6);
-                        // found an MDLE file path
-                        m_len += 2;
-                        m_curr += 2;
-                        // continue with normal ID
-                    }
-                    do {
-                        NEXT_CHAR;
-                        if (c == ':' && m_curr[1] == ':') {
-                            m_len  += 2;
-                            m_curr += 2;
-                            c = m_curr[0];
-                        }
-                    } while (isalnum(c) || c == '_');
-                }
-                goto check_for_array_type;
-            }
-        } else if (isalpha(c)) {
-            do {
-                NEXT_CHAR;
-            } while (isalnum(c) || c == '_');
-check_for_array_type:
-            if (c == '[') {
-               NEXT_CHAR;
-
-               if (isalpha(c)) {
-                   do {
-                       NEXT_CHAR;
-                   } while (isalnum(c) || c == '_');
-               } else if (isdigit(c)) {
-                   do {
-                       NEXT_CHAR;
-                   } while (isdigit(c));
-               }
-               if (c == ']') {
-                   NEXT_CHAR;
-                   return TT_ARR_TYPE;
-               }
-               return TT_ERROR;
-            }
-            // handle operator
-            if (m_len == 8 && strncmp(m_start, "operator", m_len) == 0) {
-                if (c == '(' && m_curr[1] == ')') {
-                    // special handling for operator()
-                    NEXT_CHAR;
-                    NEXT_CHAR;
-                } else {
-                    for (bool inside = true; inside;) {
-                        switch (c) {
-                        case '~':
-                        case '!':
-                        case '.':
-                        case '*':
-                        case '/':
-                        case '%':
-                        case '+':
-                        case '-':
-                        case '<':
-                        case '>':
-                        case '=':
-                        case '^':
-                        case '&':
-                        case '|':
-                        case '[':
-                        case ']':
-                        case ',':
-                        case '?':
-                            NEXT_CHAR;
-                            break;
-                        default:
-                            inside = false;
-                            break;
-                        }
-                    }
-                }
-                if (m_len > 8)
-                    return TT_OPERATOR;
-            }
-            return TT_ID;
-        }
-        ++m_len;
-        ++m_curr;
-        return c;
-
-#undef NEXT_CHAR
-    }
-
-    /// Set the property of the scope operator "::".
-    ///
-    /// \param flag  if true, scope is a token, else part of an identifier
-    void scope_is_token(bool flag) { m_scope_is_token = flag; }
-
-    /// Get the number of commas in this signature.
-    size_t get_num_commas() {
-        size_t num = 0;
-        char const *pos = get_position();
-
-        int tt;
-        do {
-            tt = next_token();
-            if (tt == ',')
-                ++num;
-        } while (tt != TT_EOF);
-
-        reset_position(pos);
-        return num;
-    }
-
-private:
-    /// The signature.
-    char const *m_sig;
-
-    /// The current position.
-    char const *m_curr;
-
-    /// The start position of the current token.
-    char const *m_start;
-
-    /// The length of the current token.
-    size_t m_len;
-
-    /// If true, the scope operator is a token, else part of an identifier.
-    bool m_scope_is_token;
-};
-
 /// Helper class to match the parameters of a signature.
 class Signature_matcher {
 public:
@@ -286,19 +73,13 @@ public:
     ///
     /// \param alloc     the allocator
     /// \param compiler  the MDL compiler
-    /// \param lexer     the signature lexer for the current signature
     Signature_matcher(
-        IAllocator      *alloc,
-        IMDL            *compiler,
-        Signature_lexer &lexer)
-    : m_builder(alloc)
-    , m_string_buf(m_builder.create<Buffer_output_stream>(alloc))
-    , m_printer(compiler->create_printer(m_string_buf.get()))
-    , m_lexer(lexer)
+        IAllocator   *alloc,
+        IMDL         *compiler,
+        string const &signature)
+    : m_dag_mangler(alloc, compiler)
+    , m_signature(signature)
     {
-        // do not split at scope operator anymore
-        lexer.scope_is_token(false);
-        m_first_param_pos = lexer.get_position();
     }
 
     /// Check if parameters of a given definition match.
@@ -312,87 +93,16 @@ public:
             return false;
         }
 
-        // materials do not have a signature
-        if (m_lexer.next_token() == Signature_lexer::TT_EOF) {
-            if (IType_struct const *s_type = as<IType_struct>(ftype->get_return_type())) {
-                if (s_type->get_predefined_id() == IType_struct::SID_MATERIAL) {
-                    return true;
-                }
-            }
-        }
-
-        // reset the lexer to the first parameter position
-        m_lexer.reset_position(m_first_param_pos);
-        m_string_buf->clear();
-
-        int tt = m_lexer.next_token();
-        int i = 0, n = ftype->get_parameter_count();
-        for (; i < n; ++i) {
-            if (tt != Signature_lexer::TT_ID && tt != Signature_lexer::TT_ARR_TYPE)
-                return false;
-
-            IType const   *p_type;
-            ISymbol const *p_sym;
-
-            ftype->get_parameter(i, p_type, p_sym);
-
-            p_type = p_type->skip_type_alias();
-            if (IType_array const *a_tp = as<IType_array>(p_type)) {
-                IType const *e_tp = a_tp->get_element_type();
-                m_printer->print(e_tp->skip_type_alias());
-                m_printer->print("[");
-                if (a_tp->is_immediate_sized()) {
-                    size_t size = a_tp->get_size();
-                    m_printer->print(long(size));
-                } else {
-                    IType_array_size const *size = a_tp->get_deferred_size();
-                    m_printer->print(size->get_size_symbol());
-                }
-                m_printer->print("]");
-            } else {
-                m_printer->print(p_type);
-            }
-
-            size_t len = m_lexer.get_token_length();
-            if (len != m_string_buf->get_data_size() ||
-                strncmp(m_lexer.get_token_text(), m_string_buf->get_data(), len) != 0)
-            {
-                return false;
-            }
-            m_string_buf->clear();
-
-            // skip ','
-            tt = m_lexer.next_token();
-            if (tt == ',')
-                tt = m_lexer.next_token();
-        }
-        if (tt == ')') {
-            // match
-            return true;
-        }
-        return false;
-    }
-
-    /// Get the number of operator parameters in this signature (by counting commas).
-    size_t gen_num_operators_params() {
-        return m_lexer.get_num_commas() + 1;
+        string mangled_name = m_dag_mangler.mangle(def, (char const *)NULL, true);
+        return mangled_name == m_signature;
     }
 
 private:
-    /// The builder for other objects.
-    Allocator_builder                      m_builder;
+    /// The DAG mangler.
+    DAG_mangler m_dag_mangler;
 
-    /// The string buffer.
-    mi::base::Handle<Buffer_output_stream> m_string_buf;
-
-    /// An AST printer used to print type names to the string buffer.
-    mi::base::Handle<IPrinter>             m_printer;
-
-    /// The signature lexer.
-    Signature_lexer                        &m_lexer;
-
-    /// The position of the first parameter in the signature for rewinding.
-    char const                             *m_first_param_pos;
+    /// The signature.
+    string      m_signature;
 };
 
 }  // anonymous
@@ -489,6 +199,7 @@ Module::Module(
 , m_is_valid(false)
 , m_is_stdlib((flags & MF_IS_STDLIB) != 0)
 , m_is_builtins((flags & MF_IS_BUILTIN) != 0)
+, m_is_mdle((flags & MF_IS_MDLE) != 0)
 , m_is_native((flags & MF_IS_NATIVE) != 0)
 , m_is_compiler_owned((flags & (MF_IS_STDLIB|MF_IS_OWNED)) != 0)
 , m_is_debug((flags & MF_IS_DEBUG) != 0)
@@ -572,10 +283,10 @@ char const *Module::get_filename() const
     return m_filename;
 }
 
-// Get the language version.
-void Module::get_version(int &major, int &minor) const
+// Convert a MDL version into major, minor pair.
+void Module::get_version(IMDL::MDL_version version, int &major, int &minor)
 {
-    switch (m_mdl_version) {
+    switch (version) {
     case IMDL::MDL_VERSION_1_0:     major = 1; minor = 0; return;
     case IMDL::MDL_VERSION_1_1:     major = 1; minor = 1; return;
     case IMDL::MDL_VERSION_1_2:     major = 1; minor = 2; return;
@@ -583,10 +294,17 @@ void Module::get_version(int &major, int &minor) const
     case IMDL::MDL_VERSION_1_4:     major = 1; minor = 4; return;
     case IMDL::MDL_VERSION_1_5:     major = 1; minor = 5; return;
     case IMDL::MDL_VERSION_1_6:     major = 1; minor = 6; return;
+    case IMDL::MDL_VERSION_1_7:     major = 1; minor = 7; return;
     }
     MDL_ASSERT(!"MDL version not known");
     major = 0;
     minor = 0;
+}
+
+// Get the language version.
+void Module::get_version(int &major, int &minor) const
+{
+    get_version(m_mdl_version, major, minor);
 }
 
 // Set the language version.
@@ -598,8 +316,7 @@ bool Module::set_version(MDL *compiler, int major, int minor, bool enable_experi
 // Analyze the module.
 bool Module::analyze(
     IModule_cache   *cache,
-    IThread_context *context,
-    bool            resolve_resources)
+    IThread_context *context)
 {
     mi::base::Handle<Thread_context> hctx;
 
@@ -611,7 +328,7 @@ bool Module::analyze(
         ctx  = hctx.get();
     }
 
-    NT_analysis nt_analysis(m_compiler, *this, *ctx, cache, resolve_resources);
+    NT_analysis nt_analysis(m_compiler, *this, *ctx, cache);
     nt_analysis.run();
 
     Sema_analysis sema_analysis(m_compiler, *this, *ctx);
@@ -625,7 +342,8 @@ bool Module::analyze(
         sema_analysis.get_statement_info_data());
 
     // run the checker
-    Module_checker::check(m_compiler, this, /*verbose=*/false);
+    MDL_ASSERT(
+        Module_checker::check(m_compiler, this, /*verbose=*/false) && "Module check failed");
 
     // we have analyzed it
     set_analyze_result(access_messages().get_error_message_count() == 0);
@@ -642,14 +360,6 @@ bool Module::analyze(
     drop_import_entries();
 
     return m_is_valid;
-}
-
-// Analyze the module (interface version).
-bool Module::analyze(
-    IModule_cache   *cache,
-    IThread_context *context)
-{
-    return analyze(cache, context, /*resolve_resources=*/true);
 }
 
 // Get all known function hashes.
@@ -740,7 +450,7 @@ void Module::add_declaration(IDeclaration const *decl)
     m_is_analyzed = m_is_valid = false;
 }
 
-/// Add an import.
+/// Add an import at the end of all other imports or namespace aliases.
 void Module::add_import(char const *name)
 {
     IQualified_name     *qname              = qname_from_cstring(name);
@@ -748,7 +458,9 @@ void Module::add_import(char const *name)
     import_declaration->add_name(qname);
 
     Declaration_vector::iterator it(m_declarations.begin()), end(m_declarations.end());
-    while (it != end && (*it)->get_kind() == IDeclaration::DK_IMPORT)
+    while (it != end &&
+        ((*it)->get_kind() == IDeclaration::DK_IMPORT ||
+         (*it)->get_kind() == IDeclaration::DK_NAMESPACE_ALIAS))
         ++it;
     m_declarations.insert(it, import_declaration);
 
@@ -1052,6 +764,12 @@ bool Module::is_builtins() const
     return m_is_builtins;
 }
 
+// Returns true if this is an MDLE module.
+bool Module::is_mdle() const
+{
+    return m_is_mdle;
+}
+
 // Returns the amount of used memory by this module.
 size_t Module::get_memory_size() const
 {
@@ -1108,7 +826,7 @@ bool Module::restore_import_entries(IModule_cache *cache) const
             if (cache == NULL)
                 return false;
 
-            mi::base::Handle<IModule const> imod(cache->lookup(entry.get_absolute_name()));
+            mi::base::Handle<IModule const> imod(cache->lookup(entry.get_absolute_name(), NULL));
             if (imod.is_valid_interface()) {
                 import = impl_cast<Module>(imod.get());
                 entry.enter_module(weak_lock, import);
@@ -1157,10 +875,11 @@ static IType const *lookup_type(
 
 static bool parse_parameter_signature(
     Module const                *owner,
-    char const                  *param_sig,
+    char const * const          param_type_names[],
+    size_t                      num_param_type_names,
     vector<IType const *>::Type &arg_types)
 {
-#define SKIP_SPACE while (isspace(param_sig[0])) ++param_sig
+#define SKIP_SPACE while (isspace(start[0])) ++start
 
     IAllocator             *alloc   = owner->get_allocator();
     Symbol_table const     &st      = owner->get_symbol_table();
@@ -1169,64 +888,60 @@ static bool parse_parameter_signature(
     char const             *absname = owner->get_name();
     size_t                 l        = strlen(absname);
 
-    bool skip_para = param_sig[0] == '(';
-    if (skip_para) {
-        ++param_sig;
+    for (size_t i = 0; i < num_param_type_names; ++i) {
 
-        if (param_sig[0] == ')') {
-            ++param_sig;
-            return param_sig[0] == '\0';
+        char const *start = &param_type_names[i][0];
+        char const *end   = start + strlen(param_type_names[i]);
+
+        bool has_brackets = *(end-1) == ']';
+        char const *left_bracket  = nullptr;
+        char const *right_bracket = nullptr;
+        if (has_brackets) {
+            right_bracket = end-1;
+            left_bracket  = right_bracket;
+            while(left_bracket != start && left_bracket[0] != '[')
+                --left_bracket;
+            if (left_bracket == start)
+                return false;
         }
-    }
-
-    for (;;) {
-        SKIP_SPACE;
 
         // short-cut: if we see here the "module name", skip it:
         // this is because user defined types uses always the full name in DAG signatures ...
-        if (strncmp(absname, param_sig, l) == 0 && param_sig[l] == ':' && param_sig[l + 1] == ':')
-            param_sig += l + 2;
+        if (strncmp(absname, start, l) == 0 && start[l] == ':' && start[l + 1] == ':')
+            start += l + 2;
 
         vector<ISymbol const *>::Type syms(alloc);
 
-        if (param_sig[0] == ':' && param_sig[1] == ':') {
+        if (start[0] == ':' && start[1] == ':') {
             do {
-                param_sig += 2;
+                start += 2;
 
-                SKIP_SPACE;
+                char const *p = start;
 
-                char const *start = param_sig;
+                ++p;
+                while (p[0] != '\0' && p[0] != ':' && p != left_bracket && p != end)
+                    ++p;
 
-                // IDENT = LETTER { LETTER | DIGIT | '_' } .
-                if (!isalpha(param_sig[0]))
-                    return false;
-                ++param_sig;
-                while (isalnum(param_sig[0]) || param_sig[0] == '_') {
-                    ++param_sig;
-                }
-
-                const char *end = param_sig;
-                string name(start, end, alloc);
+                string name(start, p, alloc);
+                start = p;
 
                 ISymbol const *sym = st.lookup_symbol(name.c_str());
                 if (sym == NULL)
                     return false;
                 syms.push_back(sym);
-
-                SKIP_SPACE;
-            } while (param_sig[0] == ':' && param_sig[1] == ':');
+            } while (start[0] == ':' && start[1] == ':');
         } else {
-            char const *start = param_sig;
+            char const *p = start;
 
             // IDENT = LETTER { LETTER | DIGIT | '_' } .
-            if (!isalpha(param_sig[0]))
+            if (!isalpha(p[0]))
                 return false;
-            ++param_sig;
-            while (isalnum(param_sig[0]) || param_sig[0] == '_') {
-                ++param_sig;
-            }
-            char const *end = param_sig;
-            string name(start, end, alloc);
+            ++p;
+            while (isalnum(p[0]) || p[0] == '_')
+                ++p;
+
+            string name(start, p, alloc);
+            start = p;
 
             ISymbol const *sym = st.lookup_symbol(name.c_str());
             if (sym == NULL)
@@ -1234,98 +949,98 @@ static bool parse_parameter_signature(
 
             syms.push_back(sym);
         }
+        SKIP_SPACE;
+
+        if (has_brackets && start != left_bracket)
+            return false;
+        if (!has_brackets && start != end)
+            return false;
 
         IType const *type = lookup_type(def_tab, syms);
         if (type == NULL)
             return false;
 
+        if (!has_brackets) {
+            arg_types.push_back(type);
+            continue;
+        }
+
+        start = left_bracket + 1;
         SKIP_SPACE;
 
-        if (param_sig[0] == '[') {
-            ++param_sig;
+        if (isdigit(start[0])) {
 
-            SKIP_SPACE;
+            // immediate sized array
+            int size = 0;
+            do {
+                size = 10 * size;
+                switch (start[0]) {
+                case '0':           break;
+                case '1': size += 1; break;
+                case '2': size += 2; break;
+                case '3': size += 3; break;
+                case '4': size += 4; break;
+                case '5': size += 5; break;
+                case '6': size += 6; break;
+                case '7': size += 7; break;
+                case '8': size += 8; break;
+                case '9': size += 9; break;
+                }
+                ++start;
+            }  while (isdigit(start[0]));
 
-            if (isdigit(param_sig[0])) {
-                // immediate sized array
-                int size = 0;
-               do {
-                    size = 10 * size;
-                    switch (param_sig[0]) {
-                    case '0':           break;
-                    case '1': size += 1; break;
-                    case '2': size += 2; break;
-                    case '3': size += 3; break;
-                    case '4': size += 4; break;
-                    case '5': size += 5; break;
-                    case '6': size += 6; break;
-                    case '7': size += 7; break;
-                    case '8': size += 8; break;
-                    case '9': size += 9; break;
-                    }
-                    ++param_sig;
-                }  while (isdigit(param_sig[0]));
-
-                IType const *a_type = tf.find_array(type, size);
+            IType const *a_type = tf.find_array(type, size);
+            if (a_type == NULL) {
+                // If this fails, this module does NOT have an immediate sized array type of
+                // the given size.
+                // That means, exact overloads WILL fail. However, there might be overloads
+                // of deferred size that would allow calling with immediate size ...
+                // Two possible solutions:
+                //
+                // 1) Create the array type. bad, as this would litter the type factory with
+                //    types no one uses
+                // 2) Return one matching deferred array type. This does not litter the type
+                //    factory AND matches exact the same cases, so this seems to be a good
+                //    solution ...
+                a_type = tf.find_any_deferred_array(type);
                 if (a_type == NULL) {
-                    // If this fails, this module does NOT have an immediate sized array type of
-                    // the given size.
-                    // That means, exact overloads WILL fail. However, there might be overloads
-                    // of deferred size that would allow calling with immediate size ...
-                    // Two possible solutions:
-                    //
-                    // 1) Create the array type. bad, as this would litter the type factory with
-                    //    types no one uses
-                    // 2) Return one matching deferred array type. This does not litter the type
-                    //    factory AND matches exact the same cases, so this seems to be a good
-                    //    solution ...
-                    a_type = tf.find_any_deferred_array(type);
-                    if (a_type == NULL) {
-                        // none exists, so there is then no possible overload
-                        return false;
-                    }
-                }
-                type = a_type;
-            } else {
-                if (param_sig[0] == ']') {
-                    // accept T[] as deferred sized array
-                } else if (isalpha(param_sig[0])) {
-                    // accept T[identifier] as deferred sized array
-                    ++param_sig;
-                    while (isalnum(param_sig[0]) || param_sig[0] == '_') {
-                        ++param_sig;
-                    }
-                }
-
-                // just use any deferred type
-                type = tf.find_any_deferred_array(type);
-                if (type == NULL) {
                     // none exists, so there is then no possible overload
                     return false;
                 }
             }
+            type = a_type;
 
-            SKIP_SPACE;
-            if (param_sig[0] != ']')
+
+        } else {
+
+            // deferred sized array
+            if (start == right_bracket) {
+                // accept T[] as deferred sized array
+            } else if (isalpha(start[0])) {
+                // accept T[identifier] as deferred sized array
+                ++start;
+                while (isalnum(start[0]) || start[0] == '_') {
+                    ++start;
+                }
+            }
+
+            // just use any deferred type
+            type = tf.find_any_deferred_array(type);
+            if (type == NULL) {
+                // none exists, so there is then no possible overload
                 return false;
-            ++param_sig;
+            }
         }
+
+        SKIP_SPACE;
+        if (start != right_bracket)
+            return false;
 
         // found one
         arg_types.push_back(type);
+   }
 
-        if (param_sig[0] != ',')
-            break;
-        ++param_sig;
-    }
-    if (skip_para) {
-        if (param_sig[0] != ')')
-            return false;
-        ++param_sig;
-    }
-    if (param_sig[0] != '\0')
-        return false;
-    return true;
+   return true;
 }
 
 namespace {
@@ -1360,17 +1075,13 @@ namespace {
         /// Get the next result or NULL if no more results
         Definition const *next() const MDL_FINAL
         {
-            for (;;) {
-                if (m_it != m_reverse_list.rend()) {
-                    Definition const *res = *m_it;
-                    ++m_it;
+            if (m_it != m_reverse_list.rend()) {
+                Definition const *res = *m_it;
+                ++m_it;
 
-                    if (skip_result(res))
-                        continue;
-                    return res;
-                }
-                return NULL;
+                return res;
             }
+            return NULL;
         }
 
         /// Get the first result as a DAG signature.
@@ -1394,16 +1105,6 @@ namespace {
             return NULL;
         }
 
-        /// Returns true if this definition should not be presented as a result.
-        static bool skip_result(Definition const *def)
-        {
-            if (def->get_semantics() == IDefinition::DS_COPY_CONSTRUCTOR) {
-                // neuray does not support copy constructors
-                return true;
-            }
-            return false;
-        }
-
     private:
         Overload_solver::Definition_list                                 m_reverse_list;
         mi::base::Handle<Module const>                                   m_owner;
@@ -1413,11 +1114,12 @@ namespace {
 
 }  // anonymous
 
-// Lookup a function definition given by its name and a comma separated list
+// Lookup a function definition given by its name and an array
 // of (positional) parameter types.
 IOverload_result_set const *Module::find_overload_by_signature(
-    char const *func_name,
-    char const *param_sig) const
+    char const         *func_name,
+    char const * const param_type_names[],
+    size_t             num_param_type_names) const
 {
     if (!is_builtins()) {
         // func_name must be an absolute name, so check the module name first
@@ -1437,12 +1139,96 @@ IOverload_result_set const *Module::find_overload_by_signature(
     // a namespace
     ISymbol const *sym = m_sym_tab.lookup_symbol(func_name);
     if (sym == NULL)
+        sym = m_sym_tab.lookup_operator_symbol(func_name, num_param_type_names);
+    if (sym == NULL)
         return NULL;
+
+    // create a type list from the parameter signature
+    IAllocator *alloc = get_allocator();
+    vector<IType const *>::Type arg_types(alloc);
+    if (num_param_type_names > 0) {
+        if (!parse_parameter_signature(this, param_type_names, num_param_type_names, arg_types))
+            return NULL;
+    }
+
+    Definition const *def = NULL;
+
+    // check for conversion operator; currently only conversion to int is supported
+    if (sym->get_id() == ISymbol::SYM_TYPE_INT) {
+        if (num_param_type_names == 1) {
+            char const *tname = param_type_names[0];
+            size_t     l      = strlen(m_absname);
+            bool       error  = false;
+
+            if (strncmp(tname, m_absname, l) == 0 && tname[l] == ':' && tname[l + 1] == ':') {
+                tname = tname + l + 2;
+            } else {
+                error = !is_builtins() || strchr(tname, ':') != NULL;
+            }
+            if (!error) {
+                ISymbol const *tsym = m_sym_tab.lookup_symbol(tname);
+                if (tsym != NULL) {
+                    Scope const *search_scope =
+                        is_builtins() ?
+                        m_def_tab.get_predef_scope() :
+                        m_def_tab.get_global_scope();
+                    def = search_scope->find_definition_in_scope(tsym);
+                }
+            }
+        }
+
+        if (def != NULL && def->get_kind() == IDefinition::DK_TYPE) {
+            Scope *search_scope = def->get_own_scope();
+
+            Definition const *def = search_scope->find_definition_in_scope(sym);
+            if (def != NULL) {
+                for (Definition const *cdef = def; cdef != NULL; cdef = cdef->get_prev_def()) {
+                    Definition::Kind kind = cdef->get_kind();
+                    if (kind != IDefinition::DK_FUNCTION &&
+                        kind != IDefinition::DK_CONSTRUCTOR &&
+                        kind != IDefinition::DK_OPERATOR)
+                    {
+                        // neither a function nor a constructor nor an operator
+                        continue;
+                    }
+
+                    bool match = false;
+                    if (IType_function const *f_tp = as<IType_function>(cdef->get_type())) {
+                        if (f_tp->get_parameter_count() == 1) {
+                            ISymbol const *p_sym;
+                            IType const *p_type;
+
+                            f_tp->get_parameter(0, p_type, p_sym);
+
+                            match = arg_types[0]->skip_type_alias() == p_type->skip_type_alias();
+                        }
+                    }
+                    if (match) {
+                        if (cdef->has_flag(Definition::DEF_IS_EXPORTED)) {
+                            // found it
+                            Overload_solver::Definition_list list(alloc);
+                            list.push_back(cdef);
+
+                            Allocator_builder builder(alloc);
+
+                            return builder.create<Overload_result_set>(
+                                this,
+                                m_compiler,
+                                list);
+                        } else {
+                            // found it, but is not exported
+                            break;
+                        }
+                    }
+                }
+            }
+        }
+    }
 
     // we have a symbol, look into the definition table
     Scope const *search_scope =
         is_builtins() ? m_def_tab.get_predef_scope() : m_def_tab.get_global_scope();
-    Definition const *def = search_scope->find_definition_in_scope(sym);
+    def = search_scope->find_definition_in_scope(sym);
     if (def == NULL)
         return NULL;
 
@@ -1457,18 +1243,9 @@ IOverload_result_set const *Module::find_overload_by_signature(
     }
 
     Definition::Kind kind = def->get_kind();
-    if (kind != IDefinition::DK_FUNCTION && kind != IDefinition::DK_CONSTRUCTOR) {
-        // neither a function nor a constructor
+    if (kind != IDefinition::DK_FUNCTION && kind != IDefinition::DK_CONSTRUCTOR && kind != IDefinition::DK_OPERATOR) {
+        // neither a function, nor a constructor, nor an operator
         return NULL;
-    }
-
-    // create a type list from the parameter signature
-    IAllocator *alloc = get_allocator();
-
-    vector<IType const *>::Type arg_types(alloc);
-    if (param_sig != NULL && param_sig[0] != '\0') {
-        if (!parse_parameter_signature(this, param_sig, arg_types))
-            return NULL;
     }
 
     // unfortunately overload resolution needs type binding which might create new types,
@@ -1521,6 +1298,7 @@ char const *Module::mangle_dag_name(
         case IDefinition::DK_MEMBER:
         case IDefinition::DK_PARAMETER:
         case IDefinition::DK_ARRAY_SIZE:
+        case IDefinition::DK_NAMESPACE:
             // no mangled name
             return NULL;
         case IDefinition::DK_ANNOTATION:
@@ -1546,7 +1324,8 @@ char const *Module::mangle_dag_name(
 // Helper function to parse definition and the parameter types from a signature.
 Definition const *Module::parse_annotation_params(
     char const                  *anno_name,
-    char const                  *param_sig,
+    char const * const          param_type_names[],
+    int                         num_param_type_names,
     vector<IType const *>::Type &arg_types) const
 {
     if (!is_builtins()) {
@@ -1582,24 +1361,26 @@ Definition const *Module::parse_annotation_params(
         return NULL;
     }
 
-    if (param_sig != NULL && param_sig[0] != '\0') {
-        if (!parse_parameter_signature(this, param_sig, arg_types))
+    if (num_param_type_names > 0) {
+        if (!parse_parameter_signature(this, param_type_names, num_param_type_names, arg_types))
             return NULL;
     }
     return def;
 }
 
-// Lookup an exact annotation definition given by its name and a comma separated list
+// Lookup an exact annotation definition given by its name and an array
 // of all (positional) parameter types.
 IDefinition const *Module::find_annotation(
-    char const *anno_name,
-    char const *param_sig) const
+    char const         *anno_name,
+    char const * const param_type_names[],
+    size_t             num_param_type_names) const
 {
     // create a type list from the parameter signature
     IAllocator *alloc = get_allocator();
     vector<IType const *>::Type arg_types(alloc);
 
-    Definition const *def = parse_annotation_params(anno_name, param_sig, arg_types);
+    Definition const *def
+        = parse_annotation_params(anno_name, param_type_names, num_param_type_names, arg_types);
 
     if (def == NULL) {
         // name not found or signature parsing error
@@ -1650,17 +1431,19 @@ IDefinition const *Module::find_annotation(
     return def;
 }
 
-// Lookup an annotation definition given by its name and a comma separated list
+// Lookup an annotation definition given by its name and an array
 // of (positional) parameter types.
 IOverload_result_set const *Module::find_annotation_by_signature(
-    char const *anno_name,
-    char const *param_sig) const
+    char const         *anno_name,
+    char const * const param_type_names[],
+    size_t             num_param_type_names) const
 {
     // create a type list from the parameter signature
     IAllocator *alloc = get_allocator();
     vector<IType const *>::Type arg_types(alloc);
 
-    Definition const *def = parse_annotation_params(anno_name, param_sig, arg_types);
+    Definition const *def
+        = parse_annotation_params(anno_name, param_type_names, num_param_type_names, arg_types);
 
     if (def == NULL) {
         // name not found or signature parsing error
@@ -1683,7 +1466,7 @@ IOverload_result_set const *Module::find_annotation_by_signature(
 }
 
 // Get the module declaration of this module if any.
-IDeclaration_module const *Module::get_module_declararation() const
+IDeclaration_module const *Module::get_module_declaration() const
 {
     for (size_t i = 0, n = m_declarations.size(); i < n; ++i) {
         IDeclaration const *decl = m_declarations[i];
@@ -1999,15 +1782,16 @@ IExpression *Module::clone_expr(
     case IExpression::EK_REFERENCE:
         {
             IExpression_reference const *r_expr = cast<IExpression_reference>(expr);
-            if (modifier)
+            if (modifier != NULL) {
                 res = modifier->clone_expr_reference(r_expr);
-            else {
+            } else {
                 IType_name const *name = clone_name(r_expr->get_name(), modifier);
                 IExpression_reference *ref = m_expr_factory.create_reference(name);
-                if (r_expr->is_array_constructor())
+                if (r_expr->is_array_constructor()) {
                     ref->set_array_constructor();
-                else
+                } else {
                     ref->set_definition(r_expr->get_definition());
+                }
                 res = ref;
             }
             break;
@@ -2016,7 +1800,11 @@ IExpression *Module::clone_expr(
         {
             IExpression_unary const *unexpr = cast<IExpression_unary>(expr);
             IExpression const *arg = clone_expr(unexpr->get_argument(), modifier);
-            res = m_expr_factory.create_unary(unexpr->get_operator(), arg);
+            IExpression_unary *res_unexpr = m_expr_factory.create_unary(unexpr->get_operator(), arg);
+            if (res_unexpr->get_operator() == IExpression_unary::OK_CAST) {
+                res_unexpr->set_type_name(clone_name(unexpr->get_type_name(), modifier));
+            }
+            res = res_unexpr;
             break;
         }
     case IExpression::EK_BINARY:
@@ -2039,9 +1827,9 @@ IExpression *Module::clone_expr(
     case IExpression::EK_CALL:
         {
             IExpression_call const *c_expr = cast<IExpression_call>(expr);
-            if (modifier)
+            if (modifier != NULL) {
                 res = modifier->clone_expr_call(c_expr);
-            else {
+            } else {
                 IExpression const *ref = clone_expr(c_expr->get_reference(), modifier);
                 IExpression_call *call = m_expr_factory.create_call(ref);
 
@@ -2068,29 +1856,22 @@ IExpression *Module::clone_expr(
             break;
         }
     }
-    MDL_ASSERT(res && "Unsupported expression kind");
+    MDL_ASSERT(res != NULL && "Unsupported expression kind");
 
     IExpression::Kind kind = res->get_kind();
     if (kind == IExpression::EK_LITERAL) {
         // already a literal, import it
         IExpression_literal const *lit = cast<IExpression_literal>(res);
-        if (modifier)
+        if (modifier != NULL) {
             res = modifier->clone_literal(lit);
-        else {
+        } else {
             IValue const *old_value = lit->get_value();
             IValue const *new_value = import_value(old_value);
-            res = create_literal(new_value, &lit->access_position());
+            return create_literal(new_value, &lit->access_position());
         }
     } else {
         // no literal
         res->set_type(new_type);
-
-        // after cloning try to fold it: the modifier might change the expression
-        IValue const *val = res->fold(this, NULL);
-        if (!is<IValue_bad>(val)) {
-            Position const *pos = &res->access_position();
-            return create_literal(val, pos);
-        }
     }
     return res;
 }
@@ -2127,13 +1908,15 @@ IType_name *Module::clone_name(
     IQualified_name *qname = clone_name(type_name->get_qualified_name(), modifier);
     IType_name      *res   = m_name_factory.create_type_name(qname);
 
-    if (type_name->is_absolute())
+    if (type_name->is_absolute()) {
         res->set_absolute();
+    }
 
     res->set_qualifier(type_name->get_qualifier());
 
-    if (type_name->is_incomplete_array())
+    if (type_name->is_incomplete_array()) {
         res->set_incomplete_array();
+    }
 
     if (IExpression const *array_size = type_name->get_array_size()) {
         array_size = clone_expr(array_size, modifier);
@@ -2152,8 +1935,9 @@ ISimple_name const *Module::clone_name(ISimple_name const *sname)
     ISymbol const *sym = sname->get_symbol();
 
     // symbol can come from another symbol table, so check it
-    if (m_sym_tab.get_symbol_for_id(sym->get_id()) != sym)
+    if (m_sym_tab.get_symbol_for_id(sym->get_id()) != sym) {
         sym = import_symbol(sym);
+    }
 
     ISimple_name *res = const_cast<ISimple_name*>(m_name_factory.create_simple_name(sym));
     res->set_definition(sname->get_definition());
@@ -2165,8 +1949,9 @@ IQualified_name *Module::clone_name(
     IQualified_name const *qname,
     IClone_modifier       *modifier)
 {
-    if (modifier)
+    if (modifier != NULL) {
         return modifier->clone_name(qname);
+    }
 
     IQualified_name *res = m_name_factory.create_qualified_name();
 
@@ -2181,8 +1966,9 @@ IQualified_name *Module::clone_name(
 // Get the import entry for a given import index.
 Module::Import_entry const *Module::get_import_entry(size_t idx) const
 {
-    if (idx > 0 && idx <= m_imported_modules.size())
+    if (idx > 0 && idx <= m_imported_modules.size()) {
         return &m_imported_modules[idx - 1];
+    }
     return NULL;
 }
 
@@ -2193,8 +1979,9 @@ size_t Module::get_import_index(Module const *mod) const
     for (size_t i = 0, n = m_imported_modules.size(); i < n; ++i) {
         Import_entry const &entry = m_imported_modules[i];
 
-        if (entry.get_module() == mod)
+        if (entry.get_module() == mod) {
             return i + 1;
+        }
     }
     return 0;
 }
@@ -2206,8 +1993,9 @@ size_t Module::get_import_index(char const *abs_name) const
     for (size_t i = 0, n = m_imported_modules.size(); i < n; ++i) {
         Import_entry const &entry = m_imported_modules[i];
 
-        if (strcmp(entry.get_absolute_name(), abs_name) == 0)
+        if (strcmp(entry.get_absolute_name(), abs_name) == 0) {
             return i + 1;
+        }
     }
     return 0;
 }
@@ -2216,8 +2004,9 @@ size_t Module::get_import_index(char const *abs_name) const
 size_t Module::get_original_owner_id(Definition const *def) const
 {
     size_t import_idx = def->get_original_import_idx();
-    if (import_idx == 0)
+    if (import_idx == 0) {
         return def->get_owner_module_id();
+    }
 
     if (get_unique_id() == def->get_owner_module_id()) {
         // typical case: from out module
@@ -2293,16 +2082,17 @@ IQualified_name *Module::qname_from_cstring(char const *name)
 char const *Module::get_import_fname(size_t mod_id) const
 {
     Import_entry const *entry = find_import_entry(mod_id);
-    if (entry != NULL)
+    if (entry != NULL) {
         return entry->get_file_name();
+    }
     return NULL;
 }
 
 // Return the value create by a const default constructor of a type.
-IValue const *Module::create_default_value(IType const *type) const
+IValue const *Module::create_default_value(
+    IValue_factory *factory,
+    IType const    *type) const
 {
-    Value_factory *factory = get_value_factory();
-
     IDefinition::Semantics constr_sema = IDefinition::DS_ELEM_CONSTRUCTOR;
 
 restart:
@@ -2324,7 +2114,8 @@ restart:
                 MDL_ASSERT(!"cannot create default value for abstract array");
                 return factory->create_bad();
             }
-            IValue const *e_val = create_default_value(a_type->get_element_type());
+            IValue const *e_val = create_default_value(
+                get_value_factory(), a_type->get_element_type());
 
             size_t a_size = a_type->get_size();
             VLA<IValue const *> values(get_allocator(), a_size);
@@ -2420,12 +2211,15 @@ restart:
     case IType::TK_STRING:
         // atomic types: constructor has one argument
         MDL_ASSERT(func_type->get_parameter_count() == 1 && "wrong atomic type constructor");
-        return import_value(c_def->get_default_param_initializer(0)->fold(c_mod.get(), NULL));
+        return import_value(
+            c_def->get_default_param_initializer(0)->
+            fold(c_mod.get(), c_mod->get_value_factory(), NULL));
 
     case IType::TK_COLOR:
         {
             IExpression const *expr = c_def->get_default_param_initializer(0);
-            IValue const      *pval = import_value(expr->fold(c_mod.get(), NULL));
+            IValue const      *pval = import_value(
+                expr->fold(c_mod.get(), c_mod->get_value_factory(), NULL));
             if (is<IValue_bad>(pval))
                 return pval;
 
@@ -2445,7 +2239,7 @@ restart:
                 IValue const *pval;
                 if (IExpression const *expr = c_def->get_default_param_initializer(i)) {
                     // this compound element has an initializer, fold it
-                    pval = import_value(expr->fold(c_mod.get(), NULL));
+                    pval = import_value(expr->fold(c_mod.get(), factory, /*handler=*/NULL));
                 } else {
                     // this compound element is default initialized
                     IType const   *ptype;
@@ -2453,7 +2247,7 @@ restart:
 
                     func_type->get_parameter(i, ptype, psym);
 
-                    pval = create_default_value(ptype);
+                    pval = create_default_value(factory, ptype);
                 }
 
                 if (is<IValue_bad>(pval))
@@ -2803,130 +2597,13 @@ exit_loop:
     m_declarations.insert(it, decl);
 }
 
-// Find the definition of a signature.
-IDefinition const *Module::find_signature(
-    char const *signature,
-    bool       only_exported) const
+
+static IDefinition const *find_matching_def(
+    Scope const       *search_scope,
+    ISymbol const     *sym,
+    Signature_matcher &matcher,
+    bool              only_exported)
 {
-    Signature_lexer lexer(signature);
-    char const *start = NULL;
-    size_t     len = 0;
-
-    // find the symbol name
-    bool is_operator = false;
-    for (bool found = false; !found;) {
-        int tt = lexer.next_token();
-        switch (tt) {
-        case Signature_lexer::TT_EOF:
-        case '(':
-            found = true;
-            break;
-        case Signature_lexer::TT_ID:
-        case Signature_lexer::TT_OPERATOR:
-            start = lexer.get_token_text();
-            len   = lexer.get_token_length();
-            is_operator = tt == Signature_lexer::TT_OPERATOR;
-            break;
-        case Signature_lexer::TT_SCOPE:
-            start = NULL;
-            len   = 0;
-            break;
-        case Signature_lexer::TT_ERROR:
-            return NULL;
-        default:
-            break;
-        }
-    }
-    if (len == 0) {
-        // wrong signature
-        return NULL;
-    }
-    string name(start, len, get_allocator());
-
-    Signature_matcher matcher(get_allocator(), m_compiler, lexer);
-
-    ISymbol const *sym = NULL;
-
-    if (is_operator) {
-        sym = m_sym_tab.lookup_operator_symbol(name.c_str(), matcher.gen_num_operators_params());
-    } else {
-        sym = m_sym_tab.lookup_symbol(name.c_str());
-    }
-
-    if (sym == NULL) {
-        // name does not exist in this module
-        return NULL;
-    }
-
-    // check for conversion operator; currently only conversion to int is supported
-    if (sym->get_id() == ISymbol::SYM_TYPE_INT && matcher.gen_num_operators_params() == 1) {
-        Definition const *def = NULL;
-
-        char const *pos = lexer.get_position();
-        int tt = lexer.next_token();
-        if (tt == Signature_lexer::TT_ID) {
-            bool error = false;
-            char const *start = lexer.get_token_text();
-            size_t     len    = lexer.get_token_length();
-            string tname(start, len, get_allocator());
-            size_t idx = tname.rfind("::");
-            if (idx != string::npos) {
-                if (tname.substr(0, idx) == m_absname) {
-                    tname = tname.substr(idx + 2);
-                } else {
-                    error = true;
-                }
-            } else {
-                error = !is_builtins();
-            }
-            tt = lexer.next_token();
-            error |= (tt != ')');
-
-            if (!error) {
-                ISymbol const *tsym = m_sym_tab.lookup_symbol(tname.c_str());
-                if (tsym != NULL) {
-                    Scope const *search_scope =
-                        is_builtins() ?
-                        m_def_tab.get_predef_scope() :
-                        m_def_tab.get_global_scope();
-                    def = search_scope->find_definition_in_scope(tsym);
-                }
-            }
-        }
-
-        lexer.reset_position(pos);
-
-        if (def != NULL && def->get_kind() == IDefinition::DK_TYPE) {
-            Scope *search_scope = def->get_own_scope();
-
-            Definition const *def = search_scope->find_definition_in_scope(sym);
-            if (def != NULL) {
-                for (Definition const *cdef = def; cdef != NULL; cdef = cdef->get_prev_def()) {
-                    Definition::Kind kind = cdef->get_kind();
-                    if (kind != IDefinition::DK_FUNCTION && kind != IDefinition::DK_CONSTRUCTOR &&
-                        kind != IDefinition::DK_OPERATOR)
-                    {
-                        // neither a function nor a constructor nor an operator
-                        continue;
-                    }
-
-                    // check all overloads
-                    if (matcher.match_param(cdef)) {
-                        if (!only_exported || cdef->has_flag(Definition::DEF_IS_EXPORTED))
-                            return cdef;
-                        else {
-                            // found it, but is not exported
-                            break;
-                        }
-                    }
-                }
-            }
-        }
-    }
-
-    // we have a symbol, look into the definition table
-    Scope const *search_scope =
-        is_builtins() ? m_def_tab.get_predef_scope() : m_def_tab.get_global_scope();
     Definition const *def = search_scope->find_definition_in_scope(sym);
     if (def == NULL)
         return NULL;
@@ -2963,6 +2640,221 @@ IDefinition const *Module::find_signature(
 
     // not found
     return NULL;
+}
+
+static bool is_latin_alpha(char c) {
+    return c >= 0 && c < 0x80 && isalpha(c);
+}
+
+static bool is_latin_alnum(char c) {
+    return c >= 0 && c < 0x80 && isalnum(c);
+}
+
+static bool is_latin_digit(char c) {
+    return c >= 0 && c < 0x80 && isdigit(c);
+}
+
+// Find the definition of a signature.
+IDefinition const *Module::find_signature(
+    char const *signature,
+    bool       only_exported) const
+{
+    // skip module name if the signature starts with it
+    size_t l = strlen(m_absname);
+    if (strncmp(signature, m_absname, l) == 0 && signature[l] == ':' && signature[l + 1] == ':')
+        signature = signature + l + 2;
+
+    char const *start = NULL, *end = NULL;
+
+    char const *p = start = end = signature;
+
+    bool is_operator = false;
+
+    // a valid entity name is LETTER(_|LETTER|DIGIT)+($DIGIT+.DIGIT+)?
+    char c = *p;
+    if (is_latin_alpha(c)) {
+        do {
+            ++p;
+            c = *p;
+        } while (c == '_' || is_latin_alnum(c));
+
+        end = p;
+        if (c == '$') {
+            // a version suffix: $major.minor
+            do {
+                ++p;
+                c = *p;
+            } while (is_latin_digit(c));
+            if (c == '.') {
+                do {
+                    ++p;
+                    c = *p;
+                } while (is_latin_digit(c));
+            }
+            // the version suffix is part of the signature, but not of the name
+            p = end;
+        }
+    }
+    if (end - start == 8 && strncmp(start, "operator", 8) == 0) {
+        // might be an operator name
+        is_operator = true;
+
+        if (end[0] == '(' && end[1] == ')') {
+            // operator()
+            end += 2;
+            p = end;
+            c = *p;
+        } else if (end[0] == '[' && end[1] == ']') {
+            // operator[]
+            end += 2;
+            p = end;
+            c = *p;
+        } else {
+            bool flag = true;
+            for (p = end; flag;) {
+                switch (*p) {
+                case '~':
+                case '!':
+                case '.':
+                case '*':
+                case '/':
+                case '%':
+                case '+':
+                case '-':
+                case '<':
+                case '>':
+                case '=':
+                case '^':
+                case '&':
+                case '|':
+                case '?':
+                    ++p;
+                    break;
+                default:
+                    flag = false;
+                    break;
+                }
+            }
+            end = p;
+            c = *p;
+        }
+    }
+    if (c != '(' && c != '\0') {
+        // wrong signature
+        return NULL;
+    }
+
+    size_t len = end - start;
+
+    if (len == 0) {
+        // wrong signature
+        return NULL;
+    }
+
+    string name(start, len, get_allocator());
+
+    // filter out the deprecated suffix
+    string mod_signature = name;
+    mod_signature += p;
+
+    Signature_matcher matcher(get_allocator(), m_compiler, mod_signature);
+
+    ISymbol const *sym = NULL, *second_sym = NULL;
+
+    if (is_operator) {
+        // so far there are only definitions for unary and binary operators, do not try others
+        ISymbol const *sym_unary  = m_sym_tab.lookup_operator_symbol(name.c_str(), 1);
+        ISymbol const *sym_binary = m_sym_tab.lookup_operator_symbol(name.c_str(), 2);
+
+        if (sym_binary == NULL) {
+            sym = sym_unary;
+        } else {
+            sym = sym_binary;
+            if (sym_unary != NULL) {
+                second_sym = sym_unary;
+            }
+        }
+    } else {
+        sym = m_sym_tab.lookup_symbol(name.c_str());
+    }
+
+    if (sym == NULL) {
+        // name does not exist in this module
+        return NULL;
+    }
+
+    // check for conversion operator; currently only conversion to int is supported
+    if (sym->get_id() == ISymbol::SYM_TYPE_INT && *p == '(') {
+        Definition const *def = NULL;
+
+        size_t l = strlen(p);
+        if (p[l - 1] == ')') {
+
+            bool error = false;
+            string tname(p + 1, p + l - 1, get_allocator());
+
+            size_t idx = tname.rfind("::");
+            if (idx != string::npos) {
+                if (tname.substr(0, idx) == m_absname) {
+                    tname = tname.substr(idx + 2);
+                } else {
+                    error = true;
+                }
+            } else {
+                error = !is_builtins();
+            }
+
+            if (!error) {
+                ISymbol const *tsym = m_sym_tab.lookup_symbol(tname.c_str());
+                if (tsym != NULL) {
+                    Scope const *search_scope =
+                        is_builtins() ?
+                        m_def_tab.get_predef_scope() :
+                        m_def_tab.get_global_scope();
+                    def = search_scope->find_definition_in_scope(tsym);
+                }
+            }
+        }
+
+        if (def != NULL && def->get_kind() == IDefinition::DK_TYPE) {
+            Scope *search_scope = def->get_own_scope();
+
+            Definition const *def = search_scope->find_definition_in_scope(sym);
+            if (def != NULL) {
+                for (Definition const *cdef = def; cdef != NULL; cdef = cdef->get_prev_def()) {
+                    Definition::Kind kind = cdef->get_kind();
+                    if (kind != IDefinition::DK_FUNCTION &&
+                        kind != IDefinition::DK_CONSTRUCTOR &&
+                        kind != IDefinition::DK_OPERATOR)
+                    {
+                        // neither a function nor a constructor nor an operator
+                        continue;
+                    }
+
+                    // check all overloads
+                    if (matcher.match_param(cdef)) {
+                        if (!only_exported || cdef->has_flag(Definition::DEF_IS_EXPORTED))
+                            return cdef;
+                        else {
+                            // found it, but is not exported
+                            break;
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    // we have a symbol, look into the definition table
+    Scope const *search_scope =
+        is_builtins() ? m_def_tab.get_predef_scope() : m_def_tab.get_global_scope();
+
+    IDefinition const *def = find_matching_def(search_scope, sym, matcher, only_exported);
+    if (def != NULL)
+        return def;
+    if (second_sym != NULL)
+        def = find_matching_def(search_scope, second_sym, matcher, only_exported);
+    return def;
 }
 
 // Find the definition of a signature of a standard library function.
@@ -3029,6 +2921,8 @@ void Module::serialize(Module_serializer &serializer) const
     DOUT(("valid: %s\n", m_is_valid ? "true" : "false"));
     serializer.write_bool(m_is_stdlib);
     DOUT(("stdlib: %s\n", m_is_stdlib ? "true" : "false"));
+    serializer.write_bool(m_is_mdle);
+    DOUT(("mdle: %s\n", m_is_mdle ? "true" : "false"));
     serializer.write_bool(m_is_builtins);
     DOUT(("builtin: %s\n", m_is_builtins ? "true" : "false"));
     serializer.write_bool(m_is_native);
@@ -3221,10 +3115,12 @@ static void replace_in_material_geometry(
 
     private:
         /// Replace the definition old by new.
-        void post_visit(IExpression_reference *expr) MDL_FINAL
+        IExpression *post_visit(IExpression_reference *expr) MDL_FINAL
         {
-            if (expr->get_definition() == m_old_def)
+            if (expr->get_definition() == m_old_def) {
                 expr->set_definition(m_new_def);
+            }
+            return expr;
         }
 
     private:
@@ -3642,6 +3538,8 @@ Module const *Module::deserialize(Module_deserializer &deserializer)
     DOUT(("valid: %s\n", is_valid ? "true" : "false"));
     bool is_stdlib   = deserializer.read_bool();
     DOUT(("stdlib: %s\n", is_stdlib ? "true" : "false"));
+    bool is_mdle   = deserializer.read_bool();
+    DOUT(("mdle: %s\n", is_mdle ? "true" : "false"));
     bool is_builtins = deserializer.read_bool();
     DOUT(("builtin: %s\n", is_builtins ? "true" : "false"));
     bool is_native = deserializer.read_bool();
@@ -3664,6 +3562,7 @@ Module const *Module::deserialize(Module_deserializer &deserializer)
     mod->m_is_analyzed       = is_analyzed;
     mod->m_is_valid          = is_valid;
     mod->m_is_stdlib         = is_stdlib;
+    mod->m_is_mdle           = is_mdle;
     mod->m_is_builtins       = is_builtins;
     mod->m_is_native         = is_native;
     mod->m_is_compiler_owned = is_compiler_owned;
@@ -3995,20 +3894,20 @@ int Module::promote_call_arguments(
     if (rules & PR_SPOT_EDF_ADD_SPREAD_PARAM) {
         if (param_index == 0) {
             // add M_PI as 1. argument
-            IValue_float const  *v = m_value_factory.create_float(M_PIf);
-            IExpression const   *e = m_expr_factory.create_literal(v);
-            arg = m_expr_factory.create_positional_argument(e);
-            call->add_argument(arg);
+            IValue_float const  *v    = m_value_factory.create_float(M_PIf);
+            IExpression const   *e    = m_expr_factory.create_literal(v);
+            IArgument const     *narg = m_expr_factory.create_positional_argument(e);
+            call->add_argument(narg);
             return param_index + 1;
         }
     }
     if (rules & PC_MEASURED_EDF_ADD_MULTIPLIER) {
         if (param_index == 0) {
             // add 1.0 as 1. argument
-            IValue_float const  *v = m_value_factory.create_float(1.0);
-            IExpression const   *e = m_expr_factory.create_literal(v);
-            arg = m_expr_factory.create_positional_argument(e);
-            call->add_argument(arg);
+            IValue_float const  *v    = m_value_factory.create_float(1.0);
+            IExpression const   *e    = m_expr_factory.create_literal(v);
+            IArgument const     *narg = m_expr_factory.create_positional_argument(e);
+            call->add_argument(narg);
             return param_index + 1;
         }
     }
@@ -4038,8 +3937,8 @@ int Module::promote_call_arguments(
 
             tu_call->add_argument(a);
 
-            arg = m_expr_factory.create_positional_argument(tu_call);
-            call->add_argument(arg);
+            IArgument const *narg = m_expr_factory.create_positional_argument(tu_call);
+            call->add_argument(narg);
             return param_index + 1;
         }
     }
@@ -4066,7 +3965,7 @@ int Module::promote_call_arguments(
             return param_index;
         }
     }
-    if (rules & PR_WIDTH_HEIGTH_ADD_UV_TILE) {
+    if (rules & PR_WIDTH_HEIGHT_ADD_UV_TILE) {
         if (param_index == 0) {
             // add int2(0) as 1. argument
             ISymbol const *sym_int2 = m_sym_tab.get_symbol("int2");
@@ -4087,8 +3986,8 @@ int Module::promote_call_arguments(
 
             int2_call->add_argument(a);
 
-            arg = m_expr_factory.create_positional_argument(int2_call);
-            call->add_argument(arg);
+            IArgument const *narg = m_expr_factory.create_positional_argument(int2_call);
+            call->add_argument(narg);
             return param_index + 1;
         }
     }
@@ -4113,18 +4012,18 @@ int Module::promote_call_arguments(
 
             int2_call->add_argument(a);
 
-            arg = m_expr_factory.create_positional_argument(int2_call);
-            call->add_argument(arg);
+            IArgument const *narg = m_expr_factory.create_positional_argument(int2_call);
+            call->add_argument(narg);
             return param_index + 1;
         }
     }
     if (rules & PR_ROUNDED_CORNER_ADD_ROUNDNESS) {
         if (param_index == 1) {
             // add roundness as 2. argument
-            IValue_float const  *v = m_value_factory.create_float(1.0f);
-            IExpression const   *e = m_expr_factory.create_literal(v);
-            arg = m_expr_factory.create_positional_argument(e);
-            call->add_argument(arg);
+            IValue_float const  *v    = m_value_factory.create_float(1.0f);
+            IExpression const   *e    = m_expr_factory.create_literal(v);
+            IArgument const     *narg = m_expr_factory.create_positional_argument(e);
+            call->add_argument(narg);
             return param_index + 1;
         }
     }
@@ -4139,17 +4038,43 @@ int Module::promote_call_arguments(
             IExpression_reference *hair_ref = m_expr_factory.create_reference(tn);
             IExpression_call *hair_call = m_expr_factory.create_call(hair_ref);
 
-            IArgument const   *a = call->get_argument(5);
+            IArgument const *a    = call->get_argument(5);
+            IArgument const *narg = NULL;
             if (a->get_kind() == IArgument::AK_POSITIONAL) {
-                arg = m_expr_factory.create_positional_argument(hair_call);
+                narg = m_expr_factory.create_positional_argument(hair_call);
+            } else {
+                ISymbol const      *sh      = m_name_factory.create_symbol("hair");
+                ISimple_name const *sn_hair = m_name_factory.create_simple_name(sh);
+                narg = m_expr_factory.create_named_argument(sn_hair, hair_call);
             }
-            else {
-                ISymbol const *sh = m_name_factory.create_symbol("hair");
-                ISimple_name const * sn_hair = m_name_factory.create_simple_name(sh);
-                arg = m_expr_factory.create_named_argument(sn_hair, hair_call);
-            }
-            call->add_argument(arg);
+            call->add_argument(narg);
 
+            return param_index + 1;
+        }
+    }
+    if (rules & PR_GLOSSY_ADD_MULTISCATTER) {
+        if (param_index == 2) {
+            // add color(0) as 3. argument for glossy bsdfs
+            ISymbol const *sym_color = m_sym_tab.get_symbol("color");
+
+            ISimple_name *sn_color = m_name_factory.create_simple_name(sym_color);
+
+            IQualified_name *qn = m_name_factory.create_qualified_name();
+            qn->add_component(sn_color);
+
+            IType_name *tn = m_name_factory.create_type_name(qn);
+
+            IExpression_reference *ref = m_expr_factory.create_reference(tn);
+            IExpression_call      *color_call = m_expr_factory.create_call(ref);
+
+            IValue_float const *v = m_value_factory.create_float(0.0f);
+            IExpression const *e  = m_expr_factory.create_literal(v);
+            IArgument const   *a  = m_expr_factory.create_positional_argument(e);
+
+            color_call->add_argument(a);
+
+            IArgument const *narg = m_expr_factory.create_positional_argument(color_call);
+            call->add_argument(narg);
             return param_index + 1;
         }
     }
@@ -4226,7 +4151,7 @@ private:
     }
 
     /// Visit literals.
-    void post_visit(IExpression_literal *expr) MDL_OVERRIDE
+    IExpression *post_visit(IExpression_literal *expr) MDL_OVERRIDE
     {
         IValue const *v = expr->get_value();
 
@@ -4235,17 +4160,20 @@ private:
 
             check_restriction(url, expr->access_position());
         }
+        return expr;
     }
 
     /// Visit calls.
-    void post_visit(IExpression_call *call) MDL_FINAL
+    IExpression *post_visit(IExpression_call *call) MDL_FINAL
     {
         IExpression_reference const *ref = as<IExpression_reference>(call->get_reference());
-        if (ref == NULL || ref->is_array_constructor())
-            return;
+        if (ref == NULL || ref->is_array_constructor()) {
+            return call;
+        }
 
-        if (!is<IType_resource>(call->get_type()->skip_type_alias()))
-            return;
+        if (!is<IType_resource>(call->get_type()->skip_type_alias())) {
+            return call;
+        }
 
         IDefinition const      *def = ref->get_definition();
         IDefinition::Semantics sema = def->get_semantics();
@@ -4259,8 +4187,9 @@ private:
 
             if (lit != NULL) {
                 IValue_string const *s = as<IValue_string>(lit->get_value());
-                if (s == NULL)
-                    return;
+                if (s == NULL) {
+                    return call;
+                }
 
                 url = s->get_value();
             }
@@ -4271,8 +4200,9 @@ private:
 
             if (lit != NULL) {
                 IValue_string const *s = as<IValue_string>(lit->get_value());
-                if (s == NULL)
-                    return;
+                if (s == NULL) {
+                    return call;
+                }
 
                 url = s->get_value();
             }
@@ -4281,6 +4211,7 @@ private:
         if (url != NULL) {
             check_restriction(url, call->access_position());
         }
+        return call;
     }
 
 private:
@@ -4491,149 +4422,179 @@ static IType_name const *promote_name(
     if (tn->is_array())
         return tn;
 
-    IQualified_name const *qn = tn->get_qualified_name();
-
-    int n_components = qn->get_component_count();
-    if (n_components < 2)
-        return tn;
-
-    ISimple_name const *sn   = qn->get_component(n_components -1);
-    ISymbol const      *sym  = sn->get_symbol();
-    char const         *name = sym->get_name();
-
-    char const *suffix = strrchr(name, '$');
-    if (suffix == NULL)
-        return tn;
-    int major = 0, minor = 0;
-
-    char const *p = suffix;
-    for (++p; *p != '.' && *p != '\0'; ++p) {
-        major *= 10;
-        switch (*p) {
-        case '0': major += 0; break;
-        case '1': major += 1; break;
-        case '2': major += 2; break;
-        case '3': major += 3; break;
-        case '4': major += 4; break;
-        case '5': major += 5; break;
-        case '6': major += 6; break;
-        case '7': major += 7; break;
-        case '8': major += 8; break;
-        case '9': major += 9; break;
-        default:
-            return tn;
-        }
-    }
-    if (*p != '.')
-        return tn;
-
-    for (++p; *p != '\0'; ++p) {
-        minor *= 10;
-        switch (*p) {
-        case '0': minor += 0; break;
-        case '1': minor += 1; break;
-        case '2': minor += 2; break;
-        case '3': minor += 3; break;
-        case '4': minor += 4; break;
-        case '5': minor += 5; break;
-        case '6': minor += 6; break;
-        case '7': minor += 7; break;
-        case '8': minor += 8; break;
-        case '9': minor += 9; break;
-        default:
-            return tn;
-        }
-    }
-    if (*p != '\0')
-        return tn;
-
     int mod_major = 0, mod_minor = 0;
     mod.get_version(mod_major, mod_minor);
 
-    string n(name, suffix, mod.get_allocator());
+    IQualified_name const *qn = tn->get_qualified_name();
 
-    if (major < mod_major || (major == mod_major && minor < mod_minor)) {
-        // the symbol was removed BEFORE the module version, we need promotion
-        // which might change the name
-        if (n_components == 2) {
-            ISimple_name const *sn = qn->get_component(0);
-            ISymbol const *package = sn->get_symbol();
+    int n_components = qn->get_component_count();
+    ISymbol const *sym;
+    ISimple_name const *sn;
+    string n(mod.get_allocator());
+    if (n_components == 1) {
+        sn = qn->get_component(0);
+        sym = sn->get_symbol();
+        if (strcmp(sym->get_name(), "material$1.4") == 0) {
+            if (mod_major > 1 || (mod_major == 1 && mod_minor > 4)) {
+                rules = Module::PR_MATERIAL_ADD_HAIR;
+                n = "material";
+            } else {
+                n = "material";
+            }
+        } else {
+            return tn;
+        }
+    } else {
+        sn               = qn->get_component(n_components -1);
+        sym              = sn->get_symbol();
+        char const *name = sym->get_name();
 
-            if (strcmp(package->get_name(), "df") == 0) {
-                if (major == 1) {
-                    if (minor == 0) {
-                        // all functions deprecated after MDL 1.0
-                        if (n == "spot_edf") {
-                            rules = Module::PR_SPOT_EDF_ADD_SPREAD_PARAM;
-                        } else if (n == "measured_edf") {
-                            if (mod_major > 1 || (mod_major == 1 && mod_minor >= 1))
-                                rules |= Module::PC_MEASURED_EDF_ADD_MULTIPLIER;
-                            if (mod_major > 1 || (mod_major == 1 && mod_minor >= 2))
-                                rules |= Module::PR_MEASURED_EDF_ADD_TANGENT_U;
-                        }
-                    } else if (minor == 1) {
-                        // all functions deprecated after MDL 1.1
-                        if (n == "measured_edf") {
-                            rules = Module::PR_MEASURED_EDF_ADD_TANGENT_U;
-                        }
-                    } else if (minor == 3) {
-                        // all functions deprecated after MDL 1.3
-                        if (n == "fresnel_layer") {
-                            rules = Module::PR_FRESNEL_LAYER_TO_COLOR;
-                            n = "color_fresnel_layer";
+        char const *suffix = strrchr(name, '$');
+        if (suffix == NULL)
+            return tn;
+        int major = 0, minor = 0;
+
+        char const *p = suffix;
+        for (++p; *p != '.' && *p != '\0'; ++p) {
+            major *= 10;
+            switch (*p) {
+            case '0': major += 0; break;
+            case '1': major += 1; break;
+            case '2': major += 2; break;
+            case '3': major += 3; break;
+            case '4': major += 4; break;
+            case '5': major += 5; break;
+            case '6': major += 6; break;
+            case '7': major += 7; break;
+            case '8': major += 8; break;
+            case '9': major += 9; break;
+            default:
+                return tn;
+            }
+        }
+        if (*p != '.')
+            return tn;
+
+        for (++p; *p != '\0'; ++p) {
+            minor *= 10;
+            switch (*p) {
+            case '0': minor += 0; break;
+            case '1': minor += 1; break;
+            case '2': minor += 2; break;
+            case '3': minor += 3; break;
+            case '4': minor += 4; break;
+            case '5': minor += 5; break;
+            case '6': minor += 6; break;
+            case '7': minor += 7; break;
+            case '8': minor += 8; break;
+            case '9': minor += 9; break;
+            default:
+                return tn;
+            }
+        }
+        if (*p != '\0')
+            return tn;
+
+        n = string(name, suffix, mod.get_allocator());
+
+        if (major < mod_major || (major == mod_major && minor < mod_minor)) {
+            // the symbol was removed BEFORE the module version, we need promotion
+            // which might change the name
+            if (n_components == 2) {
+                ISimple_name const *sn = qn->get_component(0);
+                ISymbol const *package = sn->get_symbol();
+
+                if (strcmp(package->get_name(), "df") == 0) {
+                    if (major == 1) {
+                        if (minor == 0) {
+                            // all functions deprecated after MDL 1.0
+                            if (n == "spot_edf") {
+                                rules = Module::PR_SPOT_EDF_ADD_SPREAD_PARAM;
+                            } else if (n == "measured_edf") {
+                                if (mod_major > 1 || (mod_major == 1 && mod_minor >= 1)) {
+                                    rules |= Module::PC_MEASURED_EDF_ADD_MULTIPLIER;
+                                }
+                                if (mod_major > 1 || (mod_major == 1 && mod_minor >= 2)) {
+                                    rules |= Module::PR_MEASURED_EDF_ADD_TANGENT_U;
+                                }
+                            }
+                        } else if (minor == 1) {
+                            // all functions deprecated after MDL 1.1
+                            if (n == "measured_edf") {
+                                rules = Module::PR_MEASURED_EDF_ADD_TANGENT_U;
+                            }
+                        } else if (minor == 3) {
+                            // all functions deprecated after MDL 1.3
+                            if (n == "fresnel_layer") {
+                                rules = Module::PR_FRESNEL_LAYER_TO_COLOR;
+                                n = "color_fresnel_layer";
+                            }
+                        } else if (minor == 5) {
+                            // all functions deprecated after MDL 1.5
+                            if (n == "simple_glossy_bsdf" ||
+                                n == "backscattering_glossy_reflection_bsdf" ||
+                                n == "microfacet_beckmann_smith_bsdf" ||
+                                n == "microfacet_ggx_smith_bsdf" ||
+                                n == "microfacet_beckmann_vcavities_bsdf" ||
+                                n == "microfacet_ggx_vcavities_bsdf" ||
+                                n == "ward_geisler_moroder_bsdf")
+                            {
+                                rules = Module::PR_GLOSSY_ADD_MULTISCATTER;
+                            }
                         }
                     }
-                }
-            } else if (strcmp(package->get_name(), "state") == 0) {
-                if (major == 1) {
-                    if (minor == 2) {
-                        // all functions deprecated after MDL 1.2
-                        if (n == "rounded_corner_normal") {
-                            rules = Module::PR_ROUNDED_CORNER_ADD_ROUNDNESS;
+                } else if (strcmp(package->get_name(), "state") == 0) {
+                    if (major == 1) {
+                        if (minor == 2) {
+                            // all functions deprecated after MDL 1.2
+                            if (n == "rounded_corner_normal") {
+                                rules = Module::PR_ROUNDED_CORNER_ADD_ROUNDNESS;
+                            }
                         }
                     }
-                }
-            } else if (strcmp(package->get_name(), "tex") == 0) {
-                if (major == 1) {
-                    if (minor == 3) {
-                        // all functions deprecated after MDL 1.3
-                        if (n == "width") {
-                            rules = Module::PR_WIDTH_HEIGTH_ADD_UV_TILE;
-                        } else if (n == "height") {
-                            rules = Module::PR_WIDTH_HEIGTH_ADD_UV_TILE;
-                        } else if (n == "texel_float") {
-                            rules = Module::PR_TEXEL_ADD_UV_TILE;
-                        } else if (n == "texel_float2") {
-                            rules = Module::PR_TEXEL_ADD_UV_TILE;
-                        } else if (n == "texel_float3") {
-                            rules = Module::PR_TEXEL_ADD_UV_TILE;
-                        } else if (n == "texel_float4") {
-                            rules = Module::PR_TEXEL_ADD_UV_TILE;
-                        } else if (n == "texel_color") {
-                            rules = Module::PR_TEXEL_ADD_UV_TILE;
+                } else if (strcmp(package->get_name(), "tex") == 0) {
+                    if (major == 1) {
+                        if (minor == 3) {
+                            // all functions deprecated after MDL 1.3
+                            if (n == "width") {
+                                rules = Module::PR_WIDTH_HEIGHT_ADD_UV_TILE;
+                            } else if (n == "height") {
+                                rules = Module::PR_WIDTH_HEIGHT_ADD_UV_TILE;
+                            } else if (n == "texel_float") {
+                                rules = Module::PR_TEXEL_ADD_UV_TILE;
+                            } else if (n == "texel_float2") {
+                                rules = Module::PR_TEXEL_ADD_UV_TILE;
+                            } else if (n == "texel_float3") {
+                                rules = Module::PR_TEXEL_ADD_UV_TILE;
+                            } else if (n == "texel_float4") {
+                                rules = Module::PR_TEXEL_ADD_UV_TILE;
+                            } else if (n == "texel_color") {
+                                rules = Module::PR_TEXEL_ADD_UV_TILE;
+                            }
                         }
                     }
                 }
             }
         }
     }
-
     sym = mod.get_symbol_table().get_symbol(n.c_str());
 
-    IQualified_name *n_qn = mod.get_name_factory()->create_qualified_name();
+    Name_factory *name_fact = mod.get_name_factory();
+
+    IQualified_name *n_qn = name_fact->create_qualified_name();
 
     for (int i = 0; i < n_components - 1; ++i) {
         n_qn->add_component(qn->get_component(i));
     }
 
-    sn = mod.get_name_factory()->create_simple_name(sym);
+    sn = name_fact->create_simple_name(sym);
     n_qn->add_component(sn);
 
     if (qn->is_absolute())
         n_qn->set_absolute();
     n_qn->set_definition(qn->get_definition());
 
-    IType_name *n_tn = mod.get_name_factory()->create_type_name(n_qn);
+    IType_name *n_tn = name_fact->create_type_name(n_qn);
 
     if (tn->is_absolute())
         n_tn->set_absolute();

@@ -1,5 +1,5 @@
 /******************************************************************************
- * Copyright (c) 2013-2019, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2013-2020, NVIDIA CORPORATION. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -31,6 +31,10 @@
 #include <cstdio>
 #include <cstdlib>
 #include <cmath>
+
+#if !defined(WIN_NT) && !(defined(__GNUC__) && (defined(__i386__) || defined(__x86_64)))
+#include <csignal>
+#endif
 
 #include <base/system/stlext/i_stlext_restore.h>
 
@@ -73,6 +77,8 @@
 
 namespace mi {
 namespace mdl {
+
+typedef Store<bool> Flag_store;
 
 // Ugly reference.
 IAllocator *get_debug_log_allocator();
@@ -1755,6 +1761,7 @@ llvm::Function *MDL_runtime_creator::decl_from_signature(
         llvm::GlobalValue::InternalLinkage,
         name,
         m_code_gen.m_module);
+    m_code_gen.set_llvm_function_attributes(func);
 
     return func;
 }
@@ -2074,6 +2081,13 @@ llvm::Function *MDL_runtime_creator::create_runtime_func(
                 func->setCallingConv(llvm::CallingConv::C);           \
                 func->setLinkage(llvm::GlobalValue::ExternalLinkage); \
             }                                                         \
+        } while (0)
+
+    // Mark function as a external function (either registered with the Jitted_code,
+    // or from libmdlrt)
+    #define MARK_EXTERNAL(func) do {                                  \
+            func->setCallingConv(llvm::CallingConv::C);               \
+            func->setLinkage(llvm::GlobalValue::ExternalLinkage);     \
         } while (0)
 
     // check for glue functions first
@@ -2492,7 +2506,23 @@ llvm::Function *MDL_runtime_creator::create_runtime_func(
     case RT_MDL_BLACKBODY:
         func->setDoesNotThrow();
         func->addParamAttr(0, llvm::Attribute::NoCapture); // sRGB
-        MARK_NATIVE(func);  // mi::mdl::spectral::mdl_blackbody
+        MARK_EXTERNAL(func);  // mi::mdl::spectral::mdl_blackbody in native, or libmdlrt
+        return func;
+
+    case RT_MDL_EMISSION_COLOR:
+        func->setDoesNotThrow();
+        func->addParamAttr(0, llvm::Attribute::NoCapture); // result
+        func->addParamAttr(1, llvm::Attribute::NoCapture); // wavelength
+        func->addParamAttr(2, llvm::Attribute::NoCapture); // amplitudes
+        MARK_EXTERNAL(func);  // mi::mdl::spectral::mdl_emission_color in libmdlrt
+        return func;
+
+    case RT_MDL_REFLECTION_COLOR:
+        func->setDoesNotThrow();
+        func->addParamAttr(0, llvm::Attribute::NoCapture); // result
+        func->addParamAttr(1, llvm::Attribute::NoCapture); // wavelength
+        func->addParamAttr(2, llvm::Attribute::NoCapture); // amplitudes
+        MARK_EXTERNAL(func);  // mi::mdl::spectral::mdl_reflection_color in libmdlrt
         return func;
 
     case RT_MDL_DEBUGBREAK:
@@ -3208,7 +3238,9 @@ llvm::Function *MDL_runtime_creator::create_state_get_texture_results(
         res = ctx.create_simple_gep_in_bounds(
             state, ctx.get_constant(m_code_gen.m_type_mapper.get_state_index(
                 Type_mapper::STATE_CORE_TEXT_RESULTS)));
-        res = ctx->CreateLoad(res);
+        if (m_code_gen.m_target_lang != LLVM_code_generator::TL_HLSL) {
+            res = ctx->CreateLoad(res);
+        }
         res = ctx->CreatePointerCast(res, ret_tp);
     } else {
         // zero in all other contexts
@@ -3230,8 +3262,73 @@ llvm::Function *MDL_runtime_creator::create_state_get_arg_block(
     Function_context ctx(m_alloc, m_code_gen, inst, func, flags);
     llvm::Value *res;
 
-    res = ctx.get_cap_args_parameter();
-    res = ctx->CreateBitCast(res, ctx_data->get_return_type());
+    if (m_code_gen.target_supports_pointers()) {
+        res = ctx.get_cap_args_parameter();
+        res = ctx->CreateBitCast(res, ctx_data->get_return_type());
+    } else {
+        res = llvm::Constant::getNullValue(ctx_data->get_return_type());
+    }
+
+    ctx.create_return(res);
+    return func;
+}
+
+// Generate LLVM IR for state::get_arg_block_float/float3/uint/bool()
+llvm::Function *MDL_runtime_creator::create_state_get_arg_block_value(
+    Internal_function const *int_func)
+{
+    Function_instance inst(m_code_gen.get_allocator(), reinterpret_cast<size_t>(int_func));
+    LLVM_context_data *ctx_data = m_code_gen.get_or_create_context_data(NULL, inst, "::state");
+    llvm::Function    *func     = ctx_data->get_function();
+    unsigned          flags     = ctx_data->get_function_flags();
+
+    Function_context ctx(m_alloc, m_code_gen, inst, func, flags);
+    llvm::Function::arg_iterator arg_it = ctx.get_first_parameter();
+    llvm::Value *a = load_by_value(ctx, arg_it);
+    llvm::Value *res;
+
+    if (m_code_gen.target_supports_pointers()) {
+        res = ctx.get_cap_args_parameter();
+        res = ctx->CreateInBoundsGEP(res, a);
+        res = ctx->CreateBitCast(res, ctx_data->get_return_type()->getPointerTo());
+        res = ctx->CreateLoad(res);
+    } else {
+        llvm::Value *state = ctx.get_state_parameter();
+        llvm::Value *adr   = ctx.create_simple_gep_in_bounds(
+            state, ctx.get_constant(
+            m_code_gen.m_type_mapper.get_state_index(Type_mapper::STATE_CORE_ARG_BLOCK_OFFSET)));
+        llvm::Value *arg_block_offs = ctx->CreateLoad(adr);
+        llvm::Value *offs = ctx->CreateAdd(arg_block_offs, a);
+
+        switch (int_func->get_kind()) {
+        case Internal_function::KI_STATE_GET_ARG_BLOCK_FLOAT:
+            res = ctx->CreateCall(m_code_gen.m_hlsl_func_argblock_as_float, offs);
+            break;
+        case Internal_function::KI_STATE_GET_ARG_BLOCK_FLOAT3:
+            res = llvm::UndefValue::get(ctx_data->get_return_type());
+            for (unsigned i = 0; i < 3; ++i) {
+                if (i > 0) {
+                    offs = ctx->CreateAdd(offs, ctx.get_constant(4));
+                }
+                res = ctx.create_insert(
+                    res,
+                    ctx->CreateCall(m_code_gen.m_hlsl_func_argblock_as_float, offs),
+                    i);
+            }
+            break;
+        case Internal_function::KI_STATE_GET_ARG_BLOCK_UINT:
+            res = ctx->CreateCall(m_code_gen.m_hlsl_func_argblock_as_uint, offs);
+            break;
+        case Internal_function::KI_STATE_GET_ARG_BLOCK_BOOL:
+            res = ctx->CreateCall(m_code_gen.m_hlsl_func_argblock_as_bool, offs);
+            break;
+        default:
+            MDL_ASSERT(!"Unexpected get_arg_block_* kind");
+            res = llvm::Constant::getNullValue(ctx_data->get_return_type());
+            ctx.create_return(res);
+            return func;
+        }
+    }
 
     ctx.create_return(res);
     return func;
@@ -3250,17 +3347,14 @@ llvm::Function *MDL_runtime_creator::create_state_get_ro_data_segment(
     llvm::Value *res;
 
     llvm::Type *ret_tp = ctx_data->get_return_type();
-    if (m_code_gen.m_state_mode & Type_mapper::SSM_CORE) {
-        llvm::Value *state = ctx.get_state_parameter();
-        res = ctx.create_simple_gep_in_bounds(
-            state, ctx.get_constant(m_code_gen.m_type_mapper.get_state_index(
-                Type_mapper::STATE_CORE_RO_DATA_SEG)));
-        res = ctx->CreateLoad(res);
-        res = ctx->CreatePointerCast(res, ret_tp);
-    } else {
-        // zero in all other contexts
-        res = llvm::Constant::getNullValue(ret_tp);
-    }
+    llvm::Value *state = ctx.get_state_parameter();
+    res = ctx.create_simple_gep_in_bounds(
+        state, ctx.get_constant(m_code_gen.m_type_mapper.get_state_index(
+            m_code_gen.m_state_mode & Type_mapper::SSM_CORE
+                ? Type_mapper::STATE_CORE_RO_DATA_SEG
+                : Type_mapper::STATE_ENV_RO_DATA_SEG)));
+    res = ctx->CreateLoad(res);
+    res = ctx->CreatePointerCast(res, ret_tp);
     ctx.create_return(res);
     return func;
 }
@@ -3289,6 +3383,25 @@ llvm::Function *MDL_runtime_creator::create_state_object_id(
         res = llvm::Constant::getNullValue(ret_tp);
     }
     ctx.create_return(res);
+    return func;
+}
+
+// Generate LLVM IR for state::get_adapt_microfacet_roughness()
+llvm::Function *MDL_runtime_creator::create_state_adapt_microfacet_roughness(
+    Internal_function const *int_func)
+{
+    Function_instance inst(m_code_gen.get_allocator(), reinterpret_cast<size_t>(int_func));
+    LLVM_context_data *ctx_data = m_code_gen.get_or_create_context_data(NULL, inst, "::state");
+    llvm::Function    *func     = ctx_data->get_function();
+    unsigned          flags     = ctx_data->get_function_flags();
+
+    Function_context ctx(m_alloc, m_code_gen, inst, func, flags);
+
+    llvm::Function::arg_iterator arg_it = ctx.get_first_parameter();
+    llvm::Value *a = load_by_value(ctx, arg_it++);
+
+    // just return the roughness unmodified
+    ctx.create_return(a);
     return func;
 }
 
@@ -3735,9 +3848,11 @@ llvm::Function *MDL_runtime_creator::get_internal_function(Internal_function con
 
         case Internal_function::KI_STATE_CALL_LAMBDA_FLOAT:
         case Internal_function::KI_STATE_CALL_LAMBDA_FLOAT3:
+        case Internal_function::KI_STATE_CALL_LAMBDA_UINT:
+        case Internal_function::KI_STATE_GET_MEASURED_CURVE_VALUE:
         {
             // the function body will be created later when all compiled module lambda
-            // functions are known
+            // functions and measured curves are known
             Function_instance inst(
                 m_code_gen.get_allocator(), reinterpret_cast<size_t>(int_func));
             LLVM_context_data *ctx_data =
@@ -3745,6 +3860,32 @@ llvm::Function *MDL_runtime_creator::get_internal_function(Internal_function con
             m_internal_funcs[kind] = ctx_data->get_function();
             break;
         }
+
+        case Internal_function::KI_STATE_GET_ARG_BLOCK_FLOAT:
+        case Internal_function::KI_STATE_GET_ARG_BLOCK_FLOAT3:
+        case Internal_function::KI_STATE_GET_ARG_BLOCK_UINT:
+        case Internal_function::KI_STATE_GET_ARG_BLOCK_BOOL:
+            m_internal_funcs[kind] = create_state_get_arg_block_value(int_func);
+            break;
+
+        case Internal_function::KI_STATE_ADAPT_MICROFACET_ROUGHNESS:
+            if (m_code_gen.m_use_renderer_adapt_microfacet_roughness) {
+                Function_instance inst(
+                    m_code_gen.get_allocator(), reinterpret_cast<size_t>(int_func));
+                LLVM_context_data *ctx_data =
+                    m_code_gen.get_or_create_context_data(NULL, inst, "::state");
+                llvm::Function *func = ctx_data->get_function();
+                func->setLinkage(llvm::GlobalValue::ExternalLinkage);
+                func->setName("mdl_adapt_microfacet_roughness");
+                func->setDoesNotThrow();
+                func->setOnlyReadsMemory();
+                func->addParamAttr(0, llvm::Attribute::ReadOnly);  // mark state param as read-only
+                func->addParamAttr(0, llvm::Attribute::NoCapture);
+                m_internal_funcs[kind] = ctx_data->get_function();
+            } else {
+                m_internal_funcs[kind] = create_state_adapt_microfacet_roughness(int_func);
+            }
+            break;
 
         case Internal_function::KI_DF_BSDF_MEASUREMENT_RESOLUTION:
             m_internal_funcs[kind] = create_df_bsdf_measurement_resolution(int_func);
@@ -3813,54 +3954,60 @@ llvm::Value *LLVM_code_generator::translate_call_intrinsic_function(
 {
     mi::mdl::IDefinition const *callee_def = call_expr->get_callee_definition(*this);
 
+    State_usage usage;
     switch (callee_def->get_semantics()) {
     case IDefinition::DS_INTRINSIC_STATE_POSITION:
-        m_render_state_usage |= IGenerated_code_executable::SU_POSITION;
+        usage = IGenerated_code_executable::SU_POSITION;
         break;
     case IDefinition::DS_INTRINSIC_STATE_NORMAL:
-        m_render_state_usage |= IGenerated_code_executable::SU_NORMAL;
+        usage = IGenerated_code_executable::SU_NORMAL;
         break;
     case IDefinition::DS_INTRINSIC_STATE_GEOMETRY_NORMAL:
-        m_render_state_usage |= IGenerated_code_executable::SU_GEOMETRY_NORMAL;
+        usage = IGenerated_code_executable::SU_GEOMETRY_NORMAL;
         break;
     case IDefinition::DS_INTRINSIC_STATE_MOTION:
-        m_render_state_usage |= IGenerated_code_executable::SU_MOTION;
+        usage = IGenerated_code_executable::SU_MOTION;
         break;
     case IDefinition::DS_INTRINSIC_STATE_TEXTURE_COORDINATE:
-        m_render_state_usage |= IGenerated_code_executable::SU_TEXTURE_COORDINATE;
+        usage = IGenerated_code_executable::SU_TEXTURE_COORDINATE;
         break;
     case IDefinition::DS_INTRINSIC_STATE_TEXTURE_TANGENT_U:
     case IDefinition::DS_INTRINSIC_STATE_TEXTURE_TANGENT_V:
-        m_render_state_usage |= IGenerated_code_executable::SU_TEXTURE_TANGENTS;
+        usage = IGenerated_code_executable::SU_TEXTURE_TANGENTS;
         break;
     case IDefinition::DS_INTRINSIC_STATE_TANGENT_SPACE:
-        m_render_state_usage |= IGenerated_code_executable::SU_TANGENT_SPACE;
+        usage = IGenerated_code_executable::SU_TANGENT_SPACE;
         break;
     case IDefinition::DS_INTRINSIC_STATE_GEOMETRY_TANGENT_U:
     case IDefinition::DS_INTRINSIC_STATE_GEOMETRY_TANGENT_V:
-        m_render_state_usage |= IGenerated_code_executable::SU_GEOMETRY_TANGENTS;
+        usage = IGenerated_code_executable::SU_GEOMETRY_TANGENTS;
         break;
     case IDefinition::DS_INTRINSIC_STATE_DIRECTION:
-        m_render_state_usage |= IGenerated_code_executable::SU_DIRECTION;
+        usage = IGenerated_code_executable::SU_DIRECTION;
         break;
     case IDefinition::DS_INTRINSIC_STATE_ANIMATION_TIME:
-        m_render_state_usage |= IGenerated_code_executable::SU_ANIMATION_TIME;
+        usage = IGenerated_code_executable::SU_ANIMATION_TIME;
         break;
     case IDefinition::DS_INTRINSIC_STATE_ROUNDED_CORNER_NORMAL:
-        m_render_state_usage |= IGenerated_code_executable::SU_ROUNDED_CORNER_NORMAL;
+        usage = IGenerated_code_executable::SU_ROUNDED_CORNER_NORMAL;
         break;
     case IDefinition::DS_INTRINSIC_STATE_TRANSFORM:
     case IDefinition::DS_INTRINSIC_STATE_TRANSFORM_NORMAL:
     case IDefinition::DS_INTRINSIC_STATE_TRANSFORM_POINT:
     case IDefinition::DS_INTRINSIC_STATE_TRANSFORM_SCALE:
     case IDefinition::DS_INTRINSIC_STATE_TRANSFORM_VECTOR:
-        m_render_state_usage |= IGenerated_code_executable::SU_TRANSFORMS;
+        usage = IGenerated_code_executable::SU_TRANSFORMS;
         break;
     case IDefinition::DS_INTRINSIC_STATE_OBJECT_ID:
-        m_render_state_usage |= IGenerated_code_executable::SU_OBJECT_ID;
+        usage = IGenerated_code_executable::SU_OBJECT_ID;
         break;
     default:
+        usage = 0;
         break;
+    }
+
+    if (usage != 0) {
+        m_state_usage_analysis.add_state_usage(ctx.get_function(), usage);
     }
 
     mi::mdl::IDeclaration_function const *fdecl =
@@ -3878,7 +4025,7 @@ llvm::Value *LLVM_code_generator::translate_call_intrinsic_function(
         callee = get_hlsl_intrinsic_function(callee_def, return_derivs);
     }
     if (callee == NULL) {
-        callee = m_runtime->get_intrinsic_function(callee_def, return_derivs);
+        callee = get_intrinsic_function(callee_def, return_derivs);
     }
 
     // Intrinsic functions are NEVER instantiated!
@@ -3933,16 +4080,51 @@ llvm::Value *LLVM_code_generator::translate_call_intrinsic_function(
     int clip_pos = -1, clip_bound = -1;
     mi::mdl::IDefinition::Semantics sema = callee_def->get_semantics();
     int n_args = call_expr->get_argument_count();
+
+    mi::mdl::IType_function const *func_tp =
+        mi::mdl::cast<mi::mdl::IType_function>(callee_def->get_type());
+
     for (int i = 0; i < n_args; ++i) {
-        mi::mdl::IType const *arg_type = call_expr->get_argument_type(i);
+        mi::mdl::IType const   *arg_type = call_expr->get_argument_type(i);
 
         bool arg_is_deriv =
             func_deriv_info != NULL && func_deriv_info->args_want_derivatives.test_bit(i + 1);
 
-        Expression_result    expr_res  = call_expr->translate_argument(*this, ctx, i, arg_is_deriv);
+        Expression_result expr_res = call_expr->translate_argument(*this, ctx, i, arg_is_deriv);
+
+        mi::mdl::IType const   *p_type = NULL;
+        mi::mdl::ISymbol const *p_sym = NULL;
+
+        func_tp->get_parameter(i, p_type, p_sym);
+
+        // Note: there is no instantiation for intrinsic functions yet
+        mi::mdl::IType_array const *a_p_type = mi::mdl::as<mi::mdl::IType_array>(p_type);
+        if (a_p_type != NULL && !a_p_type->is_immediate_sized()) {
+            // instantiate the argument type
+            int arg_imm_size = ctx.instantiate_type_size(arg_type);
+
+            mi::mdl::IType_array const *a_a_type =
+                mi::mdl::cast<mi::mdl::IType_array>(arg_type->skip_type_alias());
+
+            if (a_a_type->is_immediate_sized() || arg_imm_size >= 0) {
+                // immediate size argument passed to deferred argument, create an array
+                // descriptor
+                llvm::Type *arr_dec_type = m_type_mapper.lookup_type(m_llvm_context, a_p_type);
+                llvm::Value *desc = ctx.create_local(arr_dec_type, "arr_desc");
+
+                ctx.set_deferred_base(desc, expr_res.as_ptr(ctx));
+                size_t size = arg_imm_size >= 0 ? arg_imm_size : a_a_type->get_size();
+                ctx.set_deferred_size(desc, ctx.get_constant(size));
+
+                expr_res = Expression_result::ptr(desc);
+            } else {
+             // just pass by default
+            }
+        }
 
         if (m_type_mapper.is_passed_by_reference(arg_type) ||
-                m_type_mapper.is_deriv_type(expr_res.get_value_type())) {
+                (target_supports_pointers() &&
+                    m_type_mapper.is_deriv_type(expr_res.get_value_type()))) {
             // pass by reference
             args.push_back(expr_res.as_ptr(ctx));
         } else {
@@ -4225,7 +4407,9 @@ bool LLVM_code_generator::init_user_modules()
         {
             if (llvm::isa<llvm::PointerType>(*PI)) {
                 llvm::Type *elem_type = (*PI)->getPointerElementType();
-                if (llvm::StructType *struct_type = llvm::dyn_cast<llvm::StructType>(elem_type)) {
+                if (elem_type->isStructTy() &&
+                        !llvm::cast<llvm::StructType>(elem_type)->isLiteral()) {
+                    llvm::StructType *struct_type = llvm::cast<llvm::StructType>(elem_type);
                     // map some struct types to our internal types
                     llvm::StringRef name = elem_type->getStructName();
                     if (name.startswith("struct.State_core")) {
@@ -4467,6 +4651,8 @@ Expression_result LLVM_code_generator::translate_jit_intrinsic(
 llvm::Function *LLVM_code_generator::get_intrinsic_function(
     IDefinition const *def, bool return_derivs)
 {
+    Flag_store in_intrinsic_generator(m_in_intrinsic_generator, true);
+
     return m_runtime->get_intrinsic_function(def, return_derivs);
 }
 

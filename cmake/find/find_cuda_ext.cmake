@@ -1,5 +1,5 @@
 #*****************************************************************************
-# Copyright (c) 2018-2019, NVIDIA CORPORATION. All rights reserved.
+# Copyright (c) 2018-2020, NVIDIA CORPORATION. All rights reserved.
 #
 # Redistribution and use in source and binary forms, with or without
 # modification, are permitted provided that the following conditions
@@ -29,7 +29,7 @@
 # check if CUDA is available
 # Note, this enables CUDA for all projects (only of concern for Visual Studio)
 if(NOT MDL_ENABLE_CUDA_EXAMPLES)
-    message("Examples that require CUDA are disabled. Enable the option 'MDL_ENABLE_CUDA_EXAMPLES' to re-enable them.")
+    message(WARNING "Examples that require CUDA are disabled. Enable the option 'MDL_ENABLE_CUDA_EXAMPLES' to re-enable them.")
 else()
     # use the c++ compiler as host compiler (setting this does not work with apple clang 9.x)
     if(NOT MACOSX)

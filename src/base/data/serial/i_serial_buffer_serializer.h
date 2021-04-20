@@ -1,5 +1,5 @@
 /***************************************************************************************************
- * Copyright (c) 2007-2019, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2007-2020, NVIDIA CORPORATION. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -114,7 +114,7 @@ public:
 
     // Set the deserializer to use the given buffer for input
     void reset(
-	Uint8* buffer,					// the buffer
+	const Uint8* buffer,				// the buffer
 	size_t buffer_size);				// the size of the buffer
 
     // Deserialize from a buffer of known size

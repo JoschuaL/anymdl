@@ -1,5 +1,5 @@
 /******************************************************************************
- * Copyright (c) 2013-2019, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2013-2020, NVIDIA CORPORATION. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -122,6 +122,11 @@ public:
     }
 
     /// Write an unsigned.
+    void write_encoded(size_t i) {
+        write_encoded_tag(i);
+    }
+
+    /// Write an unsigned.
     void write_encoded(unsigned i) {
         write_unsigned(i);
     }
@@ -149,6 +154,16 @@ public:
 
     /// Write a DAG kind.
     void write_encoded(DAG_node::Kind kind) {
+        write_unsigned(kind);
+    }
+
+    /// Write an IValue kind.
+    void write_encoded(IValue::Kind kind) {
+        write_unsigned(kind);
+    }
+
+    /// Write a Resource_tag_tuple kind.
+    void write_encoded(Resource_tag_tuple::Kind kind) {
         write_unsigned(kind);
     }
 
@@ -270,6 +285,12 @@ inline int DAG_deserializer::read_encoded() {
     return read_int();
 }
 
+/// Read an size_t.
+template<>
+inline size_t DAG_deserializer::read_encoded() {
+    return read_size_t();
+}
+
 /// Read an unsigned.
 template<>
 inline unsigned DAG_deserializer::read_encoded() {
@@ -300,6 +321,20 @@ template<>
 inline DAG_node::Kind DAG_deserializer::read_encoded() {
     unsigned k = read_unsigned();
     return DAG_node::Kind(k);
+}
+
+/// Read a DAG kind.
+template<>
+inline IValue::Kind DAG_deserializer::read_encoded() {
+    unsigned k = read_unsigned();
+    return IValue::Kind(k);
+}
+
+/// Read a Resource_tag_tuple kind.
+template<>
+inline Resource_tag_tuple::Kind DAG_deserializer::read_encoded() {
+    unsigned k = read_unsigned();
+    return Resource_tag_tuple::Kind(k);
 }
 
 } // mdl

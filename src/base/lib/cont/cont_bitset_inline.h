@@ -1,5 +1,5 @@
 /******************************************************************************
- * Copyright (c) 2011-2019, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2011-2020, NVIDIA CORPORATION. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -448,9 +448,23 @@ inline bool Bitset<bit_count>::all(const Bitset& mask) const
 
 
 template <size_t bit_count>
+inline bool Bitset<bit_count>::all(const Data_t mask) const
+{
+    return all(Bitset{mask});
+}
+
+
+template <size_t bit_count>
 inline bool Bitset<bit_count>::any(const Bitset& mask) const
 {
     return m_data.any(mask.m_data);
+}
+
+
+template <size_t bit_count>
+inline bool Bitset<bit_count>::any(const Data_t mask) const
+{
+    return any(Bitset{mask});
 }
 
 
@@ -465,6 +479,13 @@ template <size_t bit_count>
 inline bool Bitset<bit_count>::none(const Bitset& mask) const
 {
     return !m_data.any(mask.m_data);
+}
+
+
+template <size_t bit_count>
+inline bool Bitset<bit_count>::none(const Data_t mask) const
+{
+    return none(Bitset{mask});
 }
 
 

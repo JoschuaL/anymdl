@@ -1,5 +1,5 @@
 /***************************************************************************************************
- * Copyright (c) 2015-2019, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2015-2020, NVIDIA CORPORATION. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -85,6 +85,16 @@ public:
     /// a material or function definition. This method should be immediately called after invoking
     /// the constructor. If it returns \c false, no other methods of this class should be called.
     bool is_valid() const;
+
+    /// Indicates whether the material or function definition referenced by this definition wrapper
+    /// matches a definition in its owner module. Definitions might become invalid due to a module
+    /// reload of the owner module itself or another module imported by the owner module.
+    ///
+    /// \param context  Execution context that can be queried for error messages
+    ///                 after the operation has finished. Can be \c NULL.
+    ///
+    /// \return \c True, if the definition is valid, \c false otherwise.
+    bool is_valid_definition(IMdl_execution_context* context) const;
 
     /// Indicates whether the definition wrapper acts on a material definition or on a function
     /// definition.
@@ -228,7 +238,7 @@ public:
     /// \return         The index of a parameter whose enable_if condition depends on this
     ///                 parameter argument, or ~0 if indexes are out of range.
     Size get_enable_if_user( Size index, Size u_index) const;
-    
+
     //@}
     /// \name Methods related to instantiation of definitions
     //@{
@@ -238,7 +248,8 @@ public:
     /// \param arguments   If not \c NULL, then these arguments are used for the material instance
     ///                    or function call (all parameters without default need to be present). If
     ///                    \c NULL, then the default for a parameter is used, or the argument is
-    ///                    default-constructed for parameters without default.
+    ///                    default-constructed for parameters without default. Must not be \c NULL
+    ///                    in case of \ref mi_neuray_mdl_template_like_functions_definitions.
     /// \param[out] errors An optional pointer to an #mi::Sint32 to which an error code will be
     ///                    written. The error codes have the following meaning:
     ///                    -  0: Success. If \p arguments is \c NULL, then the method always
@@ -249,6 +260,9 @@ public:
     ///                          type, see #get_parameter_types().
     ///                    - -3: A parameter that has no default was not provided with an argument
     ///                          value.
+    ///                    - -4: The function definition is one of
+    ///                          \ref mi_neuray_mdl_template_like_functions_definitions and
+    ///                          \p argments is \c NULL.
     /// \return            The constructed material instance or function call, or \c NULL in case
     ///                    of errors.
     IScene_element* create_instance(
@@ -259,7 +273,8 @@ public:
     /// \param arguments   If not \c NULL, then these arguments are used for the material instance
     ///                    or function call (all parameters without default need to be present). If
     ///                    \c NULL, then the default for a parameter is used, or the argument is
-    ///                    default-constructed for parameters without default.
+    ///                    default-constructed for parameters without default. Must not be \c NULL
+    ///                    in case of \ref mi_neuray_mdl_template_like_functions_definitions.
     /// \param[out] errors An optional pointer to an #mi::Sint32 to which an error code will be
     ///                    written. The error codes have the following meaning:
     ///                    -  0: Success. If \p arguments is \c NULL, then the method always
@@ -270,6 +285,9 @@ public:
     ///                          type, see #get_parameter_types().
     ///                    - -3: A parameter that has no default was not provided with an argument
     ///                          value.
+    ///                    - -4: The function definition is one of
+    ///                          \ref mi_neuray_mdl_template_like_functions_definitions and
+    ///                          \p argments is \c NULL.
     /// \return            The constructed material instance or function call, or \c NULL in case
     ///                    of errors.
     ///
@@ -336,6 +354,23 @@ inline bool Definition_wrapper::is_valid() const
     return m_access
         && (m_type == ELEMENT_TYPE_MATERIAL_DEFINITION
         ||  m_type == ELEMENT_TYPE_FUNCTION_DEFINITION);
+}
+
+
+inline bool Definition_wrapper::is_valid_definition(IMdl_execution_context* context) const
+{
+    if (m_type == ELEMENT_TYPE_MATERIAL_DEFINITION) {
+
+        base::Handle<const IMaterial_definition> md(m_access->get_interface<IMaterial_definition>());
+        return md->is_valid(context);
+    }
+    else if (m_type == ELEMENT_TYPE_FUNCTION_DEFINITION) {
+
+        base::Handle<const IFunction_definition> fd(m_access->get_interface<IFunction_definition>());
+        return fd->is_valid(context);
+    }
+    else
+        return false;
 }
 
 inline Element_type Definition_wrapper::get_type() const
@@ -656,14 +691,14 @@ inline const IAnnotation_block* Definition_wrapper::get_return_annotations() con
 inline const IExpression_list* Definition_wrapper::get_enable_if_conditions() const
 {
     if( m_type == ELEMENT_TYPE_MATERIAL_DEFINITION) {
-        
+
         base::Handle<const IMaterial_definition> md(
             m_access->get_interface<IMaterial_definition>());
         return md->get_enable_if_conditions();
 
     }
     else if( m_type == ELEMENT_TYPE_FUNCTION_DEFINITION) {
-        
+
         base::Handle<const IFunction_definition> fd(
             m_access->get_interface<IFunction_definition>());
         return fd->get_enable_if_conditions();
@@ -675,39 +710,39 @@ inline const IExpression_list* Definition_wrapper::get_enable_if_conditions() co
 inline Size Definition_wrapper::get_enable_if_users( Size index) const
 {
     if( m_type == ELEMENT_TYPE_MATERIAL_DEFINITION) {
-        
+
         base::Handle<const IMaterial_definition> md(
             m_access->get_interface<IMaterial_definition>());
         return md->get_enable_if_users( index);
 
     }
     else if( m_type == ELEMENT_TYPE_FUNCTION_DEFINITION) {
-        
+
         base::Handle<const IFunction_definition> fd(
             m_access->get_interface<IFunction_definition>());
         return fd->get_enable_if_users( index);
 
     } else
-        return ~0;
+        return Size(~0);
 }
 
 inline Size Definition_wrapper::get_enable_if_user( Size index, Size u_index) const
 {
     if( m_type == ELEMENT_TYPE_MATERIAL_DEFINITION) {
-        
+
         base::Handle<const IMaterial_definition> md(
             m_access->get_interface<IMaterial_definition>());
         return md->get_enable_if_user( index, u_index);
 
     }
     else if( m_type == ELEMENT_TYPE_FUNCTION_DEFINITION) {
-        
+
         base::Handle<const IFunction_definition> fd(
             m_access->get_interface<IFunction_definition>());
         return fd->get_enable_if_user( index, u_index);
 
     } else
-        return ~0;
+        return Size(~0);
 }
 
 inline IScene_element* Definition_wrapper::create_instance(
@@ -746,6 +781,17 @@ inline IScene_element* Definition_wrapper::create_instance(
             m_access->get_interface<IFunction_definition>());
         if( arguments)
             return fd->create_function_call( arguments, errors);
+
+        IFunction_definition::Semantics semantic = fd->get_semantic();
+        if(    semantic == IFunction_definition::DS_INTRINSIC_DAG_ARRAY_CONSTRUCTOR
+            || semantic == IFunction_definition::DS_INTRINSIC_DAG_ARRAY_LENGTH
+            || semantic == IFunction_definition::DS_ARRAY_INDEX
+            || semantic == IFunction_definition::DS_TERNARY
+            || semantic == IFunction_definition::DS_CAST) {
+            if( errors)
+                *errors = -4;
+            return 0;
+        }
 
         base::Handle<const IType_list> parameter_types( fd->get_parameter_types());
         base::Handle<const IExpression_list> defaults( fd->get_defaults());

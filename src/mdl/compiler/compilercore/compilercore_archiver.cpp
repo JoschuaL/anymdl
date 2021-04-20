@@ -1,5 +1,5 @@
 /******************************************************************************
- * Copyright (c) 2016-2019, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2016-2020, NVIDIA CORPORATION. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -301,6 +301,9 @@ private:
 
     /// Set to true if extra files in the source directory are allowed (and ignored).
     bool const m_allow_extra_files;
+
+    /// Set if a package or module name was found that requires at least MDL 1.6.
+    bool m_mdl_16_names;
 };
 
 /// Helper class for extracting an archive.
@@ -819,6 +822,7 @@ Archive_builder::Archive_builder(
 , m_ignored_files(m_alloc)
 , m_overwrite(overwrite)
 , m_allow_extra_files(allow_extra_files)
+, m_mdl_16_names(false)
 {
     // Fill the uncompressed suffix set with known suffixes from the MDL spec that
     // should NEVER be compressed
@@ -898,12 +902,10 @@ bool Archive_builder::collect(
         }
 
         if (!m_compiler->is_valid_mdl_identifier(package_name.c_str())) {
-            error(
-                PACKAGE_NAME_INVALID,
-                Error_params(m_alloc).add(package_name.c_str())
-            );
-            return false;
+            // need at least MDL 1.6 because of non valid MDL identifier
+            m_mdl_16_names = true;
         }
+
         if (!m_archive_name.empty())
             m_archive_name.append('.');
         m_archive_name.append(package_name);
@@ -1029,8 +1031,9 @@ void Archive_builder::collect_from_dir(
             // found a subdirectory
             m_directory_list.push_back(file);
 
-            if (!m_compiler->is_valid_mdl_identifier(e.c_str()))
-                valid_mdl_package = false;
+            if (!m_compiler->is_valid_mdl_identifier(e.c_str())) {
+                m_mdl_16_names = true;
+            }
 
             collect_from_dir(sub, file, valid_mdl_package, string(m_alloc));
             sub.close();
@@ -1045,16 +1048,12 @@ void Archive_builder::collect_from_dir(
                             .add(e.c_str()));
                 } else {
                     string base_name(e.substr(0, e.length() - 4));
+
                     if (!m_compiler->is_valid_mdl_identifier(base_name.c_str())) {
-                        error(
-                            MDL_FILENAME_NOT_IDENTIFIER,
-                            Error_params(m_alloc)
-                            .add(path.empty() ? "." : path.c_str())
-                            .add(e.c_str()));
-                    } else {
-                        // found valid MDL file
-                        m_module_list.push_back(file);
+                        m_mdl_16_names = true;
                     }
+                    // found valid file
+                    m_module_list.push_back(file);
                 }
             } else {
                 m_resource_list.push_back(file);
@@ -1204,6 +1203,11 @@ bool Archive_builder::compile_modules()
         Semantic_version const &ver  = it->second;
 
         m_manifest->add_dependency(name.c_str(), ver);
+    }
+
+    if (m_mdl_16_names) {
+        // requires at least MDL 1.6
+        m_manifest->add_mdl_version(IMDL::MDL_VERSION_1_6);
     }
     return res;
 }
@@ -1396,10 +1400,8 @@ bool Archive_builder::create_zip_archive()
         }
     }
 
-    if (za != NULL) {
-        if (zip_close(za) != 0)
-            translate_zip_error(za);
-    }
+    if (zip_close(za) != 0)
+        translate_zip_error(za);
 
     if (m_has_error) {
         return false;
@@ -1499,6 +1501,7 @@ void Archive_builder::update_manifest(
         case IDefinition::DK_CONSTRUCTOR:
         case IDefinition::DK_ARRAY_SIZE:
         case IDefinition::DK_OPERATOR:
+        case IDefinition::DK_NAMESPACE:
             // ignored so far
             break;
         }
@@ -1566,7 +1569,7 @@ void Archive_extractor::extract(
     // create the archive
     zip_t *za = zip_open_from_source(
         lsrc,
-        ZIP_RDONLY,
+        ZIP_RDONLYNOLASTMOD,
         &ze);
     if (za == NULL) {
         zip_source_free(lsrc);
@@ -2129,8 +2132,7 @@ MDL_zip_container_archive *MDL_zip_container_archive::open(
         }
     }
 
-    if(archiv)
-        archiv->m_header = header_info;
+    archiv->m_header = header_info;
     return archiv;
 }
 
@@ -2159,7 +2161,7 @@ MDL_zip_container_archive::MDL_zip_container_archive(
     char const  *path,
     zip_t       *za,
     bool         with_manifest)
-: MDL_zip_container(alloc, path, za)
+: MDL_zip_container(alloc, path, za, /*supports_resource_hashes=*/false)
 , m_manifest(with_manifest ? parse_manifest() : NULL)
 {
 }
@@ -2167,25 +2169,24 @@ MDL_zip_container_archive::MDL_zip_container_archive(
 // Get the manifest.
 Manifest *MDL_zip_container_archive::parse_manifest()
 {
-    if (MDL_zip_container_file *fp = file_open("MANIFEST"))
-    {
+    if (MDL_zip_container_file *fp = file_open("MANIFEST")) {
         Allocator_builder builder(m_alloc);
 
         File_handle *manifest_fp =
             builder.create<File_handle>(
-                get_allocator(), 
-                File_handle::FH_ARCHIVE, 
-                this, 
-                /*owns_archive=*/false, 
+                get_allocator(),
+                File_handle::FH_ARCHIVE,
+                this,
+                /*owns_archive=*/false,
                 fp);
-        
+
         mi::base::Handle<Buffered_archive_resource_reader> reader(
             builder.create<Buffered_archive_resource_reader>(
             m_alloc,
             manifest_fp,
             "MANIFEST",
             /*mdl_url=*/""));
-        
+
         Manifest *manifest = Archive_tool::parse_manifest(m_alloc, reader.get());
         if (manifest != NULL) {
             string arc_name(get_container_name(), m_alloc);
@@ -2301,6 +2302,8 @@ void Manifest_builder::add_pair(u32string const &key, u32string const &value)
             ver = IMDL::MDL_VERSION_1_5;
         else if (v == "1.6")
             ver = IMDL::MDL_VERSION_1_6;
+        else if (v == "1.7")
+            ver = IMDL::MDL_VERSION_1_7;
         else {
             error(EC_UNSUPPORTED_MDL_VERSION);
         }

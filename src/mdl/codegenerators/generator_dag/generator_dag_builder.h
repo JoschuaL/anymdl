@@ -1,5 +1,5 @@
 /******************************************************************************
- * Copyright (c) 2015-2019, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2015-2020, NVIDIA CORPORATION. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -38,9 +38,9 @@ namespace mdl {
 
 class DAG_mangler;
 class DAG_node_factory_impl;
-class File_resolver;
 class Name_printer;
 class IAnnotation;
+class IDeclaration_constant;
 class IDeclaration_function;
 class IDeclaration_variable;
 class IModule;
@@ -122,12 +122,10 @@ public:
     /// \param alloc               the allocator
     /// \param node_factory        the IR node factory used to create DAG nodes
     /// \param mangler             the DAG name mangler
-    /// \param resolver            a file resolver to process resource URLs
     DAG_builder(
         IAllocator            *alloc,
         DAG_node_factory_impl &node_factory,
-        DAG_mangler           &mangler,
-        File_resolver         &resolver);
+        DAG_mangler           &mangler);
 
     /// Retrieve the allocator.
     IAllocator *get_allocator() {return m_alloc; }
@@ -159,17 +157,21 @@ public:
 
     /// Convert a definition to a name.
     ///
-    /// \param def           The definition to convert.
-    /// \param module_name   The name of the owner module of this definition.
-    /// \returns             The name for the definition.
-    string def_to_name(IDefinition const *def, const char *module_name) const;
+    /// \param def                     The definition to convert.
+    /// \param module_name             The name of the owner module of this definition.
+    /// \param with_signature_suffix   Indicates whether to include the signature suffix
+    /// \returns                       The name for the definition.
+    string def_to_name(
+        IDefinition const *def, const char *module_name, bool with_signature_suffix = true) const;
 
     /// Convert a definition to a name.
     ///
-    /// \param def    The definition to convert.
-    /// \param module The (virtual) owner module of this definition.
-    /// \returns      The name for the definition.
-    string def_to_name(IDefinition const *def, IModule const *module) const;
+    /// \param def                     The definition to convert.
+    /// \param module                  The (virtual) owner module of this definition.
+    /// \param with_signature_suffix   Indicates whether to include the signature suffix
+    /// \returns                       The name for the definition.
+    string def_to_name(
+        IDefinition const *def, IModule const *module, bool with_signature_suffix = true) const;
 
     /// Convert a definition to a name.
     ///
@@ -177,11 +179,17 @@ public:
     /// \returns    The name for the definition (using the original owner module).
     string def_to_name(IDefinition const *def) const;
 
-    /// Convert a type to a name.
+    /// Convert a type to a name (not using the mangler).
     ///
     /// \param type  The type to convert.
-    /// \returns     The name for the definition (using the original owner module).
+    /// \returns     The name for the type.
     string type_to_name(IType const *type) const;
+
+    /// Convert a parameter type to a name (using the mangler).
+    ///
+    /// \param type  The type to convert.
+    /// \returns     The name for the type.
+    string parameter_type_to_name(IType const *type) const;
 
     /// Clear temporary data to restart code generation.
     void reset();
@@ -210,6 +218,14 @@ public:
     ///
     DAG_node const *var_decl_to_dag(
         IDeclaration_variable const *var_decl);
+
+    /// Convert an MDL constant declaration to a DAG IR node.
+    ///
+    /// \param const_decl   The MDL constant declaration to convert.
+    /// \returns            The DAG IR node representing the MDL statement.
+    ///
+    DAG_node const *const_decl_to_dag(
+        IDeclaration_constant const *const_decl);
 
     /// Convert an MDL statement to a DAG IR node.
     ///
@@ -256,29 +272,28 @@ public:
 
     /// Try to inline the given call.
     ///
+    /// \param owner_dag    The owner code DAG of the definition to inline.
     /// \param def          The definition of the function to inline.
     /// \param call         The DAG call expression to convert.
     /// \returns            The DAG expression if the function call could be inlined,
     ///                     NULL otherwise.
     DAG_node const *try_inline(
+        IGenerated_code_dag const     *owner_dag,
         IDefinition const             *def,
         DAG_call::Call_argument const *args,
         size_t                        n_args);
 
     /// Returns the name of a binary operator.
     ///
-    /// \param expr  The MDL expression.
-    string get_binary_name(IExpression_binary const *expr) const;
+    /// \param expr                    The MDL expression.
+    /// \param with_signature_suffix   Indicates whether to include the signature suffix
+    string get_binary_name(IExpression_binary const *expr, bool with_signature_suffix = true) const;
 
     /// Returns the name of an unary operator.
     ///
-    /// \param expr  The MDL expression.
-    string get_unary_name(IExpression_unary const *expr) const;
-
-    /// Returns the name of a conditional operator.
-    ///
-    /// \param expr  The MDL expression.
-    string get_cond_name(IExpression_conditional const *expr) const;
+    /// \param expr                    The MDL expression.
+    /// \param with_signature_suffix   Indicates whether to include the signature suffix
+    string get_unary_name(IExpression_unary const *expr, bool with_signature_suffix = true) const;
 
     /// Convert an unary MDL operator to a name.
     ///
@@ -293,11 +308,6 @@ public:
     /// \returns            The name.
     ///
     static char const *binary_op_to_name(IExpression_binary::Operator op);
-
-    /// Return the name of the ternary operator.
-    ///
-    /// \returns   The name.
-    static char const *ternary_op_to_name();
 
     /// Returns true if a conditional operator was created.
     bool cond_created() const { return m_conditional_created; }
@@ -458,13 +468,11 @@ private:
     /// \param type  the type
     IValue const *default_initializer_value(IType const *type);
 
-    /// Process a resource and update a relative resource URL if necessary.
-    ///
-    /// \param res  the resource to be processed
-    /// \param pos  the source code position of the resource to be processed
-    IValue_resource const *process_resource_urls(
-        IValue_resource const *res,
-        Position const        &pos);
+    // no copy constructor
+    DAG_builder(DAG_builder const &) MDL_DELETED_FUNCTION;
+
+    // no assignment operator
+    DAG_builder const &operator=(DAG_builder const &) MDL_DELETED_FUNCTION;
 
 private:
     /// The type of vectors of values.
@@ -490,9 +498,6 @@ private:
 
     /// The printer for names.
     Name_printer &m_printer;
-
-    /// The file resolver for processing resource URLs.
-    File_resolver &m_resolver;
 
     /// The used Resource modifier.
     IResource_modifier *m_resource_modifier;

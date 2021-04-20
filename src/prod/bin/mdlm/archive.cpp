@@ -1,5 +1,5 @@
 /******************************************************************************
- * Copyright (c) 2018-2019, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2018-2020, NVIDIA CORPORATION. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -105,15 +105,21 @@ bool Archive::is_valid() const
     // Archive name validity
     if (!is_valid_archive_name())
     {
-        Util::log_error("Invalid archive name");
+        Util::log_debug("Invalid archive name");
         return false;
     }
 
     // Archive file exist and is a valid MDL archive
     if ( ! Util::has_ending(m_archive_file, Archive::extension) )
     {
-        Util::log_error(m_archive_file + ": wrong extension, should be '" 
+        Util::log_debug(m_archive_file + ": wrong extension, should be '"
             + Archive::extension + "'");
+        return false;
+    }
+
+    if (!Util::File(m_archive_file).is_file())
+    {
+        Util::log_debug(m_archive_file + ": is not a file");
         return false;
     }
 
@@ -223,34 +229,16 @@ mi::Sint32 Archive::extract_to_directory(const string & directory) const
     return result;
 }
 
-template<typename Out>
-void split(const std::string &s, char delim, Out result) 
-{
-    std::stringstream ss(s);
-    std::string item;
-    while (std::getline(ss, item, delim)) {
-        *(result++) = item;
-    }
-}
-
-std::vector<std::string> split(const std::string &s, char delim) 
-{
-    std::vector<std::string> elems;
-    split(s, delim, std::back_inserter(elems));
-    return elems;
-}
-
 bool Archive::is_valid_archive_name() const
 {
     if (stem().empty())
     {
         return false;
     }
-    // Split around '.' and check validity for each term
-    std::vector<std::string> vec = split(stem(), '.');
-    for (auto& elem : vec)
+    std::vector<std::string> vec = Util::split(stem(), '.');
+    for (const std::string & elem : vec)
     {
-        if (!Util::is_valid_mdl_identifier(elem))
+        if (!Util::is_valid_archive_name(elem))
         {
             return false;
         }
@@ -270,10 +258,10 @@ bool Archive::all_dependencies_are_installed() const
         string archive_name(elem.first);
         Version required_version(elem.second);
 
-        List command(archive_name);
+        List_cmd command(archive_name);
         const int rtn = command.execute();
         check_success(rtn == 0);
-        List::List_result list = command.get_result();
+        List_cmd::List_result list = command.get_result();
 
         if (list.m_archives.empty())
         {

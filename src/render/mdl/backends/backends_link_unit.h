@@ -1,5 +1,5 @@
 /***************************************************************************************************
- * Copyright (c) 2017-2019, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2017-2020, NVIDIA CORPORATION. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -39,7 +39,8 @@
 #include <mi/base/interface_implement.h>
 #include <mi/mdl/mdl_mdl.h>
 #include <mi/mdl/mdl_code_generators.h>
-#include <mi/neuraylib/imdl_compiler.h>
+#include <mi/neuraylib/imdl_backend_api.h>
+#include <mi/neuraylib/imdl_backend.h>
 
 namespace MI {
 
@@ -65,22 +66,23 @@ public:
     ///
     /// \param llvm_be                  the LLVM backend
     /// \param transaction              the current transaction
+    /// \param context                  a pointer to an
+    ///                                 #MDL::Execution_context which can be used
+    ///                                 to pass compilation options to the MDL compiler.
     Link_unit(
-        Mdl_llvm_backend &llvm_be,
-        DB::Transaction  *transaction);
+        Mdl_llvm_backend       &llvm_be,
+        DB::Transaction        *transaction,
+        MDL::Execution_context *context);
 
 
     /// Add an MDL environment function call as a function to this link unit.
     ///
     /// \param i_call                      The MDL function call for the environment.
     /// \param fname                       The name of the function that is created.
-    /// \param[inout] context              An pointer to an
+    /// \param[inout] context              A pointer to an
     ///                                    #MDL::Execution_context which can be used
-    ///                                    to pass compilation options to the MDL compiler. The 
-    ///                                    following options are supported for this operation:
-    ///                                    - Float32 "mdl_meters_per_scene_unit" (default 1.0f)
-    ///                                    - Float32 "mdl_wavelength_min" (default 380.f)
-    ///                                    - Float32 "mdl_wavelength_max" (default 780.f)
+    ///                                    to pass compilation options to the MDL compiler.
+    ///                                    Currently, no options are supported by this operation.
     ///                                    During material compilation messages like errors and 
     ///                                    warnings will be passed to the context for 
     ///                                    later evaluation by the caller.
@@ -103,8 +105,8 @@ public:
     /// \param path        The path from the material root to the expression that should be
     ///                    translated, e.g., \c "geometry.displacement".
     /// \param fname       The name of the function that is created.
-    /// \param context     Pointer to an
-    ///                    #mi::nueraylib::IMdl_execution_context which can be used
+    /// \param context     A pointer to an
+    ///                    #MDL::Execution_context which can be used
     ///                    to pass compilation options to the MDL compiler.
     ///                    Currently, no options are supported by this operation.
     ///                    During material compilation messages like errors and
@@ -113,7 +115,7 @@ public:
     ///
     /// \return            A return code.  The return codes have the following meaning:
     ///                    -  0: Success.
-    ///                    - -1: An error occured. Please check the execution context for details.
+    ///                    - -1: An error occurred. Please check the execution context for details.
 
     mi::Sint32 add_material_expression(
         MDL::Mdl_compiled_material const *i_material,
@@ -129,7 +131,7 @@ public:
     /// \param path         The path from the material root to the expression that
     ///                     should be translated, e.g., \c "surface.scattering".
     /// \param base_fname   The base name of the generated functions.
-    /// \param context      Pointer to an #mi::nueraylib::IMdl_execution_context which can be used
+    /// \param context      Pointer to a #mi::neuraylib::IMdl_execution_context which can be used
     ///                     to pass compilation options to the MDL compiler.
     ///                     The following options are supported by this operation:
     ///                     - bool "include_geometry_normal" If true, the \c "geometry.normal"
@@ -139,7 +141,7 @@ public:
     ///                     warnings will be passed to the context for
     ///                     later evaluation by the caller.
     /// \returns            A return code. The error codes have the following meaning:
-    ///                      -  0: Success.
+    ///                     -  0: Success.
     ///                     - -1: An error occurred. Please check the execution context for details.
 
     mi::Sint32 add_material_df(
@@ -149,17 +151,21 @@ public:
         MDL::Execution_context           *context);
 
     /// Add (multiple) MDL distribution functions and expressions of a material to this link unit.
-    /// For each distribution function it results in four functions, suffixed with \c "_init",
-    /// \c "_sample", \c "_evaluate", and \c "_pdf". Functions can be selected by providing a list
-    /// of \c Target_function_descriptions. Each of them needs to define the \c path, the root
-    /// of the expression that should be translated. After calling this function, each element of
-    /// the list will contain information for later usage in the application, 
-    /// e.g., the \c argument_block_index and the \c function_index.
+    /// Functions can be selected by providing a list of \c Target_function_descriptions.
+    /// If the first function in the list uses the path "init", one init function will be generated,
+    /// precalculating values which will be used by the other requested functions.
+    /// Each other entry in the list needs to define the \c path, the root of the expression that
+    /// should be translated.
+    /// For each distribution function it results in three or four functions, suffixed with
+    /// \c "_init" (if first requested path was not \c "init"), \c "_sample", \c "_evaluate",
+    /// and \c "_pdf".
+    /// After calling this function, each element of the list will contain information for later
+    /// usage in the application, e.g., the \c argument_block_index and the \c function_index.
     ///
     /// \param material              The compiled MDL material.
-    /// \param function_descriptions The list of descriptions of function to translate.
-    /// \param lfunction_count       The size of the list of descriptions.
-    /// \param context               Pointer to an #mi::neuraylib::IMdl_execution_context which can
+    /// \param[inout] function_descriptions The list of descriptions of function to translate.
+    /// \param function_count        The size of the list of descriptions.
+    /// \param[inout] context        Pointer to an #mi::neuraylib::IMdl_execution_context which can
     ///                              be used to pass compilation options to the MDL compiler.
     ///                              The following options are supported by this operation:
     ///                              - bool "include_geometry_normal" If true, the
@@ -172,7 +178,47 @@ public:
     ///                      -  0: Success.
     ///                      - -1: An error occurred while processing the entries in the list.
     ///                            Please check the execution context for details.
-    virtual mi::Sint32 add_material(
+    ///
+    /// \note Upon unsuccessful return, function_descriptions.return_code might contain further
+    ///       info.
+    mi::Sint32 add_material(
+        MDL::Mdl_compiled_material const             *i_material,
+        mi::neuraylib::Target_function_description   *function_descriptions,
+        mi::Size                                      function_count,
+        MDL::Execution_context                       *context);
+
+    /// Add (multiple) MDL distribution functions and expressions of a material to this link unit.
+    /// Functions can be selected by providing a list of \c Target_function_descriptions.
+    /// The first function in the list is expected to use the path "init".
+    /// For this an init function will be generated, precalculating values which will be used by
+    /// the other requested functions.
+    /// Each other entry in the list needs to define the \c path, the root of the expression that
+    /// should be translated.
+    /// For each distribution function it results in three functions, suffixed with \c "_sample",
+    /// \c "_evaluate", and \c "_pdf".
+    /// After calling this function, each element of the list will contain information for later
+    /// usage in the application, e.g., the \c argument_block_index and the \c function_index.
+    ///
+    /// \param material              The compiled MDL material.
+    /// \param[inout] function_descriptions  The list of descriptions of function to translate.
+    /// \param function_count        The size of the list of descriptions.
+    /// \param[inout] context        Pointer to an #mi::neuraylib::IMdl_execution_context which can
+    ///                              be used to pass compilation options to the MDL compiler.
+    ///                              The following options are supported by this operation:
+    ///                              - bool "include_geometry_normal" If true, the
+    ///                                \c "geometry.normal" field will be applied to the MDL state
+    ///                                prior to evaluation of the given DF (default: true).
+    ///                              During material compilation messages like errors and
+    ///                              warnings will be passed to the context for
+    ///                              later evaluation by the caller.
+    /// \returns             A return code. The error codes have the following meaning:
+    ///                      -  0: Success.
+    ///                      - -1: An error occurred while processing the entries in the list.
+    ///                            Please check the execution context for details.
+    ///
+    /// \note Upon unsuccessful return, function_descriptions.return_code might contain further
+    ///       info.
+    mi::Sint32 add_material_single_init(
         MDL::Mdl_compiled_material const             *i_material,
         mi::neuraylib::Target_function_description   *function_descriptions,
         mi::Size                                      function_count,
@@ -249,7 +295,7 @@ private:
     mi::base::Handle<mi::mdl::IMDL> m_compiler;
 
     /// The kind of the backend.
-    mi::neuraylib::IMdl_compiler::Mdl_backend_kind m_be_kind;
+    mi::neuraylib::IMdl_backend_api::Mdl_backend_kind m_be_kind;
 
     /// The MDL link unit.
     mi::base::Handle<mi::mdl::ILink_unit> m_unit;
@@ -293,6 +339,7 @@ private:
     /// created.
     std::vector<mi::base::Handle<MDL::IValue_list const> > m_arg_block_comp_material_args;
 
+    /// The internal space seen when this link unit was created.
     std::string m_internal_space;
 };
 

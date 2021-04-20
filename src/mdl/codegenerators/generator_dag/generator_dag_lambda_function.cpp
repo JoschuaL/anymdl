@@ -1,5 +1,5 @@
 /******************************************************************************
- * Copyright (c) 2013-2019, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2013-2020, NVIDIA CORPORATION. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -37,8 +37,11 @@
 #include "mdl/compiler/compilercore/compilercore_visitor.h"
 #include "mdl/compiler/compilercore/compilercore_streams.h"
 #include "mdl/compiler/compilercore/compilercore_array_ref.h"
-#include "mdl/compiler/compilercore/compilercore_file_resolution.h"
 #include "mdl/compiler/compilercore/compilercore_hash.h"
+#include "mdl/compiler/compilercore/compilercore_tools.h"
+#include "mdl/compiler/compilercore/compilercore_visitor.h"
+
+#include "mdl/codegenerators/generator_code/generator_code.h"
 
 #include "generator_dag_tools.h"
 #include "generator_dag_serializer.h"
@@ -51,6 +54,9 @@ namespace mi {
 namespace mdl {
 
 namespace {
+
+typedef Store<mi::base::Handle<IModule const> >  IModule_scope;
+
 
 ///
 /// Helper class to dump an material expression DAG as a dot file.
@@ -198,9 +204,13 @@ Lambda_function::Lambda_function(
 , m_hash_is_valid(false)
 , m_deriv_infos_calculated(false)
 , m_deriv_infos(alloc)
+, m_resource_tag_map(alloc)
 {
     // CSE is always enabled when creating a lambda function
     m_node_factory.enable_cse(true);
+
+    // FIXME: should we allow unsafe math here?
+    m_node_factory.enable_unsafe_math_opt(false);
 }
 
 // Get the internal space from the execution context.
@@ -453,18 +463,12 @@ Lambda_function *Lambda_function::garbage_collection()
 
     // copy the resource map, otherwise our new lambda function might have different
     // mapping from IValue_resources to resource indexes
-    IValue_factory *fact = n_func->get_value_factory();
     for (Resource_attr_map::const_iterator
          it(m_resource_attr_map.begin()), end(m_resource_attr_map.end());
          it != end;
          ++it)
     {
-        IValue const         *v = it->first;
-        Resource_entry const &entry = it->second;
-
-        v = fact->import(v);
-
-        n_func->m_resource_attr_map[v] = entry;
+        n_func->m_resource_attr_map[it->first] = it->second;
     }
 
     return n_func;
@@ -486,40 +490,228 @@ size_t Lambda_function::get_root_expr_count() const
 
 namespace {
 
-/// Helper class to collect all resources from a DAG walk.
-class Resource_collector : public IDAG_ir_visitor {
-public:
-    typedef set<IValue const *>::Type Resource_set;
-    typedef vector<IValue const *>::Type Resource_list;
+typedef ptr_hash_set<IValue const>::Type Resource_set;
+typedef vector<IValue const *>::Type Resource_list;
+typedef ptr_hash_map<IValue const, ILambda_resource_enumerator::Texture_usage>::Type Texture_usage_map;
+typedef ptr_hash_map<IDefinition const, ILambda_resource_enumerator::Texture_usage *>::Type
+    Arg_usages_by_def;
+typedef map<IDefinition::Semantics, ILambda_resource_enumerator::Texture_usage *>::Type
+    Arg_usages_by_semantics;
 
+class Resource_collector;
+
+/// Helper class to collect all resources from a AST walk.
+class Resource_AST_collector : private Module_visitor {
+public:
     /// Constructor.
-    ///
-    /// \param textures           a list that will be filled with unique found textures
-    /// \param light_profiles     a list that will be filled with unique found light profiles
-    /// \param bsdf_measurements  a list that will be filled with unique found bsdf measurements
-    Resource_collector(
-        IAllocator *alloc,
-        Resource_list &textures,
-        Resource_list &light_profiles,
-        Resource_list &bsdf_measurements)
-    : m_textures(textures)
+    Resource_AST_collector(
+        IAllocator              *alloc,
+        Memory_arena            &arena,
+        Resource_collector      &res_collector,
+        Resource_list           &textures,
+        Resource_list           &light_profiles,
+        Resource_list           &bsdf_measurements,
+        Resource_set            &found_resources,
+        Texture_usage_map       &tex_usage_map,
+        Arg_usages_by_def       &arg_usages_by_def,
+        Arg_usages_by_semantics &arg_usages_by_semantics)
+    : m_arena(arena)
+    , m_res_collector(res_collector)
+    , m_textures(textures)
     , m_light_profiles(light_profiles)
     , m_bsdf_measurements(bsdf_measurements)
-    , m_found_resources(Resource_set::key_compare(), alloc)
+    , m_found_resources(found_resources)
+    , m_tex_usage_map(tex_usage_map)
+    , m_arg_usages_by_def(arg_usages_by_def)
+    , m_arg_usages_by_semantics(arg_usages_by_semantics)
+    , m_mod()
+    , m_tex_usage(0)
+    , m_param_usage_map(alloc)
     {
     }
 
-    /// Post-visit a Constant.
+    /// Calculate the argument usage of a function and collect used resources.
+    ILambda_resource_enumerator::Texture_usage *process_function(
+        mi::base::Handle<IModule const> owner,
+        IDefinition const *def)
+    {
+        IDeclaration_function const *f = as<IDeclaration_function>(def->get_declaration());
+        if (f == NULL)
+            return NULL;
+
+        // Allocate argument usage array
+        size_t num_params = f->get_parameter_count();
+        size_t alloc_size = std::max(size_t(1), num_params) *
+            sizeof(ILambda_resource_enumerator::Texture_usage);
+        ILambda_resource_enumerator::Texture_usage *arg_usages =
+            reinterpret_cast<ILambda_resource_enumerator::Texture_usage *>(
+                m_arena.allocate(alloc_size));
+        memset(arg_usages, 0, alloc_size);
+
+        // Map function parameters to argument usage slots
+        for (size_t i = 0; i < num_params; ++i) {
+            m_param_usage_map[f->get_parameter(i)->get_name()->get_definition()] = arg_usages + i;
+        }
+
+        IModule_scope scope(m_mod, owner);
+        visit(f);
+
+        return arg_usages;
+    }
+
+private:
+    /// Post-visit a literal expression.
     ///
     /// \param cnst  the constant that is visited
-    void visit(DAG_constant *cnst) MDL_FINAL
+    IExpression *post_visit(IExpression_literal *expr) MDL_FINAL
     {
-        IValue const *v = cnst->get_value();
+        IValue const *v = expr->get_value();
         IType const  *t = v->get_type();
 
         // note: this also collects invalid references ...
         switch (t->get_kind()) {
         case IType::TK_TEXTURE:
+            if (m_tex_usage)
+                m_tex_usage_map[v] |= m_tex_usage;
+
+            if (m_found_resources.insert(v).second) { // inserted for first time?
+                m_textures.push_back(v);
+            }
+            break;
+        case IType::TK_LIGHT_PROFILE:
+            if (m_found_resources.insert(v).second) { // inserted for first time?
+                m_light_profiles.push_back(v);
+            }
+            break;
+        case IType::TK_BSDF_MEASUREMENT:
+            if (m_found_resources.insert(v).second) { // inserted for first time?
+                m_bsdf_measurements.push_back(v);
+            }
+            break;
+        default:
+            break;
+        }
+        return expr;
+    }
+
+    /// Pre-visit a call expression.
+    ///
+    /// \param call  the call that is visited
+    ///
+    /// \return true, if the children should be visited
+    bool pre_visit(IExpression_call *call) MDL_FINAL;
+
+    /// Post-visit a reference expression.
+    IExpression *post_visit(IExpression_reference *ref) MDL_FINAL
+    {
+        IDefinition const *def = ref->get_definition();
+
+        // Ignore references without definition (array constructor, for example string[] in anno)
+        if (def == NULL)
+            return ref;
+
+        if (def->get_kind() == IDefinition::DK_PARAMETER) {
+            if (is<IType_texture>(def->get_type()->skip_type_alias())) {
+                ILambda_resource_enumerator::Texture_usage *usage = m_param_usage_map[def];
+                MDL_ASSERT(usage);
+                if (usage)
+                    *usage |= m_tex_usage;
+            }
+        }
+        return ref;
+    }
+
+
+private:
+    Memory_arena            &m_arena;
+    Resource_collector      &m_res_collector;
+    Resource_list           &m_textures;
+    Resource_list           &m_light_profiles;
+    Resource_list           &m_bsdf_measurements;
+    Resource_set            &m_found_resources;
+    Texture_usage_map       &m_tex_usage_map;
+    Arg_usages_by_def       &m_arg_usages_by_def;
+    Arg_usages_by_semantics &m_arg_usages_by_semantics;
+
+    mi::base::Handle<IModule const> m_mod;
+
+    ILambda_resource_enumerator::Texture_usage m_tex_usage;
+
+    typedef ptr_hash_map<IDefinition const, ILambda_resource_enumerator::Texture_usage *>::Type
+        Parameter_usage_map;
+    Parameter_usage_map m_param_usage_map;
+};
+
+
+struct Argument_usage_init_table
+{
+    IDefinition::Semantics sema;
+    ILambda_resource_enumerator::Texture_usage arg_usage[8];  // for intrinsics support up to 8 args
+};
+
+static Argument_usage_init_table arg_usage_init_table[] = {
+    #define USAGE_ON_FIRST_ARG(sema, usage) \
+        { \
+            IDefinition::sema, \
+            { ILambda_resource_enumerator::usage, 0, 0, 0, 0, 0, 0, 0 } \
+        }
+
+    USAGE_ON_FIRST_ARG(DS_INTRINSIC_TEX_HEIGHT,           TU_HEIGHT),
+    USAGE_ON_FIRST_ARG(DS_INTRINSIC_TEX_WIDTH,            TU_WIDTH),
+    USAGE_ON_FIRST_ARG(DS_INTRINSIC_TEX_DEPTH,            TU_DEPTH),
+    USAGE_ON_FIRST_ARG(DS_INTRINSIC_TEX_LOOKUP_FLOAT,     TU_LOOKUP_FLOAT),
+    USAGE_ON_FIRST_ARG(DS_INTRINSIC_TEX_LOOKUP_FLOAT2,    TU_LOOKUP_FLOAT2),
+    USAGE_ON_FIRST_ARG(DS_INTRINSIC_TEX_LOOKUP_FLOAT3,    TU_LOOKUP_FLOAT3),
+    USAGE_ON_FIRST_ARG(DS_INTRINSIC_TEX_LOOKUP_FLOAT4,    TU_LOOKUP_FLOAT4),
+    USAGE_ON_FIRST_ARG(DS_INTRINSIC_TEX_LOOKUP_COLOR,     TU_LOOKUP_COLOR),
+    USAGE_ON_FIRST_ARG(DS_INTRINSIC_TEX_TEXEL_FLOAT,      TU_TEXEL_FLOAT),
+    USAGE_ON_FIRST_ARG(DS_INTRINSIC_TEX_TEXEL_FLOAT2,     TU_TEXEL_FLOAT2),
+    USAGE_ON_FIRST_ARG(DS_INTRINSIC_TEX_TEXEL_FLOAT3,     TU_TEXEL_FLOAT3),
+    USAGE_ON_FIRST_ARG(DS_INTRINSIC_TEX_TEXEL_FLOAT4,     TU_TEXEL_FLOAT4),
+    USAGE_ON_FIRST_ARG(DS_INTRINSIC_TEX_TEXEL_COLOR,      TU_TEXEL_COLOR),
+    USAGE_ON_FIRST_ARG(DS_INTRINSIC_TEX_TEXTURE_ISVALID,  TU_TEXTURE_ISVALID),
+
+    #undef USAGE_ON_FIRST_ARG
+};
+
+
+/// Helper class to collect all resources.
+class Resource_collector {
+public:
+    /// Constructor.
+    ///
+    /// \param alloc              the allocator
+    /// \param name_resolver      a call name resolver
+    /// \param lambda_func        the lambda function
+    /// \param textures           a list that will be filled with unique found textures
+    /// \param light_profiles     a list that will be filled with unique found light profiles
+    /// \param bsdf_measurements  a list that will be filled with unique found bsdf measurements
+    Resource_collector(
+        IAllocator                *alloc,
+        ICall_name_resolver const &name_resolver,
+        Lambda_function const     &lambda_func,
+        Resource_list             &textures,
+        Resource_list             &light_profiles,
+        Resource_list             &bsdf_measurements);
+
+    /// Collect resources and texture usage information for the given DAG node.
+    void collect(DAG_node const *node);
+
+    /// Post-visit a Constant.
+    ///
+    /// \param cnst  the constant that is visited
+    void visit_constant(DAG_constant const *cnst)
+    {
+        IValue const *v = cnst->get_value();
+        IType const  *t = v->get_type();
+
+        // note: this also collects invalid references, because we check for the type,
+        // not for the value kind ...
+        switch (t->get_kind()) {
+        case IType::TK_TEXTURE:
+            if (m_tex_usage)
+                m_tex_usage_map[v] |= m_tex_usage;
+
             if (m_found_resources.insert(v).second)  // inserted for first time?
                 m_textures.push_back(v);
             break;
@@ -536,84 +728,340 @@ public:
         }
     }
 
-    /// Post-visit a Temporary.
-    ///
-    /// \param tmp  the temporary that is visited
-    void visit(DAG_temporary *tmp) MDL_FINAL
-    {
-        // do nothing, but should not happen here
-        MDL_ASSERT(!"temporaries should not occur here");
-    }
-
-    /// Post-visit a call.
+    /// Post-visit a Call.
     ///
     /// \param call  the call that is visited
-    void visit(DAG_call *call) MDL_FINAL
+    void visit_call(DAG_call const *call);
+
+    /// Returns the potential texture usage of a value.
+    ILambda_resource_enumerator::Texture_usage get_texture_usage(IValue const *value) const
     {
-        // do nothing
+        Texture_usage_map::const_iterator it = m_tex_usage_map.find(value);
+        if (it == m_tex_usage_map.end())
+            return 0;
+        return it->second;
     }
 
-    /// Post-visit a Parameter.
-    ///
-    /// \param param  the parameter that is visited
-    void visit(DAG_parameter *param) MDL_FINAL
-    {
-        // do nothing
-    }
+    /// Returns the argument usage for the given definition and calculates it, if necessary.
+    ILambda_resource_enumerator::Texture_usage *get_or_calc_arg_usage(
+        mi::base::Handle<IModule const> owner,
+        IDefinition const *def);
 
-    /// Post-visit a temporary initializer.
-    ///
-    /// \param index  the index of the temporary
-    /// \param init   the initializer expression of this temporary
-    void visit(int index, DAG_node *init) MDL_FINAL
+    /// Ensure, we keep a reference to the module, to avoid IValues from disappearing.
+    void keep_module_reference(mi::base::Handle<IModule const> module)
     {
-        // should never be called
-        MDL_ASSERT(!"temporary initializers should not occur here");
+        m_module_set.insert(module);
     }
 
 private:
-    Resource_list &m_textures;
-    Resource_list &m_light_profiles;
-    Resource_list &m_bsdf_measurements;
-    Resource_set  m_found_resources;
+    /// The memory arena used to allocate usage information.
+    Memory_arena               m_arena;
+
+    ICall_name_resolver const &m_resolver;
+
+    Lambda_function const     &m_lambda_func;
+
+    Resource_list             &m_textures;
+    Resource_list             &m_light_profiles;
+    Resource_list             &m_bsdf_measurements;
+    Resource_set              m_found_resources;
+
+    typedef ptr_hash_map<IValue const, ILambda_resource_enumerator::Texture_usage>::Type
+        Texture_usage_map;
+    Texture_usage_map         m_tex_usage_map;
+
+    Arg_usages_by_def         m_arg_usages_by_def;
+    Arg_usages_by_semantics   m_arg_usages_by_sema;
+
+    Resource_AST_collector    m_ast_collector;
+
+    typedef ptr_hash_set<DAG_node const>::Type Visited_set;
+    Visited_set               m_visited;
+
+    ILambda_resource_enumerator::Texture_usage  m_tex_usage;
+
+    typedef handle_hash_set<IModule const>::Type Module_set;
+    Module_set                m_module_set;
 };
+
+// Pre-visit a call expression.
+bool Resource_AST_collector::pre_visit(IExpression_call *call)
+{
+    if (IExpression_reference const *ref = as<IExpression_reference>(call->get_reference())) {
+        if (IDefinition const *def = ref->get_definition()) {
+            mi::base::Handle<IModule const> owner(m_mod->get_owner_module(def));
+            m_res_collector.keep_module_reference(owner);
+
+            def = m_mod->get_original_definition(def);
+
+            // TODO: May lead to very deep recursion. Maybe better put into working queue
+            //       together with state (m_tex_usage and the call)
+            ILambda_resource_enumerator::Texture_usage *arg_usages =
+                m_res_collector.get_or_calc_arg_usage(owner, def);
+
+            ILambda_resource_enumerator::Texture_usage old_tex_usage = m_tex_usage;
+            for (int i = 0, n = call->get_argument_count(); i < n; ++i) {
+                IArgument const *arg = call->get_argument(i);
+
+                if (arg_usages) {
+                    if (is<IType_texture>(
+                            arg->get_argument_expr()->get_type()->skip_type_alias())) {
+                        m_tex_usage = old_tex_usage | arg_usages[i];
+                    } else {
+                        m_tex_usage = arg_usages[i];
+                    }
+                }
+
+                visit(arg);
+            }
+            m_tex_usage = old_tex_usage;
+            return false;  // already visited
+        }
+    }
+    return true;
+}
+
+// Constructor.
+Resource_collector::Resource_collector(
+    IAllocator                *alloc,
+    ICall_name_resolver const &name_resolver,
+    Lambda_function const     &lambda_func,
+    Resource_list             &textures,
+    Resource_list             &light_profiles,
+    Resource_list             &bsdf_measurements)
+: m_arena(alloc)
+, m_resolver(name_resolver)
+, m_lambda_func(lambda_func)
+, m_textures(textures)
+, m_light_profiles(light_profiles)
+, m_bsdf_measurements(bsdf_measurements)
+, m_found_resources(alloc)
+, m_tex_usage_map(alloc)
+, m_arg_usages_by_def(alloc)
+, m_arg_usages_by_sema(alloc)
+, m_ast_collector(alloc, m_arena, *this, textures, light_profiles, bsdf_measurements,
+    m_found_resources, m_tex_usage_map, m_arg_usages_by_def, m_arg_usages_by_sema)
+, m_visited(alloc)
+, m_tex_usage(0)
+, m_module_set(alloc)
+{
+    for (size_t i = 0, n = sizeof(arg_usage_init_table) / sizeof(*arg_usage_init_table);
+            i < n; ++i) {
+        m_arg_usages_by_sema[arg_usage_init_table[i].sema] = arg_usage_init_table[i].arg_usage;
+    }
+}
+
+void Resource_collector::collect(DAG_node const *node)
+{
+    // note: we don't check, whether the node was already visited, because the same node
+    //       may have to be visited with different texture usages.
+    //       As this is a DAG, we won't cause an endless iteration, though
+
+    switch (node->get_kind()) {
+    case DAG_node::EK_TEMPORARY:
+        {
+            // should not happen, but we can handle it
+            DAG_temporary const *t = cast<DAG_temporary>(node);
+            node = t->get_expr();
+            collect(node);
+        }
+        break;
+
+    case DAG_node::EK_CONSTANT:
+        {
+            DAG_constant const *c = cast<DAG_constant>(node);
+            visit_constant(c);
+        }
+        break;
+
+    case DAG_node::EK_PARAMETER:
+        // nothing to do, yet
+        break;
+
+    case DAG_node::EK_CALL:
+        {
+            DAG_call const *call = cast<DAG_call>(node);
+            visit_call(call);
+        }
+        break;
+    }
+}
+
+// Post-visit a Call.
+void Resource_collector::visit_call(DAG_call const *call)
+{
+    ILambda_resource_enumerator::Texture_usage *arg_usages = NULL;
+
+    IDefinition::Semantics sema = call->get_semantic();
+    if (sema == IDefinition::DS_UNKNOWN) {
+        // visit function and other material bodies
+        char const *signature = call->get_name();
+        if (signature[0] == '#') {
+            // skip prefix for derivative variants
+            ++signature;
+        }
+        mi::base::Handle<mi::mdl::IModule const> mod(
+            m_resolver.get_owner_module(signature));
+        if (mod.is_valid_interface()) {
+            keep_module_reference(mod);
+
+            Module const *owner = impl_cast<mi::mdl::Module>(mod.get());
+            IDefinition const *def = owner->find_signature(
+                signature, /*only_exported=*/false);
+            MDL_ASSERT(def != NULL && "signature has no definition");
+            arg_usages = get_or_calc_arg_usage(mod, def);
+        }
+    } else {
+        // handle known functions:
+        // register multiscatter BSDF data textures
+        IValue_texture::Bsdf_data_kind bsdf_data_kind = IValue_texture::BDK_NONE;
+        switch (sema) {
+        case IDefinition::DS_INTRINSIC_DF_SIMPLE_GLOSSY_BSDF:
+            bsdf_data_kind = IValue_texture::BDK_SIMPLE_GLOSSY_MULTISCATTER;
+            break;
+        case IDefinition::DS_INTRINSIC_DF_BACKSCATTERING_GLOSSY_REFLECTION_BSDF:
+            bsdf_data_kind = IValue_texture::BDK_BACKSCATTERING_GLOSSY_MULTISCATTER;
+            break;
+        case IDefinition::DS_INTRINSIC_DF_MICROFACET_BECKMANN_SMITH_BSDF:
+            bsdf_data_kind = IValue_texture::BDK_BECKMANN_SMITH_MULTISCATTER;
+            break;
+        case IDefinition::DS_INTRINSIC_DF_MICROFACET_GGX_SMITH_BSDF:
+            bsdf_data_kind = IValue_texture::BDK_GGX_SMITH_MULTISCATTER;
+            break;
+        case IDefinition::DS_INTRINSIC_DF_MICROFACET_BECKMANN_VCAVITIES_BSDF:
+            bsdf_data_kind = IValue_texture::BDK_BECKMANN_VC_MULTISCATTER;
+            break;
+        case IDefinition::DS_INTRINSIC_DF_MICROFACET_GGX_VCAVITIES_BSDF:
+            bsdf_data_kind = IValue_texture::BDK_GGX_VC_MULTISCATTER;
+            break;
+        case IDefinition::DS_INTRINSIC_DF_WARD_GEISLER_MORODER_BSDF:
+            bsdf_data_kind = IValue_texture::BDK_WARD_GEISLER_MORODER_MULTISCATTER;
+            break;
+        case IDefinition::DS_INTRINSIC_DF_SHEEN_BSDF:
+            bsdf_data_kind = IValue_texture::BDK_SHEEN_MULTISCATTER;
+            break;
+        default:
+            break;
+        }
+
+        if (bsdf_data_kind != IValue_texture::BDK_NONE) {
+            // check whether multiscatter_tint is a constant zero color
+            DAG_node const *multiscatter_tint = call->get_argument("multiscatter_tint");
+            if (multiscatter_tint != NULL &&
+                    multiscatter_tint->get_kind() == DAG_node::EK_CONSTANT) {
+                IValue_rgb_color const *val = as<IValue_rgb_color>(
+                        cast<DAG_constant>(multiscatter_tint)->get_value());
+                if (val != NULL &&
+                        val->get_value(0)->get_value() == 0.f &&
+                        val->get_value(1)->get_value() == 0.f &&
+                        val->get_value(2)->get_value() == 0.f) {
+                    // no need to use multiscatter data textures for zero multiscatter tint
+                    return;
+                }
+            }
+
+            // ugly: we inject a bsdf_data texture value into the lambda function here
+            Lambda_function *lambda = const_cast<Lambda_function *>(&m_lambda_func);
+            IValue_factory *vf = lambda->get_value_factory();
+            IValue const *v = vf->create_bsdf_data_texture(
+                bsdf_data_kind,
+                /*tag_value=*/ 0,
+                /*tag_version=*/ 0);
+
+            // libbsdf uses tex::lookup_float3_3d()
+            m_tex_usage_map[v] |= ILambda_resource_enumerator::TU_LOOKUP_FLOAT3;
+            if (m_found_resources.insert(v).second)  // inserted for first time?
+                m_textures.push_back(v);
+        }
+
+        Arg_usages_by_semantics::const_iterator it = m_arg_usages_by_sema.find(sema);
+        if (it != m_arg_usages_by_sema.end())
+            arg_usages = it->second;
+    }
+
+    ILambda_resource_enumerator::Texture_usage old_tex_usage = m_tex_usage;
+    for (int i = 0, n = call->get_argument_count(); i < n; ++i) {
+        DAG_node const *arg = call->get_argument(i);
+
+        if (arg_usages) {
+            if (is<IType_texture>(arg->get_type()->skip_type_alias())) {
+                m_tex_usage = old_tex_usage | arg_usages[i];
+            } else {
+                m_tex_usage = arg_usages[i];
+            }
+        }
+
+        collect(arg);
+    }
+    m_tex_usage = old_tex_usage;
+}
+
+// Returns the argument usage for the given definition and calculates it, if necessary.
+ILambda_resource_enumerator::Texture_usage *Resource_collector::get_or_calc_arg_usage(
+    mi::base::Handle<IModule const> owner, IDefinition const *def)
+{
+    if (def == NULL)
+        return NULL;
+
+    IDefinition::Semantics sema = def->get_semantics();
+    if (sema == IDefinition::DS_UNKNOWN) {
+        Arg_usages_by_def::const_iterator it = m_arg_usages_by_def.find(def);
+        if (it != m_arg_usages_by_def.end())
+            return it->second;
+
+        if (!is<IDeclaration_function>(def->get_declaration()))
+            return NULL;
+
+        ILambda_resource_enumerator::Texture_usage *arg_usages =
+            m_ast_collector.process_function(owner, def);
+        m_arg_usages_by_def[def] = arg_usages;
+        return arg_usages;
+    }
+
+    Arg_usages_by_semantics::const_iterator it = m_arg_usages_by_sema.find(sema);
+    if (it != m_arg_usages_by_sema.end())
+        return it->second;
+
+    return NULL;
+}
 
 }   // anonymous
 
 /// Enumerate all used texture resources of this lambda function.
 void Lambda_function::enumerate_resources(
+    ICall_name_resolver const   &resolver,
     ILambda_resource_enumerator &enumerator,
     DAG_node const              *root) const
 {
-    typedef Resource_collector::Resource_list Res_list;
-
-    DAG_ir_walker      walker(get_allocator());
-    Res_list           textures(get_allocator());
-    Res_list           light_profiles(get_allocator());
-    Res_list           bsdf_measurements(get_allocator());
-    Resource_collector collector(get_allocator(), textures, light_profiles, bsdf_measurements);
+    DAG_ir_walker      walker(get_allocator(), /*as_tree=*/false);
+    Resource_list      textures(get_allocator());
+    Resource_list      light_profiles(get_allocator());
+    Resource_list      bsdf_measurements(get_allocator());
+    Resource_collector collector(
+        get_allocator(), resolver, *this, textures, light_profiles, bsdf_measurements);
 
     if (root != NULL) {
-        walker.walk_node(const_cast<DAG_node *>(root), &collector);
+        collector.collect(root);
     } else {
         // assume that a switch function is processed
         for (Root_vector::const_iterator it(m_roots.begin()), end(m_roots.end()); it != end; ++it) {
             // Note: due to material updates holes can occur in the root range
             if (DAG_node const *root = *it) {
-                walker.walk_node(const_cast<DAG_node *>(root), &collector);
+                collector.collect(root);
             }
         }
     }
 
-    for (Res_list::iterator it(textures.begin()), end(textures.end());
+    for (Resource_list::const_iterator it(textures.begin()), end(textures.end());
          it != end;
          ++it)
     {
         IValue const *texture = *it;
+        ILambda_resource_enumerator::Texture_usage tex_usage = collector.get_texture_usage(texture);
 
-        enumerator.texture(texture);
+        enumerator.texture(texture, tex_usage);
     }
-    for (Res_list::iterator it(light_profiles.begin()), end(light_profiles.end());
+    for (Resource_list::const_iterator it(light_profiles.begin()), end(light_profiles.end());
          it != end;
           ++it)
     {
@@ -621,7 +1069,7 @@ void Lambda_function::enumerate_resources(
 
         enumerator.light_profile(lp);
     }
-    for (Res_list::iterator it(bsdf_measurements.begin()), end(bsdf_measurements.end());
+    for (Resource_list::const_iterator it(bsdf_measurements.begin()), end(bsdf_measurements.end());
          it != end;
          ++it)
     {
@@ -633,48 +1081,155 @@ void Lambda_function::enumerate_resources(
 
 // Register a texture resource mapping.
 void Lambda_function::map_tex_resource(
-    IValue const *res,
-    size_t       idx,
-    bool         valid,
-    int          width,
-    int          height,
-    int          depth)
+    IValue::Kind                   res_kind,
+    char const                     *res_url,
+    IValue_texture::gamma_mode     gamma,
+    IValue_texture::Bsdf_data_kind bsdf_data_kind,
+    IType_texture::Shape           shape,
+    int                            res_tag,
+    size_t                         idx,
+    bool                           valid,
+    int                            width,
+    int                            height,
+    int                            depth)
 {
-    Resource_entry e;
+    Resource_attr_entry e;
     e.index        = idx;
     e.valid        = valid;
     e.u.tex.width  = width;
     e.u.tex.height = height;
     e.u.tex.depth  = depth;
-    m_resource_attr_map[res] = e;
+    e.u.tex.shape  = shape;
+    Resource_tag_tuple::Kind kind = Resource_tag_tuple::RK_BAD;
+    switch (res_kind) {
+    case IValue::VK_TEXTURE:
+        switch (bsdf_data_kind) {
+        case IValue_texture::BDK_NONE:
+            // assume real texture here
+            switch (gamma) {
+            case IValue_texture::gamma_default:
+                kind = Resource_tag_tuple::RK_TEXTURE_GAMMA_DEFAULT;
+                break;
+            case IValue_texture::gamma_linear:
+                kind = Resource_tag_tuple::RK_TEXTURE_GAMMA_LINEAR;
+                break;
+            case IValue_texture::gamma_srgb:
+                kind = Resource_tag_tuple::RK_TEXTURE_GAMMA_SRGB;
+                break;
+            default:
+                MDL_ASSERT(!"unexpected gamma mode");
+                kind = Resource_tag_tuple::RK_TEXTURE_GAMMA_DEFAULT;
+                break;
+            }
+            break;
+        case IValue_texture::BDK_SIMPLE_GLOSSY_MULTISCATTER:
+            kind = Resource_tag_tuple::RK_SIMPLE_GLOSSY_MULTISCATTER;
+            break;
+        case IValue_texture::BDK_BACKSCATTERING_GLOSSY_MULTISCATTER:
+            kind = Resource_tag_tuple::RK_BACKSCATTERING_GLOSSY_MULTISCATTER;
+            break;
+        case IValue_texture::BDK_BECKMANN_SMITH_MULTISCATTER:
+            kind = Resource_tag_tuple::RK_BECKMANN_SMITH_MULTISCATTER;
+            break;
+        case IValue_texture::BDK_GGX_SMITH_MULTISCATTER:
+            kind = Resource_tag_tuple::RK_GGX_SMITH_MULTISCATTER;
+            break;
+        case IValue_texture::BDK_BECKMANN_VC_MULTISCATTER:
+            kind = Resource_tag_tuple::RK_BECKMANN_VC_MULTISCATTER;
+            break;
+        case IValue_texture::BDK_GGX_VC_MULTISCATTER:
+            kind = Resource_tag_tuple::RK_GGX_VC_MULTISCATTER;
+            break;
+        case IValue_texture::BDK_WARD_GEISLER_MORODER_MULTISCATTER:
+            kind = Resource_tag_tuple::RK_WARD_GEISLER_MORODER_MULTISCATTER;
+            break;
+        case IValue_texture::BDK_SHEEN_MULTISCATTER:
+            kind = Resource_tag_tuple::RK_SHEEN_MULTISCATTER;
+            break;
+        default:
+            MDL_ASSERT(!"unexpected bsdf data kind");
+            kind = Resource_tag_tuple::RK_TEXTURE_GAMMA_DEFAULT;
+            break;
+        }
+        break;
+    case IValue::VK_INVALID_REF:
+        kind = Resource_tag_tuple::RK_INVALID_REF;
+        break;
+    default:
+        MDL_ASSERT(!"unexpected value kind");
+        break;
+    }
+
+    res_url = res_url != NULL ? Arena_strdup(m_arena, res_url) : NULL;
+    Resource_tag_tuple key(kind, res_url, res_tag);
+
+    m_resource_attr_map[key] = e;
 }
 
 // Register a light profile resource mapping.
 void Lambda_function::map_lp_resource(
-    IValue const *res,
+    IValue::Kind res_kind,
+    char const   *res_url,
+    int          res_tag,
     size_t       idx,
     bool         valid,
     float        power,
     float        maximum)
 {
-    Resource_entry e;
+    Resource_attr_entry e;
     e.index        = idx;
     e.valid        = valid;
     e.u.lp.power   = power;
     e.u.lp.maximum = maximum;
-    m_resource_attr_map[res] = e;
+
+    Resource_tag_tuple::Kind kind = Resource_tag_tuple::RK_BAD;
+    switch (res_kind) {
+    case IValue::VK_LIGHT_PROFILE:
+        kind = Resource_tag_tuple::RK_LIGHT_PROFILE;
+        break;
+    case IValue::VK_INVALID_REF:
+        kind = Resource_tag_tuple::RK_INVALID_REF;
+        break;
+    default:
+        MDL_ASSERT(!"unexpected value kind");
+        break;
+    }
+
+    res_url = res_url != NULL ? Arena_strdup(m_arena, res_url) : NULL;
+    Resource_tag_tuple key(kind, res_url, res_tag);
+
+    m_resource_attr_map[key] = e;
 }
 
 // Register a bsdf measurement resource mapping.
 void Lambda_function::map_bm_resource(
-    IValue const *res,
+    IValue::Kind res_kind,
+    char const   *res_url,
+    int          res_tag,
     size_t       idx,
     bool         valid)
 {
-    Resource_entry e;
+    Resource_attr_entry e;
     e.index = idx;
     e.valid = valid;
-    m_resource_attr_map[res] = e;
+
+    Resource_tag_tuple::Kind kind = Resource_tag_tuple::RK_BAD;
+    switch (res_kind) {
+    case IValue::VK_BSDF_MEASUREMENT:
+        kind = Resource_tag_tuple::RK_BSDF_MEASUREMENT;
+        break;
+    case IValue::VK_INVALID_REF:
+        kind = Resource_tag_tuple::RK_INVALID_REF;
+        break;
+    default:
+        MDL_ASSERT(!"unexpected value kind");
+        break;
+    }
+
+    res_url = res_url != NULL ? Arena_strdup(m_arena, res_url) : NULL;
+    Resource_tag_tuple key(kind, res_url, res_tag);
+
+    m_resource_attr_map[key] = e;
 }
 
 // Analyze a lambda function.
@@ -709,18 +1264,17 @@ public:
     /// \param mdl            The MDL compiler.
     /// \param node_factory   The node factory to use for creating optimized nodes.
     /// \param name_resolver  The name resolver to use for inlining calls.
-    /// \param file_resolver  The file resolver for rewriting resource URLs
     Optimize_helper(
         IAllocator                *alloc,
         IMDL                      &mdl,
         DAG_node_factory_impl     &node_factory,
-        ICall_name_resolver const &name_resolver,
-        File_resolver             &file_resolver)
+        ICall_name_resolver const &name_resolver)
         : m_alloc(alloc)
         , m_node_factory(node_factory)
         , m_name_resolver(name_resolver)
         , m_dag_mangler(alloc, &mdl)
-        , m_dag_builder(alloc, node_factory, m_dag_mangler, file_resolver)
+        , m_dag_builder(alloc, node_factory, m_dag_mangler)
+        , m_optimized_nodes(0, Node_map::hasher(), Node_map::key_equal(), alloc)
     {}
 
     /// Optimize the given DAG node.
@@ -739,6 +1293,10 @@ public:
 
             case DAG_node::EK_CALL:
             {
+                Node_map::const_iterator it = m_optimized_nodes.find(node);
+                if (it != m_optimized_nodes.end())
+                    return it->second;
+
                 DAG_call const *call = cast<DAG_call>(node);
 
                 bool changed = false;
@@ -756,52 +1314,44 @@ public:
                 if (call->get_semantic() == IDefinition::DS_UNKNOWN) {
                     mi::base::Handle<IModule const> mod(
                         m_name_resolver.get_owner_module(call->get_name()));
-                    if (mod) {
+                    if (mod.is_valid_interface()) {
                         Module const *module = impl_cast<Module>(mod.get());
                         IDefinition const *def = module->find_signature(
                             call->get_name(),
                             /*only_exported=*/ false);
-                        if (def) {
+                        if (def != NULL) {
                             Module_scope module_scope(m_dag_builder, mod.get());
 
+                            mi::base::Handle<IGenerated_code_dag const> owner_dag(
+                                m_name_resolver.get_owner_dag(call->get_name()));
+
                             DAG_node const *res = m_dag_builder.try_inline(
-                                def, args.data(), n_args);
-                            if (res != NULL)
+                                owner_dag.get(), def, args.data(), n_args);
+                            if (res != NULL) {
+                                // inlining was successful, try to optimize the result further
+                                res = optimize(res);
+                                m_optimized_nodes[node] = res;
                                 return res;
+                            }
                         }
                     }
                 }
 
-                if (!changed)
+                if (!changed) {
+                    m_optimized_nodes[node] = node;
                     return node;
+                }
 
                 // arguments have changed, so create new version of this call
                 DAG_node const *res = m_node_factory.create_call(
                     call->get_name(), call->get_semantic(),
                     args.data(), args.size(), call->get_type());
+                m_optimized_nodes[node] = res;
                 return res;
             }
         }
         MDL_ASSERT(!"Unsupported DAG node kind");
         return NULL;
-    }
-
-    /// Optimize the given DAG node multiple times until it does not change anymore.
-    ///
-    /// \param node       The DAG node to optimize. It must fit to the node_factory given in the
-    ///                   constructor.
-    /// \param max_steps  Maximum number of optimization steps.
-    ///
-    /// \returns an optimized DAG node or the given node, if no optimization was applied.
-    DAG_node const *optimize(DAG_node const *node, unsigned max_steps)
-    {
-        for (unsigned i = 0; i < max_steps; ++i) {
-            DAG_node const *new_node = optimize(node);
-            if (new_node == node)
-                break;
-            node = new_node;
-        }
-        return node;
     }
 
 private:
@@ -819,6 +1369,11 @@ private:
 
     /// A DAG builder for inlining functions.
     DAG_builder               m_dag_builder;
+
+    typedef ptr_hash_map<DAG_node const, DAG_node const *>::Type Node_map;
+
+    /// A map containing already optimized nodes.
+    Node_map m_optimized_nodes;
 };
 }  // anonymous
 
@@ -828,39 +1383,25 @@ void Lambda_function::optimize(
     ICall_evaluator           *call_evaluator)
 {
     // Ignore no-inline annotations which are only necessary for the material converter
-    bool old_ignore_noinline = m_node_factory.enable_ignore_noinline(true);
+    Ignore_NO_INLINE_scope scope(m_node_factory);
     ICall_evaluator *old_call_evaluator = m_node_factory.get_call_evaluator();
     m_node_factory.set_call_evaluator(call_evaluator);
-
-    // Note: The file resolver might produce error messages when non-existing resources are
-    // processed. Catch them but throw them away
-    Messages_impl dummy_msgs(get_allocator(), "lambda");
-    File_resolver file_resolver(
-        *m_mdl.get(),
-        /*module_cache=*/NULL,
-        m_mdl->get_external_resolver(),
-        m_mdl->get_search_path(),
-        m_mdl->get_search_path_lock(),
-        dummy_msgs,
-        /*front_path=*/NULL);
 
     Optimize_helper optimizer(
         get_allocator(),
         *m_mdl.get(),
         m_node_factory,
-        *name_resolver,
-        file_resolver);
+        *name_resolver);
 
     if (!m_roots.empty()) {
         for (size_t i = 0, n = m_roots.size(); i < n; ++i) {
-            m_roots[i] = optimizer.optimize(m_roots[i], 3);
+            m_roots[i] = optimizer.optimize(m_roots[i]);
         }
     } else if (m_body_expr != NULL) {
-        m_body_expr = optimizer.optimize(m_body_expr, 3);
+        m_body_expr = optimizer.optimize(m_body_expr);
     }
 
     m_node_factory.set_call_evaluator(old_call_evaluator);
-    m_node_factory.enable_ignore_noinline(old_ignore_noinline);
 }
 
 // Returns true if a switch function was "modified", by adding a new root expression.
@@ -964,7 +1505,7 @@ DAG_node const *Lambda_function::set_uniform_context(
     Float4_struct const       object_to_world[4],
     int                       object_id)
 {
-    DAG_ir_walker        walker(get_allocator());
+    DAG_ir_walker        walker(get_allocator(), /*as_tree=*/false);
     Uniform_state_usage  visitor(*name_resolver);
 
     walker.walk_node(const_cast<DAG_node *>(expr), &visitor);
@@ -1134,17 +1675,18 @@ public:
     }
 
     /// Post visit of an call
-    void post_visit(IExpression_call *call) MDL_FINAL
+    IExpression *post_visit(IExpression_call *call) MDL_FINAL
     {
         if (m_error) {
             // stop here, error will not be better
-            return;
+            return call;
         }
 
         // assume the AST error free
         IExpression_reference const *ref = cast<IExpression_reference>(call->get_reference());
-        if (ref->is_array_constructor())
-            return;
+        if (ref->is_array_constructor()) {
+            return call;
+        }
 
         IDefinition const *def = ref->get_definition();
 
@@ -1188,6 +1730,7 @@ public:
             // all others have a known semantic and can be safely ignored.
             break;
         }
+        return call;
     }
 
 private:
@@ -1490,7 +2033,7 @@ bool Lambda_function::analyze(
     ICall_name_resolver const *resolver,
     Analysis_result           &result) const
 {
-    DAG_ir_walker        walker(get_allocator());
+    DAG_ir_walker        walker(get_allocator(), /*as_tree=*/false);
     State_usage_analysis analysis(get_allocator(), *resolver, result);
 
     walker.walk_node(const_cast<DAG_node *>(expr), &analysis);
@@ -1498,13 +2041,44 @@ bool Lambda_function::analyze(
     return true;
 }
 
+namespace {
+
+typedef std::pair<Resource_tag_tuple, size_t> Entry;
+
+struct Entry_compare {
+    bool operator()(Entry const &a, Entry const &b)
+    {
+        size_t a_index = a.second;
+        size_t b_index = b.second;
+
+        if (a_index != b_index)
+            return a_index < b_index;
+
+        Resource_tag_tuple const &a_t = a.first;
+        Resource_tag_tuple const &b_t = b.first;
+
+        if (a_t.m_kind != b_t.m_kind)
+            return a_t.m_kind < b_t.m_kind;
+        if (a_t.m_tag != b_t.m_tag)
+            return a_t.m_tag < b_t.m_tag;
+        if (a_t.m_url == NULL)
+            return b_t.m_url != NULL;
+        if (b_t.m_url == NULL)
+            return false;
+        return strcmp(a_t.m_url, b_t.m_url) < 0;
+    }
+};
+
+}  // anonymous
+
 // Update the hash value.
 void Lambda_function::update_hash() const
 {
     MD5_hasher md5_hasher;
     Dag_hasher dag_hasher(md5_hasher);
 
-    DAG_ir_walker walker(get_allocator());
+    // Important: walk as a tree here
+    DAG_ir_walker walker(get_allocator(), /*as_tree=*/true);
 
     for (size_t i = 0, n = get_parameter_count(); i < n; ++i) {
         char const  *name = get_parameter_name(i);
@@ -1516,13 +2090,52 @@ void Lambda_function::update_hash() const
     if (!m_roots.empty()) {
         for (size_t i = 0, n = m_roots.size(); i < n; ++i) {
             DAG_node const *root = m_roots[i];
-            walker.walk_node(const_cast<DAG_node *>(root), &dag_hasher);
+            if (root == NULL)
+                md5_hasher.update(0);  // update hash to be able to differentiate different orders
+            else
+                walker.walk_node(const_cast<DAG_node *>(root), &dag_hasher);
         }
-        md5_hasher.final(m_hash.data());
     } else {
         walker.walk_node(const_cast<DAG_node *>(m_body_expr), &dag_hasher);
-        md5_hasher.final(m_hash.data());
     }
+
+    // hash the resource attribute map, but sort it first.
+    // Note that we hash only the resource tag tuple AND (implicitly) its index, not
+    // the resource attributes, we assume same tags means same attributes here.
+    if (m_has_resource_attributes) {
+        vector<Entry>::Type resources(get_allocator());
+
+        for (Resource_attr_map::const_iterator
+            it(m_resource_attr_map.begin()), end(m_resource_attr_map.end());
+            it != end;
+            ++it)
+        {
+            Resource_tag_tuple const  &t = it->first;
+            Resource_attr_entry const &e = it->second;
+
+            resources.push_back(std::make_pair(t, e.index));
+        }
+
+        // sort the entries, to make it deterministic
+        std::sort(resources.begin(), resources.end(), Entry_compare());
+
+        for (size_t i = 0, n = resources.size(); i < n; ++i) {
+            Entry const              &e     = resources[i];
+            Resource_tag_tuple const &t     = e.first;
+            size_t                   index  = e.second;
+
+            md5_hasher.update(t.m_kind);
+            md5_hasher.update(mi::Uint64(index));
+
+            if (t.m_kind != Resource_tag_tuple::RK_BAD) {
+                md5_hasher.update(t.m_tag);
+                md5_hasher.update(t.m_url);
+            }
+        }
+    }
+
+    md5_hasher.final(m_hash.data());
+
     m_hash_is_valid = true;
 }
 
@@ -1588,33 +2201,21 @@ void Lambda_function::initialize_derivative_infos(ICall_name_resolver const *res
     // inlining won't update the derivative information
     optimize(resolver, NULL);
 
-    // make sure that no nodes are used multiple times to properly create
-    // context-sensitive analysis information
-    enable_cse(false);
-
-    // collect information
+    // collect information and rebuild DAG with derivative types
     m_deriv_infos.set_call_name_resolver(resolver);
+
+    Deriv_DAG_builder deriv_builder(get_allocator(), *this, m_deriv_infos);
+
     if (!m_roots.empty()) {
         for (size_t i = 0, n = m_roots.size(); i < n; ++i) {
             m_roots[i] = import_expr(m_roots[i]);
-            m_deriv_infos.find_initial_users(m_roots[i]);
+            m_roots[i] = deriv_builder.rebuild(m_roots[i], /*want_derivatives=*/ false);
         }
     } else {
         m_body_expr = import_expr(m_body_expr);
-        m_deriv_infos.find_initial_users(m_body_expr);
+        m_body_expr = deriv_builder.rebuild(m_body_expr, /*want_derivatives=*/ false);
     }
     m_deriv_infos.set_call_name_resolver(NULL);
-
-    // rebuild DAG with derivative types and enabled CSE
-    enable_cse(true);
-    Deriv_DAG_builder deriv_builder(get_allocator(), *this, m_deriv_infos);
-    if (!m_roots.empty()) {
-        for (size_t i = 0, n = m_roots.size(); i < n; ++i) {
-            m_roots[i] = deriv_builder.rebuild(m_roots[i]);
-        }
-    } else {
-        m_body_expr = deriv_builder.rebuild(m_body_expr);
-    }
 
     m_deriv_infos_calculated = true;
 }
@@ -1630,6 +2231,72 @@ bool Lambda_function::has_resource_attributes() const
 void Lambda_function::set_has_resource_attributes(bool avail)
 {
     m_has_resource_attributes = avail;
+}
+
+// Set a tag, version pair for a resource value that might be reachable from this function.
+void Lambda_function::set_resource_tag(
+    Resource_tag_tuple::Kind const res_kind,
+    char const                    *res_url,
+    int                           tag)
+{
+    int old_tag = find_resource_tag(res_kind, res_url);
+
+    if (old_tag == 0) {
+        add_resource_tag(res_kind, res_url, tag);
+    }
+    else {
+        MDL_ASSERT(old_tag == tag && "Changing tag of a resource");
+    }
+}
+
+// Remap a resource value according to the resource map.
+int Lambda_function::get_resource_tag(IValue_resource const *r) const
+{
+    int tag = find_resource_tag(kind_from_value(r), r->get_string_value());
+    if (tag == 0) {
+        tag = r->get_tag_value();
+    }
+    return tag;
+}
+
+// Get the number of entires in the resource map.
+size_t Lambda_function::get_resource_entries_count() const
+{
+    return m_resource_tag_map.size();
+}
+
+// Get the i'th entry of the resource map.
+Resource_tag_tuple const *Lambda_function::get_resource_entry(size_t index) const
+{
+    if (index < m_resource_tag_map.size())
+        return &m_resource_tag_map[index];
+    return NULL;
+}
+
+// Find the resource tag of a resource.
+int Lambda_function::find_resource_tag(
+    Resource_tag_tuple::Kind const res_kind,
+    char const                     *res_url) const
+{
+    // linear search so far
+    for (size_t i = 0, n = m_resource_tag_map.size(); i < n; ++i) {
+        Resource_tag_tuple const &e = m_resource_tag_map[i];
+
+        // beware of NULL pointer
+        if (e.m_kind == res_kind && (e.m_url == res_url || strcmp(e.m_url, res_url) == 0))
+            return e.m_tag;
+    }
+    return 0;
+}
+
+// Add tag, version pair for a resource value that might be reachable from this function.
+void Lambda_function::add_resource_tag(
+    Resource_tag_tuple::Kind const res_kind,
+    char const                     *res_url,
+    int                            tag)
+{
+    res_url = res_url != NULL ? Arena_strdup(m_arena, res_url) : NULL;
+    m_resource_tag_map.push_back(Resource_tag_tuple(res_kind, res_url, tag));
 }
 
 // Get the derivative information if they have been initialized.
@@ -1690,7 +2357,6 @@ bool Lambda_function::may_use_varying_state(
                 switch (sema) {
                 case mi::mdl::IDefinition::DS_INTRINSIC_DAG_FIELD_ACCESS:
                 case mi::mdl::IDefinition::DS_INTRINSIC_DAG_ARRAY_CONSTRUCTOR:
-                case mi::mdl::IDefinition::DS_INTRINSIC_DAG_INDEX_ACCESS:
                 case mi::mdl::IDefinition::DS_INTRINSIC_DAG_ARRAY_LENGTH:
                     // those never access the state
                     break;
@@ -1819,23 +2485,40 @@ void Lambda_function::serialize(ISerializer *is) const
          it != end;
          ++it)
     {
-        IValue const *res = it->first;
-        Tag_t        t    = dag_serializer.get_value_tag(res);
-        dag_serializer.write_encoded_tag(t);
+        Resource_tag_tuple const &k = it->first;
+        dag_serializer.write_encoded(k.m_kind);
+        dag_serializer.write_encoded(k.m_url);
+        dag_serializer.write_db_tag(k.m_tag);
 
-        Resource_entry const &e = it->second;
+        Resource_attr_entry const &e = it->second;
         dag_serializer.write_encoded_tag(e.index);
         dag_serializer.write_bool(e.valid);
 
-        if (mdl::is<IType_texture>(res->get_type())) {
+        switch (k.m_kind) {
+        case Resource_tag_tuple::RK_TEXTURE_GAMMA_DEFAULT:
+        case Resource_tag_tuple::RK_TEXTURE_GAMMA_LINEAR:
+        case Resource_tag_tuple::RK_TEXTURE_GAMMA_SRGB:
+        case Resource_tag_tuple::RK_SIMPLE_GLOSSY_MULTISCATTER:
+        case Resource_tag_tuple::RK_BACKSCATTERING_GLOSSY_MULTISCATTER:
+        case Resource_tag_tuple::RK_BECKMANN_SMITH_MULTISCATTER:
+        case Resource_tag_tuple::RK_GGX_SMITH_MULTISCATTER:
+        case Resource_tag_tuple::RK_BECKMANN_VC_MULTISCATTER:
+        case Resource_tag_tuple::RK_GGX_VC_MULTISCATTER:
+        case Resource_tag_tuple::RK_WARD_GEISLER_MORODER_MULTISCATTER:
+        case Resource_tag_tuple::RK_SHEEN_MULTISCATTER:
             dag_serializer.write_int(e.u.tex.width);
             dag_serializer.write_int(e.u.tex.height);
             dag_serializer.write_int(e.u.tex.depth);
-        } else if (mdl::is<IType_light_profile>(res->get_type())) {
+            dag_serializer.write_int(e.u.tex.shape);
+            break;
+        case Resource_tag_tuple::RK_LIGHT_PROFILE:
             dag_serializer.write_float(e.u.lp.power);
             dag_serializer.write_float(e.u.lp.maximum);
-        } else {
-            MDL_ASSERT(mdl::is<IType_bsdf_measurement>(res->get_type()));
+            break;
+        case Resource_tag_tuple::RK_BSDF_MEASUREMENT:
+            break;
+        default:
+            MDL_ASSERT(!"unexpected resource kind");
         }
     }
 
@@ -1940,23 +2623,45 @@ Lambda_function *Lambda_function::deserialize(
     // deserialize the resource-index-map AFTER all expressions
     size_t mlen = dag_deserializer.read_encoded_tag();
     for (size_t i = 0; i < mlen; ++i) {
-        IValue const *v = dag_deserializer.read_encoded<IValue const *>();
+        Resource_tag_tuple k;
 
-        Resource_entry e;
+        k.m_kind    = dag_deserializer.read_encoded<Resource_tag_tuple::Kind>();
+        string url  = dag_deserializer.read_encoded<string>();
+        k.m_url     = Arena_strdup(res->m_arena, url.c_str());
+        k.m_tag     = dag_deserializer.read_db_tag();
+
+        Resource_attr_entry e;
         e.index = dag_deserializer.read_encoded_tag();
         e.valid = dag_deserializer.read_bool();
-        if (is<IType_texture>(v->get_type())) {
+
+        switch (k.m_kind) {
+        case Resource_tag_tuple::RK_TEXTURE_GAMMA_DEFAULT:
+        case Resource_tag_tuple::RK_TEXTURE_GAMMA_LINEAR:
+        case Resource_tag_tuple::RK_TEXTURE_GAMMA_SRGB:
+        case Resource_tag_tuple::RK_SIMPLE_GLOSSY_MULTISCATTER:
+        case Resource_tag_tuple::RK_BACKSCATTERING_GLOSSY_MULTISCATTER:
+        case Resource_tag_tuple::RK_BECKMANN_SMITH_MULTISCATTER:
+        case Resource_tag_tuple::RK_GGX_SMITH_MULTISCATTER:
+        case Resource_tag_tuple::RK_BECKMANN_VC_MULTISCATTER:
+        case Resource_tag_tuple::RK_GGX_VC_MULTISCATTER:
+        case Resource_tag_tuple::RK_WARD_GEISLER_MORODER_MULTISCATTER:
+        case Resource_tag_tuple::RK_SHEEN_MULTISCATTER:
             e.u.tex.width  = dag_deserializer.read_int();
             e.u.tex.height = dag_deserializer.read_int();
             e.u.tex.depth  = dag_deserializer.read_int();
-        } else if (is<IType_light_profile>(v->get_type())) {
+            e.u.tex.shape  = static_cast<IType_texture::Shape>(dag_deserializer.read_int());
+            break;
+        case Resource_tag_tuple::RK_LIGHT_PROFILE:
             e.u.lp.power   = dag_deserializer.read_float();
             e.u.lp.maximum = dag_deserializer.read_float();
-        } else {
-            MDL_ASSERT(is<IType_bsdf_measurement>(v->get_type()));
+            break;
+        case Resource_tag_tuple::RK_BSDF_MEASUREMENT:
+            break;
+        default:
+            MDL_ASSERT(!"unexpected resource kind");
         }
 
-        res->m_resource_attr_map[v] = e;
+        res->m_resource_attr_map[k] = e;
     }
 
     res->m_has_resource_attributes = dag_deserializer.read_bool();
@@ -2090,73 +2795,35 @@ public:
 
     /// Builds a distribution function.
     static IDistribution_function::Error_code build(
-        IDistribution_function *idist_func,
-        IAllocator *alloc,
-        IMDL *compiler,
-        ICall_name_resolver const *resolver,
-        DAG_node const *mat_root_node,
-        char const *df_path,
-        bool include_geometry_normal,
-        bool calc_derivative_infos,
-        bool allow_double_expr_lambdas)
+        IDistribution_function                     *idist_func,
+        IAllocator                                 *alloc,
+        IMDL                                       *compiler,
+        ICall_name_resolver const                  *resolver,
+        DAG_node const                             *mat_root_node,
+        IDistribution_function::Requested_function *requested_functions,
+        size_t                                      num_functions,
+        bool                                        include_geometry_normal,
+        bool                                        calc_derivative_infos,
+        bool                                        allow_double_expr_lambdas)
     {
-        if (mat_root_node == NULL || df_path == NULL)
+        if (mat_root_node == NULL || num_functions == 0 || requested_functions == NULL)
             return IDistribution_function::EC_INVALID_PARAMETERS;
 
-        mi::base::Handle<Lambda_function> main_df(
-            impl_cast<Lambda_function>(idist_func->get_main_df()));
+        mi::base::Handle<Lambda_function> root_lambda(
+            impl_cast<Lambda_function>(idist_func->get_root_lambda()));
 
         Distribution_function *dist_func = impl_cast<Distribution_function>(idist_func);
 
-        // use main_df to optimize the material, forcing inlining of code when possible.
-        // We need to do this before calculating the derivative information, because the
-        // inlining won't update the derivative information
-        main_df->set_body(mat_root_node);
-        main_df->optimize(resolver, NULL);
-        mat_root_node = main_df->get_body();
-        main_df->set_body(NULL);
-
         if (calc_derivative_infos) {
-            // make sure that no nodes are used multiple times to properly create
-            // context-sensitive analysis information
-            main_df->enable_cse(false);
-            DAG_node const *analysis_mat_root = main_df->import_expr(mat_root_node);
-
-            // calculate derivative information on analysis copy
+            // calculate derivative information and rebuild DAG with derivative types
             Derivative_infos *deriv_infos = dist_func->get_writable_derivative_infos();
             deriv_infos->set_call_name_resolver(resolver);
-            deriv_infos->find_initial_users(analysis_mat_root);
+
+            Deriv_DAG_builder deriv_builder(alloc, *root_lambda.get(), *deriv_infos);
+            mat_root_node = deriv_builder.rebuild(mat_root_node, /*want_derivatives=*/ false);
+
             deriv_infos->set_call_name_resolver(NULL);
-
-            // rebuild DAG with derivative types and enabled CSE
-            main_df->enable_cse(true);
-            Deriv_DAG_builder deriv_builder(alloc, *main_df.get(), *deriv_infos);
-            mat_root_node = deriv_builder.rebuild(analysis_mat_root);
         }
-
-        // split path at '.'
-        string path_copy(df_path, alloc);
-        vector<char const *>::Type path_parts(alloc);
-        size_t last_start = 0;
-        for (size_t i = 0, n = path_copy.length(); i < n; ++i) {
-            if (path_copy[i] == '.') {
-                path_copy[i] = 0;
-                path_parts.push_back(path_copy.c_str() + last_start);
-                last_start = i + 1;
-            }
-        }
-        if (last_start < path_copy.length())
-            path_parts.push_back(path_copy.c_str() + last_start);
-
-        DAG_node const *df_node = get_dag_arg(mat_root_node, path_parts, main_df.get());
-        if (df_node == NULL)
-            return IDistribution_function::EC_INVALID_PATH;
-
-        // check whether node really is a DF (currently only BSDFs and EDFs are supported)
-        if (!is<IType_bsdf>(df_node->get_type()->skip_type_alias()) &&
-                !is<IType_edf>(df_node->get_type()->skip_type_alias()))
-            return IDistribution_function::EC_UNSUPPORTED_BSDF;
-
 
         // translate all non-df nodes to call_lambda nodes
         Distribution_function_builder mat_builder(
@@ -2167,13 +2834,138 @@ public:
             resolver,
             calc_derivative_infos,
             allow_double_expr_lambdas);
-        mat_builder.collect_flags_and_used_nodes(
-            df_node, Distribution_function_builder::ES_AFTER_GEOMETRY_NORMAL);
+        unsigned walk_id = 0;
+
+        struct Request {
+            Request(
+                size_t reqfunc_index,
+                DAG_node const *node,
+                Distribution_function_builder::Eval_state eval_state)
+            : reqfunc_index(reqfunc_index)
+            , node(node)
+            , eval_state(eval_state)
+            {}
+
+            size_t reqfunc_index;
+            DAG_node const *node;
+            Distribution_function_builder::Eval_state eval_state;
+        };
+
+        vector<Request>::Type requests(alloc);
+
+        IDistribution_function::Error_code last_error = IDistribution_function::EC_NONE;
+
+        for (size_t path_idx = 0; path_idx < num_functions; ++path_idx) {
+            if (requested_functions[path_idx].path == NULL) {
+                last_error = requested_functions[path_idx].error_code =
+                    IDistribution_function::EC_INVALID_PATH;
+                continue;
+            }
+            string path_copy(requested_functions[path_idx].path, alloc);
+
+            // split path at '.'
+            vector<char const *>::Type path_parts(alloc);
+            size_t last_start = 0;
+            for (size_t i = 0, n = path_copy.length(); i < n; ++i) {
+                if (path_copy[i] == '.') {
+                    path_copy[i] = 0;
+                    path_parts.push_back(path_copy.c_str() + last_start);
+                    last_start = i + 1;
+                }
+            }
+            if (last_start < path_copy.length())
+                path_parts.push_back(path_copy.c_str() + last_start);
+
+            DAG_node const *node = get_dag_arg(mat_root_node, path_parts, root_lambda.get());
+            if (node == NULL) {
+                last_error = requested_functions[path_idx].error_code =
+                    IDistribution_function::EC_INVALID_PATH;
+                continue;
+            }
+
+            IType const *node_type = node->get_type()->skip_type_alias();
+            switch (node_type->get_kind()) {
+            case IType::TK_BSDF:
+            case IType::TK_HAIR_BSDF:
+            case IType::TK_EDF:
+            case IType::TK_BOOL:
+            case IType::TK_INT:
+            case IType::TK_ENUM:
+            case IType::TK_FLOAT:
+            case IType::TK_DOUBLE:
+            case IType::TK_STRING:
+            case IType::TK_VECTOR:
+            case IType::TK_MATRIX:
+            case IType::TK_ARRAY:   // TODO: hmmm, does this work?
+            case IType::TK_COLOR:
+                break;
+
+            case IType::TK_STRUCT:
+                if (contains_df_type(node_type)) {
+                    last_error = requested_functions[path_idx].error_code =
+                        IDistribution_function::EC_UNSUPPORTED_EXPRESSION_TYPE;
+                    continue;
+                }
+                break;
+
+            case IType::TK_VDF:
+                last_error = requested_functions[path_idx].error_code =
+                    IDistribution_function::EC_UNSUPPORTED_DISTRIBUTION_TYPE;
+                continue;
+
+            case IType::TK_LIGHT_PROFILE:
+            case IType::TK_TEXTURE:
+            case IType::TK_BSDF_MEASUREMENT:
+                last_error = requested_functions[path_idx].error_code =
+                    IDistribution_function::EC_UNSUPPORTED_EXPRESSION_TYPE;
+                continue;
+
+            case IType::TK_ALIAS:
+            case IType::TK_FUNCTION:
+            case IType::TK_INCOMPLETE:
+            case IType::TK_ERROR:
+                MDL_ASSERT(!"unexpected expression type");
+                last_error = requested_functions[path_idx].error_code =
+                    IDistribution_function::EC_UNSUPPORTED_EXPRESSION_TYPE;
+                continue;
+            }
+
+            // According to MDL Spec 1.6 13.3, the geometry fields are evaluated before all surface
+            // fields and the normal evaluation happens last within the geometry fields.
+            Distribution_function_builder::Eval_state eval_state;
+            if (path_parts.size() > 0 && strcmp(path_parts[0], "geometry") == 0) {
+                eval_state = Distribution_function_builder::ES_BEGIN_STATE;
+
+                // remap "geometry.normal" to state::normal(), if it will be included
+                if (include_geometry_normal &&
+                    path_parts.size() > 1 &&
+                    strcmp(path_parts[1], "normal") == 0)
+                {
+                    IType const *float3_type = mat_builder.m_type_factory.create_vector(
+                        mat_builder.m_type_factory.create_float(), 3);
+
+                    node = mat_builder.m_root_lambda->create_call(
+                        "::state::normal()",
+                        IDefinition::DS_INTRINSIC_STATE_NORMAL,
+                        NULL,
+                        0,
+                        float3_type);
+                }
+            } else
+                eval_state = Distribution_function_builder::ES_AFTER_GEOMETRY_NORMAL;
+
+            mat_builder.collect_flags_and_used_nodes(node, eval_state, ++walk_id);
+
+            requests.push_back(Request(path_idx, node, eval_state));
+        }
+
+        if (last_error != IDistribution_function::EC_NONE)
+            return last_error;
 
         // handle "geometry.normal" if requested
         if (include_geometry_normal) {
             char const *normal_path[] = {"geometry", "normal"};
-            DAG_node const *normal = get_dag_arg(mat_root_node, normal_path, main_df.get());
+            DAG_node const *normal = get_dag_arg(mat_root_node, normal_path, root_lambda.get());
 
             bool handle_normal = false;
 
@@ -2187,7 +2979,7 @@ public:
             if (handle_normal) {
                 mat_builder.register_special_lambda(
                     normal_path,
-                    IDistribution_function::SK_MATERIAL_GEOMETRY_NORMAL);
+                    IDistribution_function::SK_MATERIAL_GEOMETRY_NORMAL, ++walk_id);
             }
         }
 
@@ -2198,17 +2990,17 @@ public:
         }
         if ((mat_flags & Distribution_function_builder::FL_NEEDS_MATERIAL_IOR) != 0) {
             mat_builder.register_special_lambda(
-                "ior", IDistribution_function::SK_MATERIAL_IOR);
+                "ior", IDistribution_function::SK_MATERIAL_IOR, ++walk_id);
         }
         if ((mat_flags & Distribution_function_builder::FL_NEEDS_MATERIAL_THIN_WALLED) != 0) {
             mat_builder.register_special_lambda(
-                "thin_walled", IDistribution_function::SK_MATERIAL_THIN_WALLED);
+                "thin_walled", IDistribution_function::SK_MATERIAL_THIN_WALLED, ++walk_id);
         }
         if ((mat_flags & Distribution_function_builder::FL_NEEDS_MATERIAL_VOLUME_ABSORPTION) != 0) {
             char const *absorp_coeff_path[] = { "volume", "absorption_coefficient" };
             mat_builder.register_special_lambda(
                 absorp_coeff_path,
-                IDistribution_function::SK_MATERIAL_VOLUME_ABSORPTION);
+                IDistribution_function::SK_MATERIAL_VOLUME_ABSORPTION, ++walk_id);
         }
 
         // first create all expression lambdas for special lambdas.
@@ -2217,12 +3009,35 @@ public:
 
         // create expression lambdas for multiply used expressions, after geometry.normal
         // has been calculated
-        mat_builder.prepare_expr_lambda_calls(
-            df_node, Distribution_function_builder::ES_AFTER_GEOMETRY_NORMAL);
+        for (Request request : requests) {
+            if (request.eval_state == Distribution_function_builder::ES_AFTER_GEOMETRY_NORMAL)
+            {
+                mat_builder.prepare_expr_lambda_calls(
+                    request.node, request.eval_state);
+            }
+        }
 
-        // construct the new DAG only consisting of DF nodes and calls to expression lambdas
-        const DAG_node *new_body = mat_builder.transform_material_graph(df_node);
-        main_df->set_body(new_body);
+        // construct the new DAG containing calls to expression lambdas
+        for (Request request : requests) {
+            const DAG_node *new_expr =
+                mat_builder.transform_material_graph(request.node);
+            mi::base::Handle<ILambda_function> expr_lambda(
+                mat_builder.create_expr_lambda(
+                    new_expr, request.eval_state));
+            if (requested_functions[request.reqfunc_index].base_fname != NULL)
+                expr_lambda->set_name(requested_functions[request.reqfunc_index].base_fname);
+
+            size_t main_func_index = dist_func->add_main_function(expr_lambda.get());
+
+            // collect DF handles used by this main function
+            ++walk_id;
+            mat_builder.m_handle_name_map.clear();
+            mat_builder.collect_main_df_handles(new_expr, main_func_index, walk_id);
+        }
+
+#if 0
+        mat_builder.dump_everything();
+#endif
 
         return IDistribution_function::EC_NONE;
     }
@@ -2241,26 +3056,104 @@ public:
     , m_dist_func(dist_func)
     , m_deriv_infos(calc_derivative_infos ? dist_func.get_writable_derivative_infos() : NULL)
     , m_mat_root_node(mat_root_node)
-    , m_root_lambda(impl_cast<Lambda_function>(dist_func.get_main_df()))
+    , m_root_lambda(impl_cast<Lambda_function>(dist_func.get_root_lambda()))
     , m_type_factory(*m_root_lambda->get_type_factory())
     , m_resolver(resolver)
     , m_node_info_map(0, Node_info_map::hasher(), Node_info_map::key_equal(), alloc)
     , m_flags(FL_NONE)
     , m_allow_double_expr_lambdas(allow_double_expr_lambdas)
+    , m_handle_name_map(0, Handle_name_map::hasher(), Handle_name_map::key_equal(), alloc)
     {
+    }
+
+    /// Returns the handle of an elemental DF or NULL if the call is not an elemental DF.
+    char const *get_elemental_handle(DAG_call const *call)
+    {
+        if (!is_elemental_df_semantics(call->get_semantic()))
+            return NULL;
+
+        DAG_node const *handle_node = call->get_argument("handle");
+        MDL_ASSERT(handle_node && is<DAG_constant>(handle_node) &&
+            "Elemental DF must have a constant handle argument");
+        if (handle_node == NULL || !is<DAG_constant>(handle_node))
+            return NULL;
+
+        DAG_constant const *handle_const = cast<DAG_constant>(handle_node);
+        IValue const *handle_val = handle_const->get_value();
+        IValue_string const *handle_str = as<IValue_string>(handle_val);
+        MDL_ASSERT(handle_str != NULL && "DF handle must be string");
+        if (handle_str == NULL)
+            return NULL;
+
+        return handle_str->get_value();
+    }
+
+    /// Collect the DF handles for a main function.
+    void collect_main_df_handles(DAG_node const *expr, size_t main_func_index, unsigned walk_id)
+    {
+        Node_info &info = m_node_info_map[expr];
+        if (info.already_visited(walk_id))
+            return;
+        info.mark_visited(walk_id);
+
+        switch (expr->get_kind()) {
+        case DAG_node::EK_TEMPORARY:
+            {
+                // should not happen, but we can handle it
+                DAG_temporary const *t = cast<DAG_temporary>(expr);
+                expr = t->get_expr();
+                collect_main_df_handles(expr, main_func_index, walk_id);
+                break;
+            }
+        case DAG_node::EK_CONSTANT:
+        case DAG_node::EK_PARAMETER:
+            break;
+        case DAG_node::EK_CALL:
+            {
+                DAG_call const *call = cast<DAG_call>(expr);
+                // stop at non-DFs
+                if (!contains_df_type(call->get_type()))
+                    break;
+
+                if (char const *handle_name = get_elemental_handle(call)) {
+                    Handle_name_map::const_iterator it = m_handle_name_map.find(handle_name);
+                    if (it == m_handle_name_map.end()) {
+                        // the handle is not known, yet -> register it for the main function
+                        m_handle_name_map[handle_name] =
+                            m_dist_func.add_main_func_df_handle(main_func_index, handle_name);
+                    }
+                }
+
+                int n_args = call->get_argument_count();
+                for (int i = 0; i < n_args; ++i) {
+                    DAG_node const *arg = call->get_argument(i);
+                    collect_main_df_handles(arg, main_func_index, walk_id);
+                }
+                break;
+            }
+        }
     }
 
     /// Walk the material DAG to collect the flags and the used nodes (as in collect_used_nodes)
     /// and determine, whether the node is evaluation state dependent.
     /// If so, the function returns true.
     /// The eval_state is only relevant for the used nodes part, not for the flags.
-    bool collect_flags_and_used_nodes(DAG_node const *expr, Eval_state eval_state)
+    bool collect_flags_and_used_nodes(
+        DAG_node const *expr, Eval_state eval_state, unsigned &walk_id)
     {
-        // Increment counter and stop when already visited and an expression lambda can be created
         Node_info &info = m_node_info_map[expr];
-        if (info.inc_count(eval_state) > 1 &&
-                may_create_expr_lambda(expr))
+
+        // Stop when already visited in this walk
+        if (info.already_visited(walk_id))
             return info.is_eval_state_dependent;
+
+        // Stop if the node was already seen in at least two walks
+        if (info.get_count(eval_state) > 0) {
+            info.inc_count(eval_state, walk_id);
+            return info.is_eval_state_dependent;
+        }
+
+        unsigned node_walk_id = walk_id;
 
         bool res = false;
         switch (expr->get_kind()) {
@@ -2269,7 +3162,7 @@ public:
                 // should not happen, but we can handle it
                 DAG_temporary const *t = cast<DAG_temporary>(expr);
                 expr = t->get_expr();
-                res = collect_flags_and_used_nodes(expr, eval_state);
+                res = collect_flags_and_used_nodes(expr, eval_state, walk_id);
                 break;
             }
         case DAG_node::EK_CONSTANT:
@@ -2283,22 +3176,43 @@ public:
                 DAG_call const *call = cast<DAG_call>(expr);
                 IDefinition::Semantics sema = call->get_semantic();
 
-                if (is_df_semantics(sema)) {
+                bool is_df_sema = is_df_semantics(sema);
+                if (is_df_sema) {
                     if (needs_thin_walled(sema))
                         m_flags |= FL_NEEDS_MATERIAL_THIN_WALLED;
 
                     if (needs_ior(sema))
                         m_flags |= FL_NEEDS_MATERIAL_IOR;
+
+                    if (char const *handle_name = get_elemental_handle(call)) {
+                        Handle_name_map::const_iterator it = m_handle_name_map.find(handle_name);
+                        if (it == m_handle_name_map.end()) {
+                            // the handle is not known, yet -> register it
+                            m_handle_name_map[handle_name] = m_dist_func.add_df_handle(handle_name);
+                        }
+                    }
                 }
 
                 res = is_eval_state_dependent_direct(call);
 
                 int n_args = call->get_argument_count();
-                for (int i = 0; i < n_args; ++i)
-                    res |= collect_flags_and_used_nodes(call->get_argument(i), eval_state);
+                for (int i = 0; i < n_args; ++i) {
+                    DAG_node const *arg = call->get_argument(i);
+
+                    // new walks start at all non-DFish arguments of DFs
+                    if (is_df_sema && !contains_df_type(arg->get_type()))
+                        ++walk_id;
+
+                    res |= collect_flags_and_used_nodes(arg, eval_state, walk_id);
+                }
             }
         }
+
         info.is_eval_state_dependent = res;
+
+        // update counter now, that evaluation state dependence is known
+        info.inc_count(eval_state, node_walk_id);
+
         return res;
     }
 
@@ -2308,6 +3222,7 @@ public:
         type = type->skip_type_alias();
         switch (type->get_kind()) {
         case IType::TK_BSDF:
+        case IType::TK_HAIR_BSDF:
         case IType::TK_EDF:
         case IType::TK_VDF:
             return true;
@@ -2353,11 +3268,12 @@ public:
     /// Collect nodes which will be used for the distribution function.
     /// Counts the nodes to find nodes used by multiple paths.
     /// The provided node should have been generated by the builder.
-    void collect_used_nodes(DAG_node const *expr, Eval_state eval_state)
+    void collect_used_nodes(DAG_node const *expr, Eval_state eval_state, unsigned walk_id)
     {
-        // Increment counter and stop when already visited and an expression lambda can be created
-        if (m_node_info_map[expr].inc_count(eval_state) > 1 &&
-                may_create_expr_lambda(expr))
+        // Stop when already visited in this walk.
+        // Otherwise stop, if the node was already seen in at least two walks
+        Node_info &info = m_node_info_map[expr];
+        if (info.already_visited(walk_id) || info.inc_count(eval_state, walk_id) > 1)
             return;
 
         switch (expr->get_kind()) {
@@ -2366,7 +3282,7 @@ public:
                 // should not happen, but we can handle it
                 DAG_temporary const *t = cast<DAG_temporary>(expr);
                 expr = t->get_expr();
-                collect_used_nodes(expr, eval_state);
+                collect_used_nodes(expr, eval_state, walk_id);
                 return;
             }
         case DAG_node::EK_CONSTANT:
@@ -2377,7 +3293,7 @@ public:
                 DAG_call const *call = cast<DAG_call>(expr);
                 int n_args = call->get_argument_count();
                 for (int i = 0; i < n_args; ++i)
-                    collect_used_nodes(call->get_argument(i), eval_state);
+                    collect_used_nodes(call->get_argument(i), eval_state, walk_id);
                 return;
             }
         }
@@ -2455,7 +3371,7 @@ public:
         if (sema != operator_to_semantic(IExpression::OK_TERNARY))
             return false;
         IType::Kind kind = ret_type->get_kind();
-        return kind == IType::TK_BSDF || kind == IType::TK_EDF;
+        return kind == IType::TK_BSDF || kind == IType::TK_HAIR_BSDF || kind == IType::TK_EDF;
     }
 
     /// Walk the material DAG, cloning the DF DAG nodes into the root lambda
@@ -2476,24 +3392,15 @@ public:
                     continue;
                 }
             case DAG_node::EK_CONSTANT:
+                {
+                    DAG_node const *res = m_root_lambda->import_expr(expr);
+                    set_result_node(expr, res, ES_AFTER_GEOMETRY_NORMAL);
+                    return res;
+                }
             case DAG_node::EK_CALL:
             case DAG_node::EK_PARAMETER:
                 {
                     DAG_node const *res;
-
-                    if (expr->get_kind() == DAG_node::EK_CONSTANT) {
-                        DAG_constant const *constant = cast<DAG_constant>(expr);
-                        IValue const *value = constant->get_value();
-
-                        // handle "bsdf()" constants, arrays and structs
-                        if (value->get_kind() == IValue::VK_INVALID_REF ||
-                                value->get_kind() == IValue::VK_ARRAY ||
-                                value->get_kind() == IValue::VK_STRUCT) {
-                            res = m_root_lambda->import_expr(constant);
-                            set_result_node(expr, res, ES_AFTER_GEOMETRY_NORMAL);
-                            return res;
-                        }
-                    }
 
                     IType const *ret_type = expr->get_type();
                     ret_type = m_type_factory.import(ret_type);
@@ -2541,14 +3448,15 @@ public:
 
     /// Register a special expression lambda and collect information about the needed nodes.
     void register_special_lambda(
-        Array_ref<char const *> expr_path,
-        IDistribution_function::Special_kind kind)
+        Array_ref<char const *>              expr_path,
+        IDistribution_function::Special_kind kind,
+        unsigned                             walk_id)
     {
         DAG_node const *node = get_dag_arg(m_mat_root_node, expr_path, m_root_lambda.get());
 
         Eval_state eval_state = kind == IDistribution_function::SK_MATERIAL_GEOMETRY_NORMAL
             ? ES_BEGIN_STATE : ES_AFTER_GEOMETRY_NORMAL;
-        collect_used_nodes(node, eval_state);
+        collect_used_nodes(node, eval_state, walk_id);
 
         m_special_lambdas.push_back(Special_lambda_descr(kind, eval_state, node));
     }
@@ -2571,20 +3479,23 @@ public:
     /// Dumps the whole DAG including the special lambdas to disk for debugging.
     void dump_everything()
     {
-        int n_args = 1 + m_special_lambdas.size();
+        size_t n_main_funcs = m_dist_func.get_main_function_count();
+        size_t n_args = n_main_funcs + m_special_lambdas.size();
         Small_VLA<DAG_call::Call_argument, 8> args(m_alloc, n_args);
-        args[0].arg = m_root_lambda->get_body();
-        args[0].param_name = "main_df";
+        for (size_t i = 0, n = m_dist_func.get_main_function_count(); i < n; ++i) {
+            mi::base::Handle<ILambda_function> main_func(m_dist_func.get_main_function(i));
+            args[i].param_name = "main_func";
+            args[i].arg = main_func->get_body();
+        }
         for (int i = 0, n = m_special_lambdas.size(); i < n; ++i) {
-            args[i + 1].param_name = "special_lambda";
-            args[i + 1].arg = m_special_lambdas[i].node;
+            args[i + n_main_funcs].param_name = "special_lambda";
+            args[i + n_main_funcs].arg = m_special_lambdas[i].node;
         }
         DAG_node const *dump_root = m_root_lambda->create_call(
             "root", IDefinition::DS_HIDDEN_ANNOTATION, args.data(), n_args,
             m_root_lambda->get_body()->get_type());
 
-        Lambda_function *lambda = impl_cast<Lambda_function>(m_root_lambda.get());
-        lambda->dump(dump_root, "mat-all-dumps");
+        m_root_lambda->dump(dump_root, "mat-all-dumps");
     }
 
 private:
@@ -2593,17 +3504,22 @@ private:
     bool is_eval_state_dependent_direct(DAG_call const *call)
     {
         char const *signature = call->get_name();
+        if (signature[0] == '#') {
+            // skip prefix for derivative variants
+            ++signature;
+        }
         mi::base::Handle<IModule const> mod(m_resolver->get_owner_module(signature));
-        if (!mod) return false;
+        if (!mod.is_valid_interface())
+            return false;
 
         Module const *module = impl_cast<Module>(mod.get());
 
         IDefinition const *def = module->find_signature(signature, /*only_exported=*/false);
-        if (def == NULL) return false;
+        if (def == NULL)
+            return false;
 
         // skip presets
         def = skip_presets(def, mod);
-        module = impl_cast<Module>(mod.get());
 
         return def->get_property(IDefinition::DP_USES_NORMAL);
     }
@@ -2641,6 +3557,8 @@ private:
     mi::base::Handle<ILambda_function> create_expr_lambda(
         DAG_node const *node, Eval_state eval_state)
     {
+        // TODO: What if there already exists a lambda function for this node in this state?
+
         mi::base::Handle<ILambda_function> lambda(
             m_compiler->create_lambda_function(
                 ILambda_function::LEC_CORE));
@@ -2657,6 +3575,14 @@ private:
         }
 
         lambda->set_body(import_mat_expr(lambda.get(), node, eval_state));
+
+        // for now, copy the resource table to every lambda
+        mi::base::Handle<ILambda_function> root_lambda(m_dist_func.get_root_lambda());
+        for (size_t i = 0, n = root_lambda->get_resource_entries_count(); i < n; ++i) {
+            Resource_tag_tuple const *e = root_lambda->get_resource_entry(i);
+
+            lambda->set_resource_tag(e->m_kind, e->m_url, e->m_tag);
+        }
         return lambda;
     }
 
@@ -2731,6 +3657,7 @@ private:
             case IDefinition::DS_INTRINSIC_DF_MICROFACET_GGX_VCAVITIES_BSDF:
             case IDefinition::DS_INTRINSIC_DF_SIMPLE_GLOSSY_BSDF:
             case IDefinition::DS_INTRINSIC_DF_SPECULAR_BSDF:
+            case IDefinition::DS_INTRINSIC_DF_SHEEN_BSDF:
             case IDefinition::DS_INTRINSIC_DF_THIN_FILM:
                 return true;
 
@@ -2758,6 +3685,7 @@ private:
             case IDefinition::DS_INTRINSIC_DF_MICROFACET_GGX_VCAVITIES_BSDF:
             case IDefinition::DS_INTRINSIC_DF_SIMPLE_GLOSSY_BSDF:
             case IDefinition::DS_INTRINSIC_DF_SPECULAR_BSDF:
+            case IDefinition::DS_INTRINSIC_DF_SHEEN_BSDF:
             case IDefinition::DS_INTRINSIC_DF_THIN_FILM:
                 return true;
 
@@ -2824,6 +3752,8 @@ private:
         DAG_node const *begin_state_node;   // also used as any node, if not state dependent
         DAG_node const *after_geometry_normal_node;
 
+        unsigned last_walk_id;              // used to differentiate between walks
+
         /// Constructor.
         Node_info()
             : is_eval_state_dependent(false)
@@ -2831,19 +3761,39 @@ private:
             , after_geometry_normal_count(0)
             , begin_state_node(NULL)
             , after_geometry_normal_node(NULL)
+            , last_walk_id(0)
         {}
 
-        /// Increment the counter for the according evaluation state and return the new counter.
-        unsigned inc_count(Eval_state eval_state) {
+        /// Return true, if this node has already been visited during the given walk.
+        bool already_visited(unsigned walk_id) {
+            return last_walk_id == walk_id;
+        }
+
+        /// Mark the node as visited in this walk.
+        void mark_visited(unsigned walk_id) {
+            last_walk_id = walk_id;
+        }
+
+        /// Increment the counter for the according evaluation state, if the node has not been
+        /// visited in this walk, yet, mark as visited in this walk and return the new counter.
+        unsigned inc_count(Eval_state eval_state, unsigned walk_id) {
+            // only increment, if this node has not been seen in this walk, yet
+            unsigned inc_val = last_walk_id == walk_id ? 0 : 1;
+            last_walk_id = walk_id;
+
             // If not state dependent, begin_state_count is always used.
-            if (!is_eval_state_dependent)
-                return ++begin_state_count;
+            if (!is_eval_state_dependent) {
+                begin_state_count += inc_val;
+                return begin_state_count;
+            }
 
             switch (eval_state) {
             case ES_BEGIN_STATE:
-                return ++begin_state_count;
+                begin_state_count += inc_val;
+                return begin_state_count;
             case ES_AFTER_GEOMETRY_NORMAL:
-                return ++after_geometry_normal_count;
+                after_geometry_normal_count += inc_val;
+                return after_geometry_normal_count;
             }
             MDL_ASSERT("Unexpected evaluation state");
             return 0;
@@ -2907,6 +3857,16 @@ private:
 
     /// If true, expression lambdas may be created for double values.
     bool m_allow_double_expr_lambdas;
+
+    typedef hash_map<
+        char const *,
+        size_t,
+        cstring_hash,
+        cstring_equal_to
+    >::Type Handle_name_map;
+
+    /// Maps from handle names to DF local handle IDs.
+    Handle_name_map m_handle_name_map;
 };
 
 
@@ -3024,16 +3984,23 @@ void Distribution_function_dumper::dump()
 {
     m_printer->print("digraph \"distribution_function\" {\n");
 
-    mi::base::Handle<ILambda_function> root_lambda_handle(m_dist_func->get_main_df());
-    Lambda_function const *root_lambda = impl_cast<Lambda_function>(root_lambda_handle.get());
+    for (size_t i = 0, n = m_dist_func->get_main_function_count(); i < n; ++i) {
+        char main_name[30];
+        snprintf(main_name, sizeof(main_name), "main_lambda_%u", (unsigned) i);
 
-    m_printer->print("  subgraph cluster_root {\n"
-        "    bgcolor = goldenrod1;\n"
-        "    color = goldenrod;\n"
-        "    node [style=filled];\n"
-        "    label = \"DF\";\n");
-    m_walker.walk_node(const_cast<DAG_node *>(root_lambda->get_body()), this);
-    m_printer->print("  }\n");
+        mi::base::Handle<ILambda_function> main_lambda_handle(m_dist_func->get_main_function(i));
+        Lambda_function const *main_lambda = impl_cast<Lambda_function>(main_lambda_handle.get());
+
+        m_printer->print("  subgraph cluster_");
+        m_printer->print(main_name);
+        m_printer->print(" {\n"
+            "    bgcolor = goldenrod1;\n"
+            "    color = goldenrod;\n"
+            "    node [style=filled];\n"
+            "    label = \"DF\";\n");
+        m_walker.walk_node(const_cast<DAG_node *>(main_lambda->get_body()), this);
+        m_printer->print("  }\n");
+    }
 
     for (size_t i = 0, n = m_dist_func->get_expr_lambda_count(); i < n; ++i) {
         mi::base::Handle<mi::mdl::ILambda_function> expr_lambda(
@@ -3066,8 +4033,8 @@ void Distribution_function_dumper::dump()
 // Get the parameter name for the given index if any.
 const char *Distribution_function_dumper::get_parameter_name(int index)
 {
-    mi::base::Handle<mi::mdl::ILambda_function> lambda(m_dist_func->get_main_df());
-    return impl_cast<Lambda_function>(lambda.get())->get_parameter_name(index);
+    mi::base::Handle<mi::mdl::ILambda_function> root_lambda(m_dist_func->get_root_lambda());
+    return impl_cast<Lambda_function>(root_lambda.get())->get_parameter_name(index);
 }
 
 }  // anonymous
@@ -3076,17 +4043,22 @@ const char *Distribution_function_dumper::get_parameter_name(int index)
 Distribution_function::Distribution_function(
     IAllocator                         *alloc,
     MDL                                *compiler)
-    : Base(alloc)
-    , m_mdl(mi::base::make_handle_dup(compiler))
-    , m_main_df(compiler->create_lambda_function(Lambda_function::LEC_CORE))
-    , m_expr_lambdas(alloc)
-    , m_deriv_infos_calculated(false)
-    , m_deriv_infos(alloc)
+: Base(alloc)
+, m_mdl(mi::base::make_handle_dup(compiler))
+, m_root_lambda(compiler->create_lambda_function(Lambda_function::LEC_CORE))
+, m_main_functions(alloc)
+, m_expr_lambdas(alloc)
+, m_deriv_infos_calculated(false)
+, m_deriv_infos(alloc)
+, m_df_handles(alloc)
+, m_main_func_df_handles(alloc)
+, m_arena(alloc)
+, m_resource_tag_map(alloc)
 {
-    Lambda_function *lambda = impl_cast<Lambda_function>(m_main_df.get());
+    Lambda_function *root_lambda = impl_cast<Lambda_function>(m_root_lambda.get());
 
     // force always using render state
-    lambda->set_uses_render_state(true);
+    root_lambda->set_uses_render_state(true);
 
     for (size_t i = 0, n = dimension_of(m_special_lambdas); i < n; ++i)
         m_special_lambdas[i] = ~0;
@@ -3097,7 +4069,8 @@ Distribution_function::Distribution_function(
 /// expressions from the material will also be handled.
 IDistribution_function::Error_code Distribution_function::initialize(
     DAG_node const            *material_constructor,
-    char const                *df_path,
+    Requested_function        *requested_functions,
+    size_t                     num_functions,
     bool                       include_geometry_normal,
     bool                       calc_derivative_infos,
     bool                       allow_double_expr_lambdas,
@@ -3110,17 +4083,42 @@ IDistribution_function::Error_code Distribution_function::initialize(
         m_mdl.get(),
         name_resolver,
         material_constructor,
-        df_path,
+        requested_functions,
+        num_functions,
         include_geometry_normal,
         calc_derivative_infos,
         allow_double_expr_lambdas);
 }
 
-// Get the main DF function representing a DF DAG call.
-ILambda_function *Distribution_function::get_main_df() const
+// Get the root lambda function used to build nodes and manage parameters and resources.
+ILambda_function *Distribution_function::get_root_lambda() const
 {
-    m_main_df.get()->retain();
-    return m_main_df.get();
+    m_root_lambda.get()->retain();
+    return m_root_lambda.get();
+}
+
+size_t Distribution_function::add_main_function(ILambda_function *lambda)
+{
+    m_main_functions.push_back(mi::base::make_handle_dup(lambda));
+    m_main_func_df_handles.emplace_back(get_allocator());
+    return m_main_functions.size() - 1;
+}
+
+ILambda_function *Distribution_function::get_main_function(size_t index) const
+{
+    if (index >= m_main_functions.size())
+        return NULL;
+
+    ILambda_function *lambda = m_main_functions[index].get();
+    if (!lambda)
+        return NULL;
+    lambda->retain();
+    return lambda;
+}
+
+size_t Distribution_function::get_main_function_count() const
+{
+    return m_main_functions.size();
 }
 
 // Add the given expression lambda function to the distribution function.
@@ -3166,6 +4164,86 @@ size_t Distribution_function::get_special_lambda_function_index(Special_kind kin
 {
     MDL_ASSERT(kind < SK_NUM_KINDS);
     return m_special_lambdas[kind];
+}
+
+/// Get the resource attribute map of this distribution function.
+Resource_attr_map const &Distribution_function::get_resource_attribute_map() const {
+    return impl_cast<Lambda_function>(m_root_lambda.get())->get_resource_attribute_map();
+}
+
+// Set a tag, version pair for a resource value that might be reachable from this function.
+void Distribution_function::set_resource_tag(
+    Resource_tag_tuple::Kind const res_kind,
+    char const                     *res_url,
+    int                            tag)
+{
+    int old_tag = find_resource_tag(res_kind, res_url);
+
+    if (old_tag == 0) {
+        add_resource_tag(res_kind, res_url, tag);
+    } else {
+        MDL_ASSERT(old_tag == tag && "Changing tag of a resource");
+    }
+}
+
+// Find the resource tag of a resource.
+int Distribution_function::find_resource_tag(
+    Resource_tag_tuple::Kind const res_kind,
+    char const                    *res_url) const
+{
+    // linear search so far
+    for (size_t i = 0, n = m_resource_tag_map.size(); i < n; ++i) {
+        Resource_tag_tuple const &e = m_resource_tag_map[i];
+
+        // beware of NULL pointer
+        if (e.m_kind == res_kind && (e.m_url == res_url || strcmp(e.m_url, res_url) == 0))
+            return e.m_tag;
+    }
+    return 0;
+}
+
+// Add tag, version pair for a resource value that might be reachable from this function.
+void Distribution_function::add_resource_tag(
+    Resource_tag_tuple::Kind res_kind,
+    char const               *res_url,
+    int                      tag)
+{
+    res_url = res_url != NULL ? Arena_strdup(m_arena, res_url) : NULL;
+    m_resource_tag_map.push_back(Resource_tag_tuple(res_kind, res_url, tag));
+}
+
+// Returns the number of distribution function handles referenced by this distribution function.
+size_t Distribution_function::get_df_handle_count() const
+{
+    return m_df_handles.size();
+}
+
+// Returns a distribution function handle referenced by this distribution function.
+char const *Distribution_function::get_df_handle(size_t index) const
+{
+    if (index >= m_df_handles.size())
+        return NULL;
+    return m_df_handles[index];
+}
+
+// Returns the number of distribution function handles referenced by this distribution function.
+size_t Distribution_function::get_main_func_df_handle_count(size_t main_func_index) const
+{
+    if (main_func_index >= m_main_func_df_handles.size())
+        return ~size_t(0);
+    return m_main_func_df_handles[main_func_index].size();
+}
+
+// Returns a distribution function handle referenced by a given main function.
+char const *Distribution_function::get_main_func_df_handle(
+    size_t main_func_index, size_t index) const
+{
+    if (main_func_index >= m_main_func_df_handles.size() ||
+        index >= m_main_func_df_handles[main_func_index].size())
+    {
+        return NULL;
+    }
+    return m_main_func_df_handles[main_func_index][index];
 }
 
 // Get the derivative information if they were requested during initialization.

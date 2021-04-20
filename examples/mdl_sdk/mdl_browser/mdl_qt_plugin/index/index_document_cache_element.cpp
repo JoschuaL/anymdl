@@ -1,5 +1,5 @@
 /******************************************************************************
- * Copyright (c) 2018-2019, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2018-2020, NVIDIA CORPORATION. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -54,8 +54,6 @@ Index_document::word_list Index_document_cache_element::get_words(const Tokenize
 
     // name without path and parameters
     std::string name = m_cache_element->get_simple_name();
-    const size_t pos_open_parenthesis = name.find_first_of('(');
-    name = name.substr(0, pos_open_parenthesis);
     insert(words, tokenizer->tokenize(name), weight_name);
 
     // module

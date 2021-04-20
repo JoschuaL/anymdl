@@ -1,5 +1,5 @@
 /***************************************************************************************************
- * Copyright (c) 2010-2019, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2010-2020, NVIDIA CORPORATION. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -288,7 +288,7 @@ private:
     ///
     /// If the given attribute has an attribute specification, use that to obtain the journal
     /// flags.
-    static DB::Journal_type compute_journal_flags( ATTR::Attribute_id attribute_id);
+    static DB::Journal_type compute_journal_flags( const ATTR::Attribute* attr, ATTR::Attribute_id attribute_id);
 
     /// Lock to synchronize calls to #register_decls().
     static mi::base::Lock s_register_decls_lock;

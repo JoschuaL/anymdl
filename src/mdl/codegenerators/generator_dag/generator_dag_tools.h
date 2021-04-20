@@ -1,5 +1,5 @@
 /******************************************************************************
- * Copyright (c) 2012-2019, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2012-2020, NVIDIA CORPORATION. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -85,6 +85,18 @@ template<>
 inline Distribution_function *impl_cast(IDistribution_function *t) {
     return static_cast<Distribution_function *>(t);
 }
+
+/// Get the DAG signature of the array constructor.
+extern inline char const *get_array_constructor_signature() { return "T[](...)"; }
+
+/// Get the DAG signature of the ternary operator.
+extern inline char const *get_ternary_operator_signature() { return "operator?(bool,<0>,<0>)"; }
+
+/// Get the DAG signature of the array constructor without the suffix.
+extern inline char const *get_array_constructor_signature_without_suffix() { return "T[]"; }
+
+/// Get the DAG signature of the ternary operator without the suffix.
+extern inline char const *get_ternary_operator_signature_without_suffix() { return "operator?"; }
 
 } // mdl
 } // mi

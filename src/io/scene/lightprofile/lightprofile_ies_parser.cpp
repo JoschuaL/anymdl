@@ -1,5 +1,5 @@
 /***************************************************************************************************
- * Copyright (c) 2007-2019, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2007-2020, NVIDIA CORPORATION. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -60,9 +60,11 @@ namespace LIGHTPROFILE {
 
 namespace {
 
-// Valid IES versions strings (so far ...)
+// Valid IES versions strings
 const static char* IESNA_1991 = "IESNA91";
 const static char* IESNA_1995 = "IESNA:LM-63-1995";
+const static char* IESNA_2002 = "IESNA:LM-63-2002";
+const static char* IESNA_UNKNOWN = "IESNA:LM-63-";
 
 // Specification used to give additional notes on parser errors
 //
@@ -91,7 +93,8 @@ public:
     enum Version {
         IESNA_LM_63_1986 = 0,
         IESNA_LM_63_1991,
-        IESNA_LM_63_1995
+        IESNA_LM_63_1995,
+        IESNA_LM_63_2002
     };
 
     // Orientation of the lamp within the luminaire (cp. Fig.1 in specification)
@@ -113,7 +116,7 @@ public:
     };
 
     // C'tor
-    Lightprofile_ies_parser(mi::neuraylib::IReader* reader, const std::string& filename);
+    Lightprofile_ies_parser(mi::neuraylib::IReader* reader, const std::string& log_identifier);
 
     bool setup_lightprofile(
         Uint flags,
@@ -160,7 +163,7 @@ private:
 
     // File infos
     mi::base::Handle<mi::neuraylib::IReader> m_reader;
-    std::string                            m_filename;
+    std::string                              m_log_identifier;
     bool                                     m_valid;
     bool                                     m_skip_line_length_warning;
 
@@ -206,15 +209,12 @@ private:
 // IES file parser
 //
 Lightprofile_ies_parser::Lightprofile_ies_parser(
-    mi::neuraylib::IReader* reader, const std::string& filename)
+    mi::neuraylib::IReader* reader, const std::string& log_identifier)
   : m_reader(reader, mi::base::DUP_INTERFACE),
+    m_log_identifier(log_identifier),
     m_valid(true),
     m_skip_line_length_warning(false)
 {
-    if(filename.empty())
-        m_filename = "memory-based light profile";
-    else
-        m_filename = "light profile \"" + filename + "\"";
 
     char line[MAX_LINE_LENGTH];
     m_reader->readline(line, sizeof(line));
@@ -281,7 +281,7 @@ void Lightprofile_ies_parser::get_tokens(
             if (!m_skip_line_length_warning) {
                 LOG::mod_log->error( M_LIGHTPROFILE, LOG::Mod_log::C_IO,
                    "Line with at least %" FMT_SIZE_T " characters in %s too long.",
-                   strlen(line), m_filename.c_str());
+                   strlen(line), m_log_identifier.c_str());
                 m_skip_line_length_warning = true;
             }
             tokens.clear();
@@ -312,8 +312,26 @@ bool Lightprofile_ies_parser::parse_version(
         m_version = IESNA_LM_63_1995;
         return true;
     }
+    else if(!strncmp(IESNA_2002, version, strlen(IESNA_2002)))
+    {
+        m_version = IESNA_LM_63_2002;
+        return true;
+    }
+    else if(!strncmp(IESNA_UNKNOWN, version, strlen(IESNA_UNKNOWN)))
+    {
+        // if a future version comes up, interpret it is as the highest version
+        // known to the parser (instead of falling back to the old standard)
+        LOG::mod_log->warning(M_LIGHTPROFILE, LOG::Mod_log::C_IO,
+                "Unsupported IES version '%s' used in %s\n"
+                "Data might not be imported correctly",
+                version, m_log_identifier.c_str());
+
+        m_version = IESNA_LM_63_2002;
+        return true;
+    }
     else
     {
+        // no header, fall back old standard
         m_version = IESNA_LM_63_1986;
         return false;
     }
@@ -335,15 +353,15 @@ void Lightprofile_ies_parser::parse_lamp_data()
     {
         LOG::mod_log->error(M_LIGHTPROFILE, LOG::Mod_log::C_IO,
             "Unable to parse lamp data in %s. "
-            "%i values have been found but %i have to be specified on dedicated possibly "
+            "%u values have been found but %u have to be specified on dedicated possibly "
             "separated line(s). \n"
             "Please, see also '%s'",
-            m_filename.c_str(), size, nb_required_lamp_values, ies_spec);
+            m_log_identifier.c_str(), size, nb_required_lamp_values, ies_spec);
 
         if(m_reader->eof())
         {
             LOG::mod_log->error(M_LIGHTPROFILE, LOG::Mod_log::C_IO,
-                "Unexpected end of file in %s. ", m_filename.c_str());
+                "Unexpected end of file in %s. ", m_log_identifier.c_str());
         }
         m_valid = false;
         return;
@@ -367,16 +385,16 @@ void Lightprofile_ies_parser::parse_lamp_data()
         case TYPE_B:    m_photometric_type = TYPE_B;    break;
         case TYPE_A:
             LOG::mod_log->warning(M_LIGHTPROFILE, LOG::Mod_log::C_IO,
-                "Photometric type A in %s is not supported. ", m_filename.c_str());
+                "Photometric type A in %s is not supported. ", m_log_identifier.c_str());
             m_photometric_type = TYPE_A;
             break;
         default:
             LOG::mod_log->error(M_LIGHTPROFILE, LOG::Mod_log::C_IO,
-                "Invalid photometric type %i in %s used. "
+                "Invalid photometric type %u in %s used. "
                 "Valid photometric types are: 1 (Type C), 2 (Type B), or 3 (Type A). "
                 "Type C will be assumed. \n"
                 "Please, see also '%s'",
-                photometric_type, m_filename.c_str(), ies_spec);
+                photometric_type, m_log_identifier.c_str(), ies_spec);
             m_photometric_type = TYPE_C;
             break;
     }
@@ -387,11 +405,11 @@ void Lightprofile_ies_parser::parse_lamp_data()
         case METER:     m_units_type = METER;   break;
         default:
             LOG::mod_log->error(M_LIGHTPROFILE, LOG::Mod_log::C_IO,
-                "Invalid units type %i in %s used. "
+                "Invalid units type %u in %s used. "
                 "Valid units types are: 1 (feet) or 2 (meters). "
                 "'meters' will be assumed.\n"
                 "Please, see also '%s'",
-                units_type, m_filename.c_str(), ies_spec);
+                units_type, m_log_identifier.c_str(), ies_spec);
             m_units_type = METER;
             break;
     }
@@ -416,15 +434,15 @@ void Lightprofile_ies_parser::parse_additional_data()
     {
         LOG::mod_log->error(M_LIGHTPROFILE, LOG::Mod_log::C_IO,
             "Unable to parse additional data in %s. "
-            "%i values have been found but %i have to be specified on dedicated possibly "
+            "%u values have been found but %u have to be specified on dedicated possibly "
             "separated line(s). \n"
             "Please, see also '%s'",
-            m_filename.c_str(), size, nb_required_data_values, ies_spec);
+            m_log_identifier.c_str(), size, nb_required_data_values, ies_spec);
 
         if(m_reader->eof())
         {
             LOG::mod_log->error(M_LIGHTPROFILE, LOG::Mod_log::C_IO,
-                "Unexpected end of file in %s. ", m_filename.c_str());
+                "Unexpected end of file in %s. ", m_log_identifier.c_str());
         }
         m_valid = false;
         return;
@@ -453,15 +471,15 @@ void Lightprofile_ies_parser::parse_angles_data(
     {
         LOG::mod_log->error(M_LIGHTPROFILE, LOG::Mod_log::C_IO,
             "Unable to parse %s in %s. "
-            "%i values have been found but %i have to be specified on dedicated possibly "
+            "%u values have been found but %u have to be specified on dedicated possibly "
             "separated line(s). \n"
             "Please, see also '%s'",
-            description.c_str(), m_filename.c_str(), size, nb_angles, ies_spec);
+            description.c_str(), m_log_identifier.c_str(), size, nb_angles, ies_spec);
 
         if(m_reader->eof())
         {
             LOG::mod_log->error(M_LIGHTPROFILE, LOG::Mod_log::C_IO,
-                "Unexpected end of file in %s. ", m_filename.c_str());
+                "Unexpected end of file in %s. ", m_log_identifier.c_str());
         }
         m_valid = false;
         return;
@@ -516,7 +534,7 @@ bool Lightprofile_ies_parser::parse_label(char* label)
             label_contents = label_contents.substr(0, len);
     }
     else
-        label_contents = "<no lable>";
+        label_contents = "<no label>";
 
     return true;
 }
@@ -574,19 +592,19 @@ void Lightprofile_ies_parser::parse_tilt(char* tilt)
             LOG::mod_log->warning(M_LIGHTPROFILE, LOG::Mod_log::C_IO,
                 "The file \"%s\", which contains the corresponding tilt values "
                 "cannot be opened. Tilt values will be omitted for %s.",
-                tilt_value.c_str(), m_filename.c_str());
+                tilt_value.c_str(), m_log_identifier.c_str());
             return;
         }
 
         mi::base::Handle<mi::neuraylib::IReader> orig_reader = m_reader;
-        std::string orig_filename = m_filename;
+        std::string orig_log_identifier = m_log_identifier;
         m_reader = make_handle_dup( &reader);
-        m_filename = tilt_value;
+        m_log_identifier = tilt_value;
 
         parse_tilt_values();
 
         m_reader = orig_reader;
-        m_filename = orig_filename;
+        m_log_identifier = orig_log_identifier;
     }
 }
 
@@ -606,15 +624,15 @@ void Lightprofile_ies_parser::parse_tilt_values()
     {
         LOG::mod_log->error(M_LIGHTPROFILE, LOG::Mod_log::C_IO,
             "Unable to parse tilt data in %s. "
-            "%i values have been found but %i have to be specified on dedicated possibly "
+            "%u values have been found but %u have to be specified on dedicated possibly "
             "separated line(s). \n"
             "Please, see also '%s'",
-            m_filename.c_str(), size, nb_required_data_values, ies_spec);
+            m_log_identifier.c_str(), size, nb_required_data_values, ies_spec);
 
         if(m_reader->eof())
         {
             LOG::mod_log->error(M_LIGHTPROFILE, LOG::Mod_log::C_IO,
-                "Unexpected end of file in %s. ", m_filename.c_str());
+                "Unexpected end of file in %s. ", m_log_identifier.c_str());
         }
         m_valid = false;
         return;
@@ -634,12 +652,12 @@ void Lightprofile_ies_parser::parse_tilt_values()
             break;
         default:
             LOG::mod_log->error(M_LIGHTPROFILE, LOG::Mod_log::C_IO,
-                "Invalid lamp-to-luminaire-geometry %i used in %s. "
+                "Invalid lamp-to-luminaire-geometry %u used in %s. "
                 "Valid units types are: 1 (vertical_base_up_down), 2 "
                 "(horizontal_along_90_degree_plane), or 3 (horizontal_along_0_degree_plane). "
                 "'vertical_base_up_down' will be assumed.\n"
                 "Please, see also '%s'",
-                lamp_geometry, m_filename.c_str(), ies_spec);
+                lamp_geometry, m_log_identifier.c_str(), ies_spec);
             m_lamp_to_luminaire_geometry = VERTICAL_BASE_UP_DOWN;
             break;
     }
@@ -906,10 +924,10 @@ static void resolve_0_90_symmetry_type_b(
 
     for(Uint i=0; i<nb_horizontal_angles_in; i++)
     {
-        horizontal_angles_out[nb_horizontal_angles_in+i-1] = 
+        horizontal_angles_out[nb_horizontal_angles_in+i-1] =
             mi::math::radians(horizontal_angles_in[i]);
         if (i > 0)
-            horizontal_angles_out[nb_horizontal_angles_in-i-1] = 
+            horizontal_angles_out[nb_horizontal_angles_in-i-1] =
                 -mi::math::radians(horizontal_angles_in[i]);
     }
 
@@ -1181,7 +1199,7 @@ static void compute_linear_interpolation(
     Scalar                       phi,               // Starting horizontal angle
     Scalar                       d_theta,           // Delta angle in vertical direction
     Scalar                       d_phi,             // Delta angle in horizontal direction
-    const std::string&         filename,
+    const std::string&         log_identifier,
     std::vector<Scalar>&       grid_values)         // Candela values on regular grid          [out]
 {
     const Uint nb_vertical_angles   = vertical_angles.size();
@@ -1256,7 +1274,7 @@ static void compute_linear_interpolation(
 
     if(warning_output)
         LOG::mod_log->warning(M_LIGHTPROFILE, LOG::Mod_log::C_IO,
-            "Negative values found in %s.", filename.c_str());
+            "Negative values found in %s.", log_identifier.c_str());
 }
 //
 // Compute cubic interpolation to determine lighprofile values on a regular grid
@@ -1300,6 +1318,7 @@ static inline void compute_hermite_3_coefficients(
     c2 = ((t-2.f)*t+1.f) * t;
     c3 = t2*(t-1.f);
 }
+
 static void compute_cubic_interpolation(
    const std::vector<Scalar>& vertical_angles,      // Vertical angles to map with boundary angles
    const std::vector<Scalar>& horizontal_angles,    // Horizontal angles to map with boundary angles
@@ -1449,10 +1468,10 @@ Uint compute_resolution(const std::vector<Scalar>& angles)
     // (numbered from 0 to n), such that the following computations can be done in integers. The
     // number n is chosen such that we can represent 0.1 degrees as well as an equidistant grid of
     // resolution l.
-    Dscalar range = 180.0f * (angles[l-1] - angles[0]) / M_PI;
+    Dscalar range = (180.0 / M_PI) * (angles[l-1] - angles[0]);
     Uint precision = static_cast<Uint>(10 * range + 1);
     Uint n = lcm(precision-1, l-1);
-    Dscalar factor = n / range * 180.0f / M_PI;
+    Dscalar factor = n / range * (180.0 / M_PI);
 
     std::vector<Uint> differences(l-1);
     for (size_t i = 0; i+1 < l; ++i)
@@ -1505,7 +1524,7 @@ bool Lightprofile_ies_parser::setup_lightprofile(
         LOG::mod_log->error(M_LIGHTPROFILE, LOG::Mod_log::C_IO,
             "Photometric type A in %s not supported.\n"
             "A dummy profile will be used instead.",
-            m_filename.c_str());
+            m_log_identifier.c_str());
         return false;
     }
 
@@ -1513,14 +1532,14 @@ bool Lightprofile_ies_parser::setup_lightprofile(
     {
         LOG::mod_log->warning(M_LIGHTPROFILE, LOG::Mod_log::C_IO,
             "Non-positive multiplier %f in %s will have no contribution.",
-            m_candela_multiplier, m_filename.c_str());
+            m_candela_multiplier, m_log_identifier.c_str());
         m_candela_multiplier = 0.0f;
     }
     if (m_ballast_factor <= 0.0f)
     {
         LOG::mod_log->warning(M_LIGHTPROFILE, LOG::Mod_log::C_IO,
             "Non-positive ballast factor %f in %s will have no contribution.",
-            m_ballast_factor, m_filename.c_str());
+            m_ballast_factor, m_log_identifier.c_str());
         m_ballast_factor = 0.0f;
     }
     // Resolve symmetries by creating a huge lookup table for later sampling
@@ -1534,7 +1553,7 @@ bool Lightprofile_ies_parser::setup_lightprofile(
             LOG::mod_log->warning(M_LIGHTPROFILE, LOG::Mod_log::C_IO,
                 "Light profile in file \"%s\" has \"ballast lamp factor\" <= 0.0,"
                 "will have no contribution.",
-                m_filename.c_str());
+                m_log_identifier.c_str());
         }
 
         ratio *= m_ballast_lamp_factor;
@@ -1553,7 +1572,7 @@ bool Lightprofile_ies_parser::setup_lightprofile(
     {
         // Theta in interval [0, M_PI], 0 on the north pole, i.e., vertical reverse for type C
         for(Uint i=0; i<m_nb_vertical_angles; i++)
-            vertical_angles[m_nb_vertical_angles-1-i] = 
+            vertical_angles[m_nb_vertical_angles-1-i] =
                 Scalar(M_PI-mi::math::radians(m_vertical_angles[i]));
 
         // cp. IESNA spec. 3.18
@@ -1570,6 +1589,8 @@ bool Lightprofile_ies_parser::setup_lightprofile(
         }
         else if((first_angle == 90.f) && (last_angle == 270.f) )      // 90-270 plane symmetry
         {
+            // note: this mode is no longer allowed in IESNA-LM-63-02 files
+
             // TODO This method seems to assume that the value of the median horizontal angle is
             // 180 degrees.
             resolve_90_270_plane_symmetry_type_c(m_horizontal_angles, horizontal_angles,
@@ -1595,7 +1616,7 @@ bool Lightprofile_ies_parser::setup_lightprofile(
                 "photometric type C. "
                 "We assume no symmetry and add the additional horizontal angle 360. \n"
                 "Please, see also Chapter 3.18 in '%s'",
-                m_filename.c_str(), first_angle, last_angle, ies_spec);
+                m_log_identifier.c_str(), first_angle, last_angle, ies_spec);
 
             // No symmetry
             resolve_no_symmetry_type_c(m_horizontal_angles, horizontal_angles,
@@ -1620,7 +1641,7 @@ bool Lightprofile_ies_parser::setup_lightprofile(
                 "photometric type C. \n"
                 "Please, see also Chapter 3.18 in '%s'\n"
                 "A dummy profile will be used instead.",
-                m_filename.c_str(), first_angle, last_angle, ies_spec);
+                m_log_identifier.c_str(), first_angle, last_angle, ies_spec);
             return false;
         }
 
@@ -1663,7 +1684,7 @@ bool Lightprofile_ies_parser::setup_lightprofile(
                 "photometric type B. \n"
                 "Please, see also Chapter 3.18 in '%s'\n"
                 "A dummy profile will be used instead.",
-                m_filename.c_str(), first_angle, last_angle, ies_spec);
+                m_log_identifier.c_str(), first_angle, last_angle, ies_spec);
             return false;
         }
 
@@ -1712,7 +1733,7 @@ bool Lightprofile_ies_parser::setup_lightprofile(
             vertical_angles, horizontal_angles,
             vertical_resolution, horizontal_resolution,
             candela_values,
-            theta, phi, d_theta, d_phi, m_filename, grid_values);
+            theta, phi, d_theta, d_phi, m_log_identifier, grid_values);
     }
     else if(hermite==mi::neuraylib::LIGHTPROFILE_HERMITE_BASE_3)
     {
@@ -1733,15 +1754,15 @@ bool Lightprofile_ies_parser::setup_lightprofile(
             "or cubic (hermite=3) interpolation.\n"
             "Please, see also Chapter 2.7.7 in 'Programming mental ray, Third Edition'\n"
             "A dummy profile will be used instead.",
-            m_filename.c_str());
+            m_log_identifier.c_str());
         return false;
     }
 
     LOG::mod_log->info( M_SCENE, LOG::Mod_log::C_IO,
         "Loading %s, "
         "original resolution %" FMT_SIZE_T "x%" FMT_SIZE_T ", "
-        "interpolated resolution %dx%d.",
-        m_filename.c_str(),
+        "interpolated resolution %ux%u.",
+        m_log_identifier.c_str(),
         orig_nb_horizontal_angles, orig_nb_vertical_angles,
         horizontal_resolution, vertical_resolution);
 
@@ -1750,7 +1771,7 @@ bool Lightprofile_ies_parser::setup_lightprofile(
 
 bool setup_lightprofile(
     mi::neuraylib::IReader* reader,
-    const std::string& filename,
+    const std::string& log_identifier,
     mi::neuraylib::Lightprofile_degree degree,
     mi::Uint32 flags,
     mi::Uint32& resolution_phi,
@@ -1761,7 +1782,7 @@ bool setup_lightprofile(
     mi::Float32& delta_theta,
     std::vector<mi::Float32>& data)
 {
-    Lightprofile_ies_parser parser(reader, filename);
+    Lightprofile_ies_parser parser(reader, log_identifier);
     return parser.setup_lightprofile(
         degree, flags, resolution_phi, resolution_theta,
         start_phi, start_theta, delta_phi, delta_theta, data);

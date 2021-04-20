@@ -1,5 +1,5 @@
 /******************************************************************************
- * Copyright (c) 2012-2019, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2012-2020, NVIDIA CORPORATION. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -43,7 +43,7 @@ namespace mi {
 
 namespace MI {
 
-namespace MDL { class IType; }
+namespace MDL { class IType; class Mdl_module_wait_queue; }
 namespace SYSTEM { class Module_registration_entry; }
 namespace SERIAL { class Deserializer; class Serializer; }
 
@@ -90,16 +90,6 @@ public:
     /// The type of the callback used to register MDL types with the API.
     typedef void Register_mdl_type_with_api(const MDL::IType*);
 
-    /// Sets whether the MDL integration is to be used by the Iray SDK or MDL SDK.
-    ///
-    /// Can be set only once.
-    virtual void set_used_with_mdl_sdk(bool flag) = 0;
-
-    /// Indicates whether the MDL integration is to be used by the Iray SDK or MDL SDK.
-    ///
-    /// Can be queried only after it has been set with #set_used_with_mdl_sdk().
-    virtual bool get_used_with_mdl_sdk() const = 0;
-
     /// Called whenever a Bridge client connects or a .cb file is loaded to inform about 
     /// the build and bridge protocol of the client that connects or saved the snapshot. 
     /// Can be used to implement hacky workarounds.
@@ -120,13 +110,22 @@ public:
     /// \note supports only [0-9], [0-9]+, and -? regex so far
     virtual bool utf8_match(char const *file_mask, char const *file_name) const = 0;
 
+    /// Configures, whether casts for compatible types should be inserted by the integration
+    /// when needed.
+    virtual void set_implicit_cast_enabled(bool value) = 0;
+
     /// Returns, whether casts for compatible types should be inserted by the integration
     /// when needed.
     virtual bool get_implicit_cast_enabled() const = 0;
 
-    /// Configures, whether casts for compatible types should be inserted by the integration
-    /// when needed.
-    virtual void set_implicit_cast_enabled(bool v) = 0;
+    /// Defines whether an attempt is made to expose names of let expressions.
+    virtual void set_expose_names_of_let_expressions( bool value) = 0;
+
+    /// Indicates whether an attempt is made to expose names of let expressions.
+    virtual bool get_expose_names_of_let_expressions() const = 0;
+
+    /// Returns the module wait queue.
+    virtual MDL::Mdl_module_wait_queue* get_module_wait_queue() const = 0;
 };
 
 } // namespace MDLC

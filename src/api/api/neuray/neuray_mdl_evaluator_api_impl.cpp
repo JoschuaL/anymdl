@@ -1,5 +1,5 @@
 /***************************************************************************************************
- * Copyright (c) 2018-2019, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2018-2020, NVIDIA CORPORATION. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -79,7 +79,7 @@ public:
     virtual MI::MDL::IExpression const *get_parameter_argument(size_t index) = 0;
 };
 
-class Parameter_helper NEURAY_FINAL : public IParameter_helper {
+class Parameter_helper final : public IParameter_helper {
 public:
     /// Constructor.
     template<typename T>
@@ -90,7 +90,7 @@ public:
     }
 
     /// Get the argument for the parameter with given index.
-    virtual MI::MDL::IExpression const *get_parameter_argument(size_t index) NEURAY_FINAL
+    virtual MI::MDL::IExpression const *get_parameter_argument(size_t index) final
     {
         return m_arguments->get_expression(index);
     }
@@ -111,6 +111,7 @@ public:
         EC_PARAMETER         = 5,   ///< parameter argument could not be found
         EC_MEMORY_EXHAUSTED  = 6,   ///< Memory size threshold reached
         EC_CYCLES_EXHAUSTED  = 7,   ///< computational time threshold reached
+        EC_INVALID_CALL      = 8,   ///< call points to invalid definition
     };
 
 public:
@@ -124,7 +125,7 @@ public:
         mi::neuraylib::ITransaction *trans,
         IParameter_helper           *param_cb)
     : m_compiler(mi::mdl::impl_cast<mi::mdl::MDL>(compiler))
-    , m_trans(NULL)
+    , m_trans(nullptr)
     , m_param_cp(param_cb)
     , m_arena(m_compiler->get_allocator())
     , m_sym_tab(m_arena)
@@ -160,11 +161,11 @@ public:
         case mi::mdl::IDefinition::DS_INTRINSIC_DF_LIGHT_PROFILE_ISVALID:
         case mi::mdl::IDefinition::DS_INTRINSIC_DF_BSDF_MEASUREMENT_ISVALID:
             // all *_isvalid functions are supported, but strict
-            strict = true;
+            strict = true; //-V1048 //-V1037 PVS
             break;
         case mi::mdl::IDefinition::DS_CONV_OPERATOR:
             // type conversion is supported, but strict
-            strict = true;
+            strict = true; //-V1048 PVS
             break;
         default:
             if (mi::mdl::semantic_is_operator(sema)) {
@@ -174,7 +175,7 @@ public:
             }
             if (mi::mdl::is_math_semantics(sema)) {
                 // all math functions are constexpr, but strict
-                strict = true;
+                strict = true; //-V1048 PVS
                 break;
             }
             // unsupported so far
@@ -262,7 +263,7 @@ public:
                     mi::mdl::IValue_int const *i_v =
                         mi::mdl::as<mi::mdl::IValue_int>(values[1]);
 
-                    if (a_v == NULL || i_v == NULL) {
+                    if (a_v == nullptr || i_v == nullptr) {
                         return m_value_fact.create_bad();
                     }
                     int index = i_v->get_value();
@@ -411,8 +412,8 @@ public:
             {
                 mi::base::Handle<mi::neuraylib::IExpression_constant const> c(
                     expr->get_interface<mi::neuraylib::IExpression_constant>());
-                MI::NEURAY::Expression_constant const *c_imp =
-                    static_cast<MI::NEURAY::Expression_constant const *>(c.get());
+                Expression_constant const *c_imp =
+                    static_cast<Expression_constant const *>(c.get());
 
                 return evaluate(c_imp);
             }
@@ -421,32 +422,32 @@ public:
             {
                 mi::base::Handle<mi::neuraylib::IExpression_call const> call(
                     expr->get_interface<mi::neuraylib::IExpression_call>());
-                MI::NEURAY::Expression_call const *c_impl =
-                    static_cast<MI::NEURAY::Expression_call const *>(call.get());
+                Expression_call const *c_impl =
+                    static_cast<Expression_call const *>(call.get());
                 return evaluate(c_impl);
             }
         case mi::neuraylib::IExpression::EK_PARAMETER:
             {
                 mi::base::Handle<mi::neuraylib::IExpression_parameter const> param(
                     expr->get_interface<mi::neuraylib::IExpression_parameter>());
-                MI::NEURAY::Expression_parameter const *p_impl =
-                    static_cast<MI::NEURAY::Expression_parameter const *>(param.get());
+                Expression_parameter const *p_impl =
+                    static_cast<Expression_parameter const *>(param.get());
                 return evaluate(p_impl);
             }
         case mi::neuraylib::IExpression::EK_DIRECT_CALL:
             {
                 mi::base::Handle<mi::neuraylib::IExpression_direct_call const> dcall(
                     expr->get_interface<mi::neuraylib::IExpression_direct_call>());
-                MI::NEURAY::Expression_direct_call const *d_impl =
-                    static_cast<MI::NEURAY::Expression_direct_call const *>(dcall.get());
+                Expression_direct_call const *d_impl =
+                    static_cast<Expression_direct_call const *>(dcall.get());
                 return evaluate(d_impl);
             }
         case mi::neuraylib::IExpression::EK_TEMPORARY:
             {
                 mi::base::Handle<mi::neuraylib::IExpression_temporary const> temp(
                     expr->get_interface<mi::neuraylib::IExpression_temporary>());
-                MI::NEURAY::Expression_temporary const *t_impl =
-                    static_cast<MI::NEURAY::Expression_temporary const *>(temp.get());
+                Expression_temporary const *t_impl =
+                    static_cast<Expression_temporary const *>(temp.get());
                 return evaluate(t_impl);
             }
         case mi::neuraylib::IExpression::EK_FORCE_32_BIT:
@@ -460,11 +461,11 @@ public:
     /// Get a parameter argument expression.
     MI::MDL::IExpression const *get_parameter_argument(size_t index)
     {
-        if (m_param_cp != NULL)
+        if (m_param_cp != nullptr)
             return m_param_cp->get_parameter_argument(index);
 
         // no callback provided
-        return NULL;
+        return nullptr;
     }
 
     /// Evaluate an internal neuray expression.
@@ -496,7 +497,11 @@ public:
                     return m_value_fact.create_bad();
                 }
                 DB::Access<MI::MDL::Mdl_function_call> fcall(tag, m_trans);
-                DB::Tag def_tag = fcall->get_function_definition();
+                DB::Tag def_tag = fcall->get_function_definition(m_trans);
+                if (!def_tag.is_valid()) {
+                    set_error(EC_INVALID_CALL);
+                    return m_value_fact.create_bad();
+                }
                 DB::Access<MI::MDL::Mdl_function_definition> def(def_tag, m_trans);
 
                 mi::base::Handle<MI::MDL::IExpression_list const> args(
@@ -523,7 +528,11 @@ public:
             {
                 mi::base::Handle<MI::MDL::IExpression_direct_call const> dcall(
                     expr->get_interface<MI::MDL::IExpression_direct_call>());
-                DB::Tag tag = dcall->get_definition();
+                DB::Tag tag = dcall->get_definition(m_trans);
+                if (!tag.is_valid()) {
+                    set_error(EC_INVALID_CALL);
+                    return m_value_fact.create_bad();
+                }
                 SERIAL::Class_id class_id = m_trans->get_class_id(tag);
 
                 if (class_id != MI::MDL::Mdl_function_definition::id) {
@@ -575,7 +584,7 @@ public:
                 mi::mdl::IType_enum const *e_tp = mi::mdl::as<mi::mdl::IType_enum>(
                     translate(tp.get()));
 
-                if (e_tp != NULL) {
+                if (e_tp != nullptr) {
                     return m_value_fact.create_enum(e_tp, e->get_index());
                 }
                 set_error(EC_UNSUPPORTED);
@@ -599,6 +608,13 @@ public:
             break;
         case MI::MDL::IValue::VK_STRING:
             {
+                {
+                    mi::base::Handle<MI::MDL::IValue_string_localized const> s(
+                        value->get_interface<MI::MDL::IValue_string_localized >());
+                    if (s) {
+                        return m_value_fact.create_string(s->get_original_value());
+                    }
+                }
                 mi::base::Handle<MI::MDL::IValue_string const> s(
                     value->get_interface<MI::MDL::IValue_string>());
 
@@ -614,7 +630,7 @@ public:
                 mi::mdl::IType_vector const *v_tp =
                     mi::mdl::as<mi::mdl::IType_vector>(translate(t.get()));
 
-                if (v_tp != NULL) {
+                if (v_tp != nullptr) {
                     size_t n = v->get_size();
                     MI::MDL::Small_VLA<mi::mdl::IValue const *, 4> values(n);
                     for (size_t i = 0; i < n; ++i) {
@@ -641,7 +657,7 @@ public:
                 mi::mdl::IType_matrix const *m_tp =
                     mi::mdl::as<mi::mdl::IType_matrix>(translate(t.get()));
 
-                if (m_tp != NULL) {
+                if (m_tp != nullptr) {
                     size_t n = m->get_size();
                     MI::MDL::Small_VLA<mi::mdl::IValue const *, 4> values(n);
                     for (size_t i = 0; i < n; ++i) {
@@ -668,7 +684,7 @@ public:
                 mi::mdl::IType_color const *m_tp =
                     mi::mdl::as<mi::mdl::IType_color>(translate(t.get()));
 
-                if (m_tp != NULL) {
+                if (m_tp != nullptr) {
                     mi::mdl::IValue_float const *values[3];
                     for (size_t i = 0; i < 3; ++i) {
                         mi::base::Handle<MI::MDL::IValue const> e(m->get_value(i));
@@ -694,7 +710,7 @@ public:
                 mi::mdl::IType_array const *a_tp =
                     mi::mdl::as<mi::mdl::IType_array>(translate(t.get()));
 
-                if (a_tp != NULL && a_tp->is_immediate_sized()) {
+                if (a_tp != nullptr && a_tp->is_immediate_sized()) {
                     mi::mdl::IType const *e_tp = a_tp->get_element_type();
                     size_t n = a->get_size();
                     MI::MDL::Small_VLA<mi::mdl::IValue const *, 4> values(n);
@@ -721,7 +737,7 @@ public:
                 mi::mdl::IType_struct const *s_tp =
                     mi::mdl::as<mi::mdl::IType_struct>(translate(tp.get()));
 
-                if (s_tp != NULL) {
+                if (s_tp != nullptr) {
                     size_t n = s->get_size();
                     MI::MDL::Small_VLA<mi::mdl::IValue const *, 8> values(n);
                     for (size_t i = 0; i < n; ++i) {
@@ -744,7 +760,7 @@ public:
                 mi::base::Handle<MI::MDL::IType const> type(value->get_type());
                 mi::mdl::IType_reference const *ref_type =
                     mi::mdl::as<mi::mdl::IType_reference>(translate(type.get()));
-                if (ref_type != NULL)
+                if (ref_type != nullptr)
                     return m_value_fact.create_invalid_ref(ref_type);
                 set_error(EC_UNSUPPORTED);
                 return m_value_fact.create_bad();
@@ -758,7 +774,7 @@ public:
                 mi::mdl::IType_texture const *tex_type =
                     mi::mdl::as<mi::mdl::IType_texture>(translate(tp.get()));
 
-                if (tex_type != NULL) {
+                if (tex_type != nullptr) {
                     DB::Tag resource_tag = tex->get_value();
                     if (resource_tag.is_valid()) {
                         // treat this as a valid resource
@@ -784,7 +800,7 @@ public:
                 mi::mdl::IType_light_profile const *lp_type =
                     mi::mdl::as<mi::mdl::IType_light_profile>(translate(tp.get()));
 
-                if (lp_type != NULL) {
+                if (lp_type != nullptr) {
                     DB::Tag resource_tag = lp->get_value();
                     if (resource_tag.is_valid()) {
                         // treat this as a valid resource
@@ -806,7 +822,7 @@ public:
                 mi::mdl::IType_bsdf_measurement const *bm_type =
                     mi::mdl::as<mi::mdl::IType_bsdf_measurement>(translate(tp.get()));
 
-                if (bm_type != NULL) {
+                if (bm_type != nullptr) {
                     DB::Tag resource_tag = bm->get_value();
                     if (resource_tag.is_valid()) {
                         // treat this as a valid resource
@@ -937,7 +953,7 @@ public:
                 mi::mdl::IType_atomic const *e_tp =
                     mi::mdl::as<mi::mdl::IType_atomic>(translate(e.get()));
 
-                if (e_tp != NULL) {
+                if (e_tp != nullptr) {
                     return m_type_fact.create_vector(e_tp, int(v->get_size()));
                 }
                 set_error(EC_UNSUPPORTED);
@@ -952,7 +968,7 @@ public:
                 mi::mdl::IType_vector const *e_tp =
                     mi::mdl::as<mi::mdl::IType_vector>(translate(e.get()));
 
-                if (e_tp != NULL) {
+                if (e_tp != nullptr) {
                     return m_type_fact.create_matrix(e_tp, int(m->get_size()));
                 }
                 set_error(EC_UNSUPPORTED);
@@ -1030,6 +1046,8 @@ public:
                     return m_type_fact.create_texture(mi::mdl::IType_texture::TS_CUBE);
                 case MI::MDL::IType_texture::TS_PTEX:
                     return m_type_fact.create_texture(mi::mdl::IType_texture::TS_PTEX);
+                case MI::MDL::IType_texture::TS_BSDF_DATA:
+                    return m_type_fact.create_texture(mi::mdl::IType_texture::TS_BSDF_DATA);
                 case MI::MDL::IType_texture::TS_FORCE_32_BIT:
                     break;
                 }
@@ -1109,13 +1127,13 @@ private:
 
 Mdl_evaluator_api_impl::Mdl_evaluator_api_impl(mi::neuraylib::INeuray *neuray)
 : m_neuray(neuray)
-, m_mdlc_module( false)
+, m_mdlc_module( true)
 {
 }
 
 Mdl_evaluator_api_impl::~Mdl_evaluator_api_impl()
 {
-    m_neuray = NULL;
+    m_neuray = nullptr;
 }
 
 // Evaluate the given (constant) expression.
@@ -1129,22 +1147,22 @@ mi::neuraylib::IValue_bool const *Mdl_evaluator_api_impl::is_material_parameter_
     mi::Sint32                               *error) const
 {
     mi::Sint32 dummy_error;
-    if (error == NULL)
+    if (error == nullptr)
         error = &dummy_error;
 
-    if (trans == NULL || fact == NULL || inst == NULL) {
+    if (trans == nullptr || fact == nullptr || inst == nullptr) {
         *error = -1;
-        return NULL;
+        return nullptr;
     }
 
     MI::MDL::Mdl_material_instance const *db_inst(
         static_cast<Material_instance_impl const *>(inst)->get_db_element());
 
     char const *name = db_inst->get_parameter_name(index);
-    if (name == NULL) {
+    if (name == nullptr) {
         // wrong index
         *error = -2;
-        return NULL;
+        return nullptr;
     }
 
     mi::base::Handle<MI::MDL::IExpression_list const> conds(db_inst->get_enable_if_conditions());
@@ -1177,6 +1195,7 @@ mi::neuraylib::IValue_bool const *Mdl_evaluator_api_impl::is_material_parameter_
         case Evaluator::EC_UNSUPPORTED:
         case Evaluator::EC_NON_FUNCTION_CALL:
         case Evaluator::EC_PARAMETER:
+        case Evaluator::EC_INVALID_CALL:
             *error = -4;
             break;
         case Evaluator::EC_MEMORY_EXHAUSTED:
@@ -1184,7 +1203,7 @@ mi::neuraylib::IValue_bool const *Mdl_evaluator_api_impl::is_material_parameter_
             *error = -5;
             break;
         }
-        return NULL;
+        return nullptr;
     }
 
     *error = 0;
@@ -1201,22 +1220,22 @@ mi::neuraylib::IValue_bool const *Mdl_evaluator_api_impl::is_function_parameter_
     mi::Sint32                              *error) const
 {
     mi::Sint32 dummy_error;
-    if (error == NULL)
+    if (error == nullptr)
         error = &dummy_error;
 
-    if (trans == NULL || fact == NULL || call == NULL) {
+    if (trans == nullptr || fact == nullptr || call == nullptr) {
         *error = -1;
-        return NULL;
+        return nullptr;
     }
 
     MI::MDL::Mdl_function_call const *db_call(
         static_cast<Function_call_impl const *>(call)->get_db_element());
 
     char const *name = db_call->get_parameter_name(index);
-    if (name == NULL) {
+    if (name == nullptr) {
         // wrong index
         *error = -2;
-        return NULL;
+        return nullptr;
     }
 
     mi::base::Handle<MI::MDL::IExpression_list const> conds(db_call->get_enable_if_conditions());
@@ -1249,6 +1268,7 @@ mi::neuraylib::IValue_bool const *Mdl_evaluator_api_impl::is_function_parameter_
         case Evaluator::EC_UNSUPPORTED:
         case Evaluator::EC_NON_FUNCTION_CALL:
         case Evaluator::EC_PARAMETER:
+        case Evaluator::EC_INVALID_CALL:
             *error = -4;
             break;
         case Evaluator::EC_MEMORY_EXHAUSTED:
@@ -1256,7 +1276,7 @@ mi::neuraylib::IValue_bool const *Mdl_evaluator_api_impl::is_function_parameter_
             *error = -5;
             break;
         }
-        return NULL;
+        return nullptr;
     }
 
     *error = 0;

@@ -1,5 +1,5 @@
 #*****************************************************************************
-# Copyright (c) 2018-2019, NVIDIA CORPORATION. All rights reserved.
+# Copyright (c) 2018-2020, NVIDIA CORPORATION. All rights reserved.
 #
 # Redistribution and use in source and binary forms, with or without
 # modification, are permitted provided that the following conditions
@@ -130,8 +130,6 @@ set(PROJECT_SOURCES
     "utilities/application_settings.h"
     "utilities/application_settings_serializer_xml.cpp"
     "utilities/application_settings_serializer_xml.h"
-    "utilities/mdl_helper.cpp"
-    "utilities/mdl_helper.h"
     "utilities/platform_helper.cpp"
     "utilities/platform_helper.h"
     "utilities/qt/mdl_archive_image_provider.cpp"
@@ -174,6 +172,7 @@ create_from_base_preset(
     NAMESPACE mdl_sdk
     OUTPUT_NAME "mdl_qt_plugin"
     SOURCES ${PROJECT_SOURCES}
+    EXAMPLE
     )
 add_library(mdl_qtplugin ALIAS ${PROJECT_NAME})
 add_library(mdl_sdk::mdl_qtplugin ALIAS ${PROJECT_NAME})

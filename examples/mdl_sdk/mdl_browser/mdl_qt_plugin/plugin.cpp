@@ -1,5 +1,5 @@
 /******************************************************************************
- * Copyright (c) 2018-2019, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2018-2020, NVIDIA CORPORATION. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -59,6 +59,11 @@ Mdl_qt_plugin::Mdl_qt_plugin()
 void Mdl_qt_plugin::registerTypes(const char *uri)
 {
     Q_ASSERT(uri == QLatin1String("MdlQtPlugin"));
+
+    qmlRegisterType(QUrl("qrc:/mdlqtplugin/BrowserApp.qml"), uri, 1, 0, "BrowserApp");
+    qmlRegisterType(QUrl("qrc:/mdlqtplugin/BrowserDialog.qml"), uri, 1, 0, "BrowserDialog");
+    qmlRegisterType(QUrl("qrc:/mdlqtplugin/BrowserMain.qml"), uri, 1, 0, "BrowserMain");
+
     qmlRegisterType<View_model>(uri, 1, 0, "ViewModel");
     qmlRegisterType<VM_nav_stack>(uri, 1, 0, "NavStack");
     qmlRegisterType<VM_nav_stack_level_model>(uri, 1, 0, "NavStackLevelModel");
@@ -75,23 +80,26 @@ void Mdl_qt_plugin::initializeEngine(QQmlEngine* engine, const char * uri)
     QQmlExtensionPlugin::initializeEngine(engine, uri);
 }
 
-bool Mdl_qt_plugin::set_context(QQmlApplicationEngine* engine, Mdl_qt_plugin_context* context)
+bool Mdl_qt_plugin::set_context(
+    QQmlApplicationEngine* engine,
+    Mdl_qt_plugin_context* context)
 {
     m_engine = engine;
 
     // attach c++ back-end
+    std::string app_dir = mi::examples::io::get_executable_folder();
     m_view_model = new View_model(
-        context->neuray.get(),
-        context->transaction.get(),
-        &context->mdl_browser,
+        context->get_neuray(),
+        context->get_transaction(),
+        context->get_mdl_browser_callbacks(),
         context->rebuild_module_cache,
-        Platform_helper::get_executable_directory().c_str());
+        app_dir.c_str());
 
     m_engine->rootContext()->setContextProperty("vm_mdl_browser", m_view_model);
 
     // image provided for mdl archive thumbnails (takes ownership)
     m_engine->addImageProvider(QLatin1String("mdl_archive"),
-                                new Mdl_archive_image_provider(context->neuray.get()));
+                               new Mdl_archive_image_provider(context->get_neuray()));
     return true;
 }
 
@@ -101,62 +109,58 @@ bool Mdl_qt_plugin::initialize(QPluginLoader* loader)
     return true;
 }
 
-void Mdl_qt_plugin::show_select_material_dialog(Mdl_qt_plugin_context* context, Mdl_qt_plguin_browser_handle& out_handle)
+void Mdl_qt_plugin::show_select_material_dialog(
+    Mdl_qt_plugin_context* context,
+    Mdl_qt_plguin_browser_handle* out_handle)
 {
-    out_handle.result = "";
-    out_handle.accepted = false;
-    out_handle.thread = std::thread([&]()
+    // setup callbacks to get the result
+    context->get_mdl_browser_callbacks()->on_accepted = [&](const std::string& s)
+    {
+        out_handle->result.append(s);
+        out_handle->accepted = true;
+    };
+
+    out_handle->result = "";
+    out_handle->result.reserve(4096);
+    out_handle->accepted = false;
+    out_handle->thread = std::thread([&, context]()
     {
         // global Qt Setting that is used for the example
         QQuickStyle::setStyle("Material");
         #if defined(Q_OS_WIN)
             QCoreApplication::setAttribute(Qt::AA_EnableHighDpiScaling);
+            // QCoreApplication::setAttribute(Qt::AA_UseDesktopOpenGL); // hangs in remote desktop mode
+            QCoreApplication::setAttribute(Qt::AA_UseOpenGLES);
         #endif
 
         // view model as connection between C++ and QML world
-            View_model* view_model = new View_model(
-                context->neuray.get(),
-                context->transaction.get(),
-                &context->mdl_browser,
-                context->rebuild_module_cache,
-            Platform_helper::get_executable_directory().c_str());
+        std::string app_dir = mi::examples::io::get_executable_folder();
+        View_model* view_model = new View_model(
+            context->get_neuray(),
+            context->get_transaction(),
+            context->get_mdl_browser_callbacks(),
+            context->rebuild_module_cache,
+            app_dir.c_str());
 
         // create and run an internal application
+        int argc = 0;
+        QGuiApplication app(argc, nullptr);
+        QQmlApplicationEngine engine;
+        engine.rootContext()->setContextProperty("vm_mdl_browser", view_model);
+
+        // image provided for mdl archive thumbnails (takes ownership)
+        engine.addImageProvider(QLatin1String("mdl_archive"),
+            new Mdl_archive_image_provider(context->get_neuray()));
+
+        // Run the Application
+        app.setWindowIcon(QIcon(":/mdlqtplugin/graphics/mdl_icon.svg"));
+        engine.load(":/mdlqtplugin/BrowserApp.qml");
+        int exit_code = app.exec();
+        if (exit_code != 0)
         {
-            int argc = 0;
-            QGuiApplication app(argc, nullptr);
-            QQmlApplicationEngine engine;
-
-            engine.rootContext()->setContextProperty("vm_mdl_browser", view_model);
-
-            // image provided for mdl archive thumbnails (takes ownership)
-            engine.addImageProvider(QLatin1String("mdl_archive"),
-                                    new Mdl_archive_image_provider(context->neuray.get()));
-
-            // setup callbacks to get the result
-            context->mdl_browser.on_accepted = [&](const std::string& s)
-            {
-                out_handle.result = s;
-                out_handle.accepted = true;
-            };
-            context->mdl_browser.on_rejected = [&]()
-            {
-                out_handle.result = "";
-                out_handle.accepted = false;
-            };
-
-            // Run the Application
-            app.setWindowIcon(QIcon(":/mdlqtplugin/graphics/mdl_icon.svg"));
-            engine.load(":/mdlqtplugin/BrowserApp.qml");
-            int exit_code = app.exec();
-            if (exit_code != 0)
-            {
-                qDebug() << "[error] Qt application crashed.\n";
-                out_handle.result = "";
-                out_handle.accepted = false;
-            }
-            engine.removeImageProvider(QLatin1String("mdl_archive"));
+            qDebug() << "[error] Qt application crashed.\n";
         }
+        engine.removeImageProvider(QLatin1String("mdl_archive"));
         delete view_model;
     });
 }

@@ -58,4 +58,3 @@ target_link_libraries(benchy
 )
 
 set_target_properties(benchy PROPERTIES CXX_STANDARD 14 CXX_STANDARD_REQUIRED ON)
-

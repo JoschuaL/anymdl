@@ -1,5 +1,5 @@
 /******************************************************************************
- * Copyright (c) 2016-2019, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2016-2020, NVIDIA CORPORATION. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -26,7 +26,7 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *****************************************************************************/
 
-// examples/example_archives.cpp
+// examples/mdl_sdk/archives/example_archives.cpp
 //
 // Creates an MDL archive, extracts an MDL archive, or queries the manifest of an MDL archive.
 //
@@ -51,8 +51,6 @@
 #include <iostream>
 #include <string>
 
-#include <mi/mdl_sdk.h>
-
 // Include code shared by all examples.
 #include "example_shared.h"
 
@@ -76,9 +74,9 @@ void create_archive(
     mi::Size fields_count   = static_cast<mi::Size>( argc-5);
 
     // set the search path for .mdl files
-    mi::base::Handle<mi::neuraylib::IMdl_compiler> mdl_compiler(
-        neuray->get_api_component<mi::neuraylib::IMdl_compiler>());
-    check_success( mdl_compiler->add_module_path( module_path) == 0);
+    mi::base::Handle<mi::neuraylib::IMdl_configuration> mdl_conf(
+        neuray->get_api_component<mi::neuraylib::IMdl_configuration>());
+    check_success( mdl_conf->add_mdl_path( module_path) == 0);
 
     // convert argv[5], etc. to manifest fields
     mi::base::Handle<mi::neuraylib::IFactory> factory(
@@ -236,7 +234,7 @@ void query( mi::neuraylib::IMdl_archive_api* mdl_archive_api, int argc, char* ar
         fprintf( stderr, "Invalid mode \"%s\".\n", mode.c_str());
 }
 
-int main( int argc, char* argv[])
+int MAIN_UTF8( int argc, char* argv[])
 {
     // Collect command line parameters
     if( argc == 1) {
@@ -248,18 +246,25 @@ int main( int argc, char* argv[])
         std::cerr << "       example_archives query_value <archive> <index>" << std::endl;
         std::cerr << "       example_archives query_key_count <archive> <key>" << std::endl;
         std::cerr << "       example_archives query_key_value <archive> <key> <index>" << std::endl;
-        keep_console_open();
-        return EXIT_FAILURE;
+        exit_failure();
     }
     std::string mode = argv[1];
 
     // Access the neuray library
-    mi::base::Handle<mi::neuraylib::INeuray> neuray( load_and_get_ineuray());
+    mi::base::Handle<mi::neuraylib::INeuray> neuray( mi::examples::mdl::load_and_get_ineuray());
     check_success( neuray.is_valid_interface());
 
+    // Install logger
+    mi::base::Handle<mi::neuraylib::IMdl_configuration> mdl_config(
+        neuray->get_api_component<mi::neuraylib::IMdl_configuration>());
+    mi::base::Handle<mi::base::ILogger> logger( new mi::examples::mdl::Default_logger());
+    mdl_config->set_logger( logger.get());
+    mdl_config = 0;
+
     // Start the neuray library
-    mi::Sint32 result = neuray->start();
-    check_start_success( result);
+    mi::Sint32 ret = neuray->start();
+    if (ret != 0)
+        exit_failure("Failed to initialize the SDK. Result code: %d", ret);
 
     {
         mi::base::Handle<mi::neuraylib::IMdl_archive_api> mdl_archive_api(
@@ -273,13 +278,17 @@ int main( int argc, char* argv[])
             query( mdl_archive_api.get(), argc, argv);
     }
 
-    // Shut down the neuray library
-    check_success( neuray->shutdown() == 0);
-    neuray = 0;
+    // Shut down the MDL SDK
+    if (neuray->shutdown() != 0)
+        exit_failure("Failed to shutdown the SDK.");
 
-    // Unload the neuray library
-    check_success( unload());
+    // Unload the MDL SDK
+    neuray = nullptr;
+    if (!mi::examples::mdl::unload())
+        exit_failure("Failed to unload the SDK.");
 
-    keep_console_open();
-    return EXIT_SUCCESS;
+    exit_success();
 }
+
+// Convert command line arguments to UTF8 on Windows
+COMMANDLINE_TO_UTF8

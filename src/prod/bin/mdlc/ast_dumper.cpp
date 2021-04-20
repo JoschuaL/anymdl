@@ -10,7 +10,6 @@
 #include <mi/base/handle.h>
 #include <mi/mdl/mdl_code_generators.h>
 
-
 #include <mdl/compiler/compilercore/compilercore_cc_conf.h>
 #include <mdl/compiler/compilercore/compilercore_file_resolution.h>
 #include <mdl/compiler/compilercore/compilercore_mdl.h>
@@ -105,7 +104,7 @@ void AST_Dumper::dump_type(const IDefinition *definition, int *node_counter) {
 }
 
 void AST_Dumper::dump_function(const IDefinition *definition,
-                              int *node_counter) {
+                               int *node_counter) {
   IType_function const *fun_type = as<IType_function>(definition->get_type());
   int parameter_count = fun_type->get_parameter_count();
 

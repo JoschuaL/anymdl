@@ -1,5 +1,5 @@
 /******************************************************************************
- * Copyright (c) 2007-2019, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2007-2020, NVIDIA CORPORATION. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -416,7 +416,9 @@ inline size_t dynamic_memory_consumption (const multimap<T1, T2>& the_map)
 #elif defined(MI_PLATFORM_MACOSX_USING_NODE)
     size_t total = the_map.size() * sizeof(std::__tree_node<std::pair<const T1,T2>, void*>);
 #elif defined(MI_PLATFORM_WINDOWS)
-    size_t total = the_map.size() * sizeof(Map_type::_Node);
+    // subclass to get access to _Node type
+    struct Sub : public Map_type { typedef Map_type::_Node _Node; };
+    size_t total = the_map.size() * sizeof(Sub::_Node);
 #endif
 
     // additional dynamic size of the multimap elements
@@ -485,7 +487,9 @@ inline size_t dynamic_memory_consumption (const set<T>& the_set)
 #elif defined(MI_PLATFORM_MACOSX_USING_NODE)
     size_t total = the_set.size() * sizeof(std::__tree_node<T, void*>);
 #elif defined(MI_PLATFORM_WINDOWS)
-    size_t total = the_set.size() * sizeof(Set_type::_Node);
+    // subclass to get access to _Node type
+    struct Sub : public set<T> { typedef set<T>::_Node _Node; };
+    size_t total = the_set.size() * sizeof(Sub::_Node);
 #endif
 
     // additional dynamic size of the set elements
@@ -512,7 +516,9 @@ inline size_t dynamic_memory_consumption (const set<T1, A>& the_set)
 #elif defined(MI_PLATFORM_MACOSX_USING_NODE)
     size_t total = the_set.size() * sizeof(std::__tree_node<T1, void*>);
 #elif defined(MI_PLATFORM_WINDOWS)
-    size_t total = the_set.size() * sizeof(Set_type::_Node);
+    // subclass to get access to _Node type
+    struct Sub : public Set_type { typedef Set_type::_Node _Node; };
+    size_t total = the_set.size() * sizeof(Sub::_Node);
 #endif
 
     // additional dynamic size of the set elements

@@ -1,5 +1,5 @@
 /******************************************************************************
- * Copyright (c) 2019, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2019-2020, NVIDIA CORPORATION. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -53,19 +53,29 @@
 #include <chrono>
 #include <iomanip>
 #include <iostream>
-#include <map>
 #include <queue>
-#include <set>
 #include <sstream>
 #include <string>
 #include <unordered_map>
+#include <map>
 #include <unordered_set>
+#include <set>
 #include <vector>
+#include <stack>
+#include <deque>
 #include <functional>
+#include <mutex>
+#include <atomic>
 
 #include "utils.h"
 
-namespace mdl_d3d12
+// mdl example shared
+#include <utils/enums.h>
+#include <utils/io.h>
+#include <utils/os.h>
+#include <utils/strings.h>
+
+namespace mi { namespace examples { namespace mdl_d3d12
 {
     using namespace DirectX;
     template<class T>
@@ -74,8 +84,10 @@ namespace mdl_d3d12
     typedef ID3D12Device5 D3DDevice;
     typedef ID3D12GraphicsCommandList4 D3DCommandList;
 
-    // Identifies on which heap and which index a resource view is located.
-    // A simple integer could do as well, but this is more explicit.
+    class Descriptor_heap;
+
+    /// Identifies on which heap and which index a resource view is located.
+    /// A simple integer could do as well, but this is more explicit.
     struct Descriptor_heap_handle
     {
         friend class Descriptor_heap;
@@ -88,13 +100,26 @@ namespace mdl_d3d12
 
         operator size_t() const { return m_index; }
 
+        Descriptor_heap_handle create_offset(size_t offset);
+
+        /// Get the internal D3D CPU descriptor handle
+        D3D12_CPU_DESCRIPTOR_HANDLE get_cpu_handle() const;
+        /// Get the internal D3D GPU descriptor handle
+        D3D12_GPU_DESCRIPTOR_HANDLE get_gpu_handle() const;
+
     private:
         explicit Descriptor_heap_handle(Descriptor_heap* heap, size_t index);
         Descriptor_heap* m_descriptor_heap;
         size_t m_index;
     };
 
-}
+    /// Shared base class for all textures and buffers.
+    class Resource
+    {
+    public:
+        virtual ~Resource() = default;
+        virtual std::string get_debug_name() const = 0;
+    };
 
-
+}}} // mi::examples::mdl_d3d12
 #endif

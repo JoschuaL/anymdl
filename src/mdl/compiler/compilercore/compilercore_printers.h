@@ -1,5 +1,5 @@
 /******************************************************************************
- * Copyright (c) 2011-2019, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2011-2020, NVIDIA CORPORATION. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -115,7 +115,7 @@ public:
         entries[Sc::C_COMMENT] =    Color_entry(Color::GREEN,   false, Color::DEFAULT, false);
     }
 
-    Color_entry &operator[](ISyntax_coloring::Syntax_elements index)
+    Color_entry &operator[](ISyntax_coloring::Syntax_elements index) //-V302
     {
         return entries[index];
     }
@@ -331,6 +331,10 @@ public:
 
     // ------------------- non-interface methods -------------------
 
+    /// Print namespace.
+    /// \param  ns    The namespace to print.
+    void print_namespace(IQualified_name const *name);
+
     /// Prints an annotation block.
     ///
     /// \param block   the annotation block or NULL
@@ -383,6 +387,9 @@ public:
     ///
     /// \param e_type  the enum type to print
     virtual void print_type_prefix(IType_enum const *e_type);
+
+    /// Returns true if a variable declaration of kind T v(a); can be rewritten as T v = a;
+    virtual bool can_rewite_constructor_init(IExpression const * init);
 
     /// Print a type part.
     void typepart(char const *w);

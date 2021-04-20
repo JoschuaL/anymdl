@@ -1,5 +1,5 @@
 /***************************************************************************************************
- * Copyright (c) 2010-2019, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2010-2020, NVIDIA CORPORATION. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -73,7 +73,7 @@ public:
     /// Constructor
     ///
     /// The string is initialized to the empty string.
-    String_impl();
+    String_impl(const char* str=nullptr);
 
     /// Destructor
     ~String_impl();

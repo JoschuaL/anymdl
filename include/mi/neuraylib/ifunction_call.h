@@ -1,5 +1,5 @@
 /***************************************************************************************************
- * Copyright (c) 2015-2019, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2015-2020, NVIDIA CORPORATION. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -34,6 +34,7 @@
 #include <cstring>
 
 #include <mi/neuraylib/iexpression.h>
+#include <mi/neuraylib/imdl_factory.h>
 #include <mi/neuraylib/iscene_element.h>
 
 namespace mi {
@@ -43,6 +44,7 @@ namespace neuraylib {
 /** \addtogroup mi_neuray_mdl_elements
 @{
 */
+class IMdl_execution_context;
 
 /// This interface represents a function call.
 ///
@@ -70,7 +72,7 @@ public:
     ///       (see #get_function_definition()).
     virtual const char* get_mdl_function_definition() const = 0;
 
-    /// Indicates whether this call is and instance of the array constructor.
+    /// Indicates whether this call is an instance of the array constructor.
     ///
     /// \see \ref mi_neuray_mdl_arrays
     inline bool is_array_constructor() const
@@ -179,6 +181,32 @@ public:
     ///
     /// \return true, if this function call is a default, false otherwise.
     virtual bool is_default() const = 0;
+
+    /// Returns \c true if this function call and all its arguments point to valid
+    /// material and function definitions, \c false otherwise.
+    ///
+    /// Material and function definitions can become invalid due to a module reload.
+    ///
+    /// \see #mi::neuraylib::IModule::reload(), #mi::neuraylib::IMaterial_instance::repair()
+    ///
+    /// \param context  Execution context that can be queried for error messages
+    ///                 after the operation has finished. Can be \c NULL.
+    /// \return 
+    ///      - \c true:  The instance is valid.
+    ///      - \c false: The instance is invalid.
+    virtual bool is_valid(IMdl_execution_context* context) const = 0;
+
+    /// Attempts to repair an invalid function call.
+    ///
+    /// \param flags    Repair options, see #mi::neuraylib::Mdl_repair_options.
+    /// \param context  Execution context that can be queried for error messages
+    ///                 after the operation has finished. Can be \c NULL.
+    /// \return
+    ///     -   0:   Success.
+    ///     -  -1:   Repair failed. Check the \c context for details.
+    virtual Sint32 repair(
+        Uint32 flags,
+        IMdl_execution_context* context) = 0;
 };
 
 /*@}*/ // end group mi_neuray_mdl_elements

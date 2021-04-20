@@ -1,5 +1,5 @@
 /******************************************************************************
- * Copyright (c) 2019, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2019-2020, NVIDIA CORPORATION. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -34,23 +34,33 @@
 #include "common.h"
 #include "base_application.h"
 
-namespace mdl_d3d12
+namespace mi { namespace examples { namespace mdl_d3d12
 {
     class Base_application;
 
-    class Buffer
+    // --------------------------------------------------------------------------------------------
+
+    class Buffer : public Resource
     {
 
     public:
         explicit Buffer(Base_application* app, size_t size_in_byte, std::string debug_name);
         virtual ~Buffer() = default;
 
+        std::string get_debug_name() const override { return m_debug_name; }
+
         size_t get_size_in_byte() const { return m_size_in_byte; }
 
         template<typename T>
-        bool set_data(const T* data)
+        bool set_data(const T* data, size_t element_count)
         {
-            return set_data((void*) data);
+            return set_data((void*) data, element_count * sizeof(T));
+        }
+
+        template<typename T>
+        bool set_data(const std::vector<T>& data)
+        {
+            return set_data((void*) data.data(), data.size() * sizeof(T));
         }
 
         bool upload(D3DCommandList* command_list);
@@ -71,7 +81,7 @@ namespace mdl_d3d12
         }
 
     protected:
-        bool set_data(const void* data);
+        bool set_data(const void* data, size_t size_in_byte);
 
         Base_application* m_app;
         const std::string m_debug_name;
@@ -168,11 +178,11 @@ namespace mdl_d3d12
 
     // --------------------------------------------------------------------------------------------
 
-    class Constant_buffer_base
+    class Constant_buffer_base : public Resource
     {
     public:
         explicit Constant_buffer_base(
-            Base_application* app, 
+            Base_application* app,
             size_t size_in_byte,
             std::string debug_name)
 
@@ -205,14 +215,15 @@ namespace mdl_d3d12
 
         virtual ~Constant_buffer_base() = default;
 
+        std::string get_debug_name() const override { return m_debug_name; }
+
         ID3D12Resource* get_resource() const { return m_resource.Get(); }
 
-        D3D12_CONSTANT_BUFFER_VIEW_DESC get_constant_buffer_view_description() const
+        bool get_constant_buffer_view_description(D3D12_CONSTANT_BUFFER_VIEW_DESC& desc) const
         {
-            D3D12_CONSTANT_BUFFER_VIEW_DESC desc = {};
             desc.BufferLocation = m_resource->GetGPUVirtualAddress();
             desc.SizeInBytes = static_cast<UINT>(m_size_in_byte);
-            return std::move(desc);
+            return true;
         }
 
         bool get_shader_resource_view_description(
@@ -248,9 +259,14 @@ namespace mdl_d3d12
         ComPtr<ID3D12Resource> m_resource;
     };
 
+    // --------------------------------------------------------------------------------------------
+
+    template<typename T> class Dynamic_constant_buffer;
+
     template<typename TConstantStruct>
     class Constant_buffer : public Constant_buffer_base
     {
+        friend Dynamic_constant_buffer<TConstantStruct>;
     public:
         explicit Constant_buffer(Base_application* app, std::string debug_name)
             : Constant_buffer_base(app, sizeof(TConstantStruct), debug_name)
@@ -269,5 +285,56 @@ namespace mdl_d3d12
             memcpy(m_mapped_data, &data, sizeof(TConstantStruct));
         }
     };
-}
+
+    // --------------------------------------------------------------------------------------------
+
+    template<typename TConstantStruct>
+    class Dynamic_constant_buffer
+    {
+    public:
+        explicit Dynamic_constant_buffer(
+            Base_application* app,
+            std::string debug_name,
+            size_t frame_buffer_count)
+            : m_buffers(0)
+            , m_next_frame_index(0)
+        {
+            m_buffers.reserve(frame_buffer_count);
+            for (size_t i = 0; i < frame_buffer_count; ++i)
+            {
+                m_buffers.push_back(new Constant_buffer<TConstantStruct>(
+                    app, debug_name + "_" + std::to_string(i)));
+            }
+            memset(&m_data, 0, sizeof(TConstantStruct));
+        }
+
+        virtual ~Dynamic_constant_buffer()
+        {
+            for (auto b : m_buffers)
+                delete b;
+
+            m_buffers.clear();
+        }
+
+        /// constant data to be copied on update
+        TConstantStruct& data() { return m_data; }
+        const TConstantStruct& data() const { return m_data; }
+
+        D3D12_GPU_VIRTUAL_ADDRESS bind(const Render_args& args) const
+        {
+            memcpy(m_buffers[m_next_frame_index]->m_mapped_data, &m_data, sizeof(TConstantStruct));
+
+            D3D12_GPU_VIRTUAL_ADDRESS address =
+                m_buffers[m_next_frame_index]->get_resource()->GetGPUVirtualAddress();
+            m_next_frame_index = args.frame_number % 2;
+            return address;
+        }
+
+    private:
+        TConstantStruct m_data;
+        std::vector<Constant_buffer<TConstantStruct>*> m_buffers;
+        mutable size_t m_next_frame_index;
+    };
+
+}}} // mi::examples::mdl_d3d12
 #endif

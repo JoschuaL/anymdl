@@ -1,5 +1,5 @@
 /******************************************************************************
- * Copyright (c) 2011-2019, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2011-2020, NVIDIA CORPORATION. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -65,6 +65,16 @@ char const *utf8_to_unicode_char(char const *up, unsigned &res);
  * @return the result utf16 string
  */
 wchar_t const *utf8_to_utf16(wstring &res, char const *src);
+
+/**
+ * Converts a utf8 encoded string into a utf32 encoded string.
+ *
+ * \param res  the result string
+ * \param src  the utf8 string to convert
+ *
+ * @return the result utf32 string
+ */
+unsigned const *utf8_to_utf32(u32string &res, char const *src);
 
 /**
  * Converts a u32 string into an utf8 encoded string.

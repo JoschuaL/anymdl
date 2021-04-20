@@ -1,5 +1,5 @@
 /***************************************************************************************************
- * Copyright (c) 2015-2019, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2015-2020, NVIDIA CORPORATION. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -313,7 +313,15 @@ public:
 
     // public API methods
 
+    const char* get_module() const;
+
     const char* get_name() const;
+
+    const char* get_mdl_module_name() const;
+
+    const char* get_mdl_simple_name() const;
+
+    const char* get_mdl_parameter_type_name( Size index) const;
 
     mi::neuraylib::IAnnotation_definition::Semantics get_semantic() const;
 
@@ -471,6 +479,9 @@ public:
     mi::neuraylib::IValue_factory* get_value_factory() const { m_vf->retain(); return m_vf.get(); }
 
     mi::neuraylib::IExpression_constant* create_constant( mi::neuraylib::IValue* value) const;
+
+    const mi::neuraylib::IExpression_constant* create_constant(
+        const mi::neuraylib::IValue* value) const;
 
     mi::neuraylib::IExpression_call* create_call( const char* name) const;
 

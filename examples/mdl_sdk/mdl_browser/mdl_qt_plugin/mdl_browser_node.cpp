@@ -1,5 +1,5 @@
 /******************************************************************************
- * Copyright (c) 2018-2019, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2018-2020, NVIDIA CORPORATION. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -249,9 +249,9 @@ Mdl_browser_node::~Mdl_browser_node()
     m_children.clear();
 }
 
-const char* Mdl_browser_node::get_simple_name() const
+const char* Mdl_browser_node::get_entity_name() const
 {
-    return m_cache_node->get_simple_name();
+    return m_cache_node->get_entity_name();
 }
 
 const char* Mdl_browser_node::get_qualified_name() const

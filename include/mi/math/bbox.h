@@ -1,5 +1,5 @@
 /***************************************************************************************************
- * Copyright (c) 2008-2019, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2008-2020, NVIDIA CORPORATION. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -94,7 +94,7 @@ struct Bbox_struct
         For the free functions and operators available for bounding boxes see \ref mi_math_bbox.
 */
 template <typename T, Size DIM>
-class Bbox
+class Bbox //-V690 PVS
 {
 public:
     typedef math::Vector<T,DIM> Vector;         ///< Corresponding vector type.
@@ -161,19 +161,16 @@ public:
 
     /// Bounding box initialized to a single \c point.
     inline explicit Bbox(
-        const Vector& point)    ///< point.
+        const Vector& point) : min(point), max(point) ///< point.
     {
-        min = point;
-        max = point;
     }
 
     /// Bounding box initialized to the new extreme corner vectors, \c nmin and \c nmax.
     inline Bbox(
         const Vector& nmin,     ///< \c min corner vector
         const Vector& nmax)     ///< \c max corner vector
+  : min(nmin), max(nmax)
     {
-        min = nmin;
-        max = nmax;
     }
 
     /// 1D bounding box (interval) initialized to the new extreme corner vectors, \c (min_x) and
@@ -443,7 +440,7 @@ public:
     {
         Vector diag = max - min;
         T vol = base::max MI_PREVENT_MACRO_EXPAND ( T(0), diag[0]);
-        for( Size i = 1; i < DIM; i++)
+        for( Size i = 1; i < DIM; i++) //-V1008 PVS
             vol *= base::max MI_PREVENT_MACRO_EXPAND ( T(0), diag[i]);
         return vol;
     }
@@ -465,7 +462,7 @@ public:
         Vector diag = max - min;
         T maxval = diag[0];
         Size  maxidx = 0;
-        for( Size i = 1; i < DIM; i++) {
+        for( Size i = 1; i < DIM; i++) { //-V1008 PVS
             if (maxval < diag[i]) {
                 maxval = diag[i];
                 maxidx = i;

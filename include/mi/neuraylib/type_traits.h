@@ -1,5 +1,5 @@
 /***************************************************************************************************
- * Copyright (c) 2011-2019, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2011-2020, NVIDIA CORPORATION. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -38,6 +38,8 @@
 #include <mi/math/matrix.h>
 #include <mi/math/spectrum.h>
 #include <mi/math/vector.h>
+
+#include <string>
 
 namespace mi {
 
@@ -742,6 +744,18 @@ template<> struct Type_traits<const char*>
     typedef mi::IString Interface_type;
 };
 
+template<> struct Type_traits<std::string>
+{
+    static const char* get_type_name() { return "String"; };
+    typedef mi::IString Interface_type;
+};
+
+template<std::size_t N> struct Type_traits<char[N]>
+{
+    static const char* get_type_name() { return "String"; };
+    typedef mi::IString Interface_type;
+};
+
 template<> struct Type_traits<mi::base::Uuid>
 {
     static const char* get_type_name() { return "Uuid"; };
@@ -1152,6 +1166,15 @@ template<> struct Vector_type_traits<mi::Sint32, 3>
 
 template<> struct Vector_type_traits<mi::Sint32, 4>
 { typedef mi::ISint32_4 Interface_type; };
+
+template<> struct Vector_type_traits<mi::Uint32, 2>
+{ typedef mi::IUint32_2 Interface_type; };
+
+template<> struct Vector_type_traits<mi::Uint32, 3>
+{ typedef mi::IUint32_3 Interface_type; };
+
+template<> struct Vector_type_traits<mi::Uint32, 4>
+{ typedef mi::IUint32_4 Interface_type; };
 
 template<> struct Vector_type_traits<mi::Float32, 2>
 { typedef mi::IFloat32_2 Interface_type; };

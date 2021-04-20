@@ -1,5 +1,5 @@
 #*****************************************************************************
-# Copyright (c) 2018-2019, NVIDIA CORPORATION. All rights reserved.
+# Copyright (c) 2018-2020, NVIDIA CORPORATION. All rights reserved.
 #
 # Redistribution and use in source and binary forms, with or without
 # modification, are permitted provided that the following conditions
@@ -41,7 +41,7 @@ set(LINKER_NO_AS_NEEDED     "$<$<CXX_COMPILER_ID:GNU>:-Wl,--no-as-needed>")
 #   target_build_setup(TARGET <NAME>)
 #
 function(TARGET_BUILD_SETUP)
-    set(options)
+    set(options DYNAMIC_MSVC_RUNTIME WINDOWS_UNICODE)
     set(oneValueArgs TARGET)
     set(multiValueArgs)
     cmake_parse_arguments(TARGET_BUILD_SETUP "${options}" "${oneValueArgs}" "${multiValueArgs}" ${ARGN} )
@@ -50,18 +50,35 @@ function(TARGET_BUILD_SETUP)
     get_target_property(_TARGET_TYPE ${TARGET_BUILD_SETUP_TARGET} TYPE)
 
     # very simple set of flags depending on the compiler instead of the combination of compiler, OS, ...
-    # for more complex scenarios, replace that 
+    # for more complex scenarios, replace that
+
+    if(WINDOWS AND TARGET_BUILD_SETUP_WINDOWS_UNICODE)
+        set(_ADDITIONAL_COMPILER_DEFINES 
+            "_UNICODE"
+            "UNICODE"
+        )
+        if(MDL_LOG_FILE_DEPENDENCIES)
+            MESSAGE(STATUS "- add defines:    '_UNICODE' and 'UNICODE'")
+        endif()
+    endif()
 
     # GENERAL 
     #---------------------------------------------------------------------------------------
+
+    # specify the c++ standard to use
+    set_property(TARGET ${TARGET_BUILD_SETUP_TARGET} PROPERTY CXX_STANDARD 11)
+    set_property(TARGET ${TARGET_BUILD_SETUP_TARGET} PROPERTY C_STANDARD 11)
+
     target_compile_definitions(${TARGET_BUILD_SETUP_TARGET} 
         PRIVATE
             "$<$<CONFIG:DEBUG>:DEBUG>"
             "$<$<CONFIG:DEBUG>:_DEBUG>"
             "BIT64=1"
             "X86=1"
+            ${_ADDITIONAL_COMPILER_DEFINES}      # additional build defines
             ${MDL_ADDITIONAL_COMPILER_DEFINES}   # additional user defines
         )
+
 
     target_compile_options(${TARGET_BUILD_SETUP_TARGET} 
         PRIVATE
@@ -82,47 +99,68 @@ function(TARGET_BUILD_SETUP)
                 "_SCL_SECURE_NO_WARNINGS"
             )
 
+        # set static or dynamic runtime
+        # cmake 3.15 has an option for that. MSVC_RUNTIME_LIBRARY 
+        if(TARGET_BUILD_SETUP_DYNAMIC_MSVC_RUNTIME)
+            # examples can use the dynamic runtime
+            target_compile_options(${TARGET_BUILD_SETUP_TARGET} PRIVATE "/MD$<$<CONFIG:Debug>:d>")
+            if(MDL_LOG_FILE_DEPENDENCIES)
+                MESSAGE(STATUS "- msvc runtime:   dynamic (/MD or /MDd)")
+            endif()
+        else()
+            # a libraries 'in' the sdk use the static runtime
+            target_compile_options(${TARGET_BUILD_SETUP_TARGET} PRIVATE "/MT$<$<CONFIG:Debug>:d>")
+            if(MDL_LOG_FILE_DEPENDENCIES)
+                MESSAGE(STATUS "- msvc runtime:   static (/MT or /MTd)")
+            endif()
+        endif()
+
         target_compile_options(${TARGET_BUILD_SETUP_TARGET} 
             PRIVATE
-                "/MT$<$<CONFIG:Debug>:d>"
                 "/MP"
                 "/wd4267"   # Suppress Warning C4267	'argument': conversion from 'size_t' to 'int', possible loss of data
-                "/permissive-"  # show more errors
             )
+
+        if(MSVC_VERSION GREATER 1900)
+            target_compile_options(${TARGET_BUILD_SETUP_TARGET} 
+                PRIVATE
+                    "/permissive-"  # show more errors
+                )
+        endif()
     endif()
 
     # LINUX
     #---------------------------------------------------------------------------------------
     if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
-        target_compile_definitions(${TARGET_BUILD_SETUP_TARGET} 
-            PUBLIC
-                "MI_PLATFORM=\"linux-x86-64-gcc\"" #todo add major version number
-                "MI_PLATFORM_UNIX"
-            )
+            target_compile_definitions(${TARGET_BUILD_SETUP_TARGET}
+                PUBLIC
+                    "MI_PLATFORM=\"linux-x86-64-gcc\"" #todo add major version number
+                    "MI_PLATFORM_UNIX"
+                )
 
-        target_compile_options(${TARGET_BUILD_SETUP_TARGET} 
-            PRIVATE
-                "-fPIC"   # position independent code since we will build a shared object
-                "-m64"    # sets int to 32 bits and long and pointer to 64 bits and generates code for x86-64 architecture
-                "-fno-strict-aliasing"
-                "-march=nocona"
-                "-DHAS_SSE"
-                "$<$<CONFIG:DEBUG>:-gdwarf-3>"
-                "$<$<CONFIG:DEBUG>:-gstrict-dwarf>"
+            target_compile_options(${TARGET_BUILD_SETUP_TARGET}
+                PRIVATE
+                    "-fPIC"   # position independent code since we will build a shared object
+                    "-m64"    # sets int to 32 bits and long and pointer to 64 bits and generates code for x86-64 architecture
+                    "-fno-strict-aliasing"
+                    "-march=nocona"
+                    "-DHAS_SSE"
+                    "$<$<CONFIG:DEBUG>:-gdwarf-3>"
+                    "$<$<CONFIG:DEBUG>:-gstrict-dwarf>"
 
-                # enable additional warnings
-                "-Wall"
-                "-Wvla"
+                    # enable additional warnings
+                    "-Wall"
+                    "-Wvla"
 
-                "$<$<COMPILE_LANGUAGE:CXX>:-Wno-placement-new>"
-                "-Wno-parentheses"
-                "-Wno-sign-compare"
-                "-Wno-narrowing"
-                "-Wno-unused-but-set-variable"
-                "-Wno-unused-local-typedefs"
-                "-Wno-deprecated-declarations"
-                "-Wno-unknown-pragmas"
-            )
+                    "$<$<COMPILE_LANGUAGE:CXX>:-Wno-placement-new>"
+                    "-Wno-parentheses"
+                    "-Wno-sign-compare"
+                    "-Wno-narrowing"
+                    "-Wno-unused-but-set-variable"
+                    "-Wno-unused-local-typedefs"
+                    "-Wno-deprecated-declarations"
+                    "-Wno-unknown-pragmas"
+                )
     endif()
 
     # MACOSX
@@ -130,7 +168,7 @@ function(TARGET_BUILD_SETUP)
     if(CMAKE_CXX_COMPILER_ID STREQUAL "AppleClang")
         target_compile_definitions(${TARGET_BUILD_SETUP_TARGET} 
             PUBLIC
-                "MI_PLATFORM=\"macosx-x86-64-clang\"" #todo add major version number
+                "MI_PLATFORM=\"macosx-x86-64-clang900\""
                 "MI_PLATFORM_MACOSX"
                 "MACOSX"
             )
@@ -153,8 +191,8 @@ function(TARGET_BUILD_SETUP)
                 "-Wno-long-long"
                 "-Wwrite-strings"
                 "-Wmissing-field-initializers"
-                "-Wcovered-switch-default"
-                "-Wnon-virtual-dtor"
+                "-Wno-covered-switch-default"
+                "-Wno-non-virtual-dtor"
                 "-fdiagnostics-fixit-info"
                 "-fdiagnostics-parseable-fixits"
             )
@@ -203,8 +241,12 @@ function(SETUP_IDE_FOLDERS)
         endif()
 
         # relative files outside the current target
-        if(${_SOURCE} MATCHES "^../.*")
-            source_group("" FILES ${_SOURCE})
+        string(SUBSTRING ${_SOURCE} 0 3 _SOURCE_FIRST_3_CHARS)
+        if(_SOURCE_FIRST_3_CHARS STREQUAL "../")
+            get_filename_component(_FOLDER ${_SOURCE} DIRECTORY)
+            string(REPLACE "/" "\\" _FOLDER ${_FOLDER})
+            string(REPLACE "..\\" "" _FOLDER ${_FOLDER}) # drop leading points (could be replaced by "../", too)
+            source_group(${_FOLDER} FILES ${_SOURCE})
             continue()
         endif()
 
@@ -222,12 +264,13 @@ endfunction()
 
 function(SETUP_IDE)
     set(options)
-    set(oneValueArgs TARGET)
+    set(oneValueArgs TARGET VS_PROJECT_NAME)
     set(multiValueArgs SOURCES)
     cmake_parse_arguments(SETUP_IDE "${options}" "${oneValueArgs}" "${multiValueArgs}" ${ARGN} )
     # provides the following variables:
     # - SETUP_IDE_TARGET
     # - SETUP_IDE_SOURCES
+    # - SETUP_IDE_VS_PROJECT_NAME
 
     # not required without visual studio or xcode
     if(NOT MSVC AND NOT MSVC_IDE)
@@ -246,9 +289,13 @@ function(SETUP_IDE)
     get_filename_component(FOLDER_NAME ${FOLDER_PATH} NAME)         # last folder is used as project name
     get_filename_component(FOLDER_PATH ${FOLDER_PATH} PATH)         # drop the last folder (equals the project name)
 
+    if (SETUP_IDE_VS_PROJECT_NAME AND NOT (SETUP_IDE_VS_PROJECT_NAME STREQUAL ""))
+        set(FOLDER_NAME ${SETUP_IDE_VS_PROJECT_NAME})
+    endif()
+
     set_target_properties(${SETUP_IDE_TARGET} PROPERTIES 
-        VS_DEBUGGER_WORKING_DIRECTORY           "$(OutDir)"         # working directory
-        PROJECT_LABEL                           ${FOLDER_NAME}      # project name
+        VS_DEBUGGER_WORKING_DIRECTORY           ${CMAKE_CURRENT_BINARY_DIR}/$(Configuration)   # working directory
+        PROJECT_LABEL                           ${FOLDER_NAME}                          # project name
         MAP_IMPORTED_CONFIG_DEBUG               Debug
         MAP_IMPORTED_CONFIG_RELEASE             Release
         MAP_IMPORTED_CONFIG_MINSIZEREL          Release
@@ -459,7 +506,7 @@ endfunction()
 #           gui
 #       )
 function(TARGET_ADD_DEPENDENCIES)
-    set(options NO_RUNTIME_COPY NO_LINKING)
+    set(options NO_RUNTIME_COPY NO_RUNTIME NO_LINKING NO_INCLUDE)
     set(oneValueArgs TARGET)
     set(multiValueArgs DEPENDS COMPONENTS)
     cmake_parse_arguments(TARGET_ADD_DEPENDENCIES "${options}" "${oneValueArgs}" "${multiValueArgs}" ${ARGN} )
@@ -468,7 +515,9 @@ function(TARGET_ADD_DEPENDENCIES)
     # - TARGET_ADD_DEPENDENCIES_DEPENDS
     # - TARGET_ADD_DEPENDENCIES_COMPONENTS
     # - TARGET_ADD_DEPENDENCIES_NO_RUNTIME_COPY
+    # - TARGET_ADD_DEPENDENCIES_NO_RUNTIME
     # - TARGET_ADD_DEPENDENCIES_NO_LINKING
+    # - TARGET_ADD_DEPENDENCIES_NO_INCLUDE
 
     # make sure components are not used for multiple dependencies
     list(LENGTH TARGET_ADD_DEPENDENCIES_DEPENDS _NUM_DEP)
@@ -483,12 +532,23 @@ function(TARGET_ADD_DEPENDENCIES)
         set(TARGET_ADD_DEPENDENCIES_NO_RUNTIME_COPY "")
     endif()
 
+    if(TARGET_ADD_DEPENDENCIES_NO_RUNTIME)
+        set(TARGET_ADD_DEPENDENCIES_NO_RUNTIME NO_RUNTIME)
+    else()
+        set(TARGET_ADD_DEPENDENCIES_NO_RUNTIME "")
+    endif()
+
     if(TARGET_ADD_DEPENDENCIES_NO_LINKING)
         set(TARGET_ADD_DEPENDENCIES_NO_LINKING NO_LINKING)
     else()
         set(TARGET_ADD_DEPENDENCIES_NO_LINKING "")
     endif()
 
+    if(TARGET_ADD_DEPENDENCIES_NO_INCLUDE)
+        set(TARGET_ADD_DEPENDENCIES_NO_INCLUDE NO_INCLUDE)
+    else()
+        set(TARGET_ADD_DEPENDENCIES_NO_INCLUDE "")
+    endif()
 
     # in case we have components we pass them to the single dependency
     if(TARGET_ADD_DEPENDENCIES_COMPONENTS)
@@ -497,7 +557,9 @@ function(TARGET_ADD_DEPENDENCIES)
             DEPENDS     ${TARGET_ADD_DEPENDENCIES_DEPENDS}
             COMPONENTS  ${TARGET_ADD_DEPENDENCIES_COMPONENTS}
             ${TARGET_ADD_DEPENDENCIES_NO_RUNTIME_COPY}
+            ${TARGET_ADD_DEPENDENCIES_NO_RUNTIME}
             ${TARGET_ADD_DEPENDENCIES_NO_LINKING}
+            ${TARGET_ADD_DEPENDENCIES_NO_INCLUDE}
             )
     # if not, we iterate over the list of dependencies and pass no components
     else()
@@ -506,7 +568,9 @@ function(TARGET_ADD_DEPENDENCIES)
                 TARGET      ${TARGET_ADD_DEPENDENCIES_TARGET}
                 DEPENDS     ${_DEP}
                 ${TARGET_ADD_DEPENDENCIES_NO_RUNTIME_COPY}
+                ${TARGET_ADD_DEPENDENCIES_NO_RUNTIME}
                 ${TARGET_ADD_DEPENDENCIES_NO_LINKING}
+                ${TARGET_ADD_DEPENDENCIES_NO_INCLUDE}
                 )
         endforeach()
     endif()
@@ -558,16 +622,28 @@ endfunction()
 # the reduce the redundant code in the base library projects, we can bundle several repeated tasks
 #
 function(CREATE_FROM_BASE_PRESET)
-    set(options WIN32)
-    set(oneValueArgs TARGET VERSION TYPE NAMESPACE OUTPUT_NAME EMBED_RC)
+    set(options WIN32 WINDOWS_UNICODE EXAMPLE)
+    set(oneValueArgs TARGET VERSION TYPE NAMESPACE OUTPUT_NAME VS_PROJECT_NAME EMBED_RC)
     set(multiValueArgs SOURCES ADDITIONAL_INCLUDE_DIRS)
     cmake_parse_arguments(CREATE_FROM_BASE_PRESET "${options}" "${oneValueArgs}" "${multiValueArgs}" ${ARGN} )
+
+    # the option EXAMPLE bundles a few things
+    if(CREATE_FROM_BASE_PRESET_EXAMPLE)
+        set(CREATE_FROM_BASE_PRESET_WINDOWS_UNICODE ON)           # enable unicode
+        if(MDL_MSVC_DYNAMIC_RUNTIME_EXAMPLES)
+            list(APPEND BUILD_SETUP_OPTIONS DYNAMIC_MSVC_RUNTIME) # runtime linking
+        endif()
+    endif()
+
+    if(CREATE_FROM_BASE_PRESET_WINDOWS_UNICODE)
+        list(APPEND BUILD_SETUP_OPTIONS WINDOWS_UNICODE) # unicode
+    endif()
 
     # create the project
     if(CREATE_FROM_BASE_PRESET_VERSION)
         project(${CREATE_FROM_BASE_PRESET_TARGET} VERSION ${CREATE_FROM_BASE_PRESET_VERSION}) 
     else()
-        project(${CREATE_FROM_BASE_PRESET_TARGET}) 
+        project(${CREATE_FROM_BASE_PRESET_TARGET})
     endif()
 
     # default type is STATIC library
@@ -587,7 +663,7 @@ function(CREATE_FROM_BASE_PRESET)
     # list(APPEND CREATE_FROM_BASE_PRESET_SOURCES ${CMAKE_CURRENT_BINARY_DIR}/pch.h)
 
     # special executable
-    if(${CREATE_FROM_BASE_PRESET_WIN32})
+    if(CREATE_FROM_BASE_PRESET_WIN32)
         set(EXEC_TYPE WIN32)
     endif()
 
@@ -595,14 +671,17 @@ function(CREATE_FROM_BASE_PRESET)
     if(CREATE_FROM_BASE_PRESET_TYPE STREQUAL "STATIC" OR CREATE_FROM_BASE_PRESET_TYPE STREQUAL "SHARED")
         add_library(${CREATE_FROM_BASE_PRESET_TARGET} ${CREATE_FROM_BASE_PRESET_TYPE} ${CREATE_FROM_BASE_PRESET_SOURCES})
         add_library(${CREATE_FROM_BASE_PRESET_NAMESPACE}::${CREATE_FROM_BASE_PRESET_TARGET} ALIAS ${CREATE_FROM_BASE_PRESET_TARGET})
-    elseif(CREATE_FROM_BASE_PRESET_TYPE STREQUAL "EXECUTABLE")
+    elseif(CREATE_FROM_BASE_PRESET_TYPE STREQUAL "EXECUTABLE" OR CREATE_FROM_BASE_PRESET_TYPE STREQUAL "WIN_EXECUTABLE")
         add_executable(${CREATE_FROM_BASE_PRESET_TARGET} ${EXEC_TYPE} ${CREATE_FROM_BASE_PRESET_SOURCES})
-
+        #set_target_properties(${CREATE_FROM_BASE_PRESET_TARGET} PROPERTIES WIN32_EXECUTABLE ON)
         # inject compile constant that contains the binary name
-        target_compile_definitions(${PROJECT_NAME} 
+        target_compile_definitions(${PROJECT_NAME}
             PUBLIC
                 "BINARY_NAME=\"${CREATE_FROM_BASE_PRESET_OUTPUT_NAME}\""
             )
+        if(CREATE_FROM_BASE_PRESET_TYPE STREQUAL "WIN_EXECUTABLE")
+            set_target_properties(${CREATE_FROM_BASE_PRESET_TARGET} PROPERTIES WIN32_EXECUTABLE ON)
+        endif()
     else()
         message(FATAL_ERROR "Unexpected Type for target '${CREATE_FROM_BASE_PRESET_TARGET}': ${CREATE_FROM_BASE_PRESET_TYPE}.")
     endif()
@@ -616,7 +695,7 @@ function(CREATE_FROM_BASE_PRESET)
     target_print_log_header(TARGET ${CREATE_FROM_BASE_PRESET_TARGET} VERSION ${CREATE_FROM_BASE_PRESET_VERSION})
 
     # add include directories
-    target_include_directories(${CREATE_FROM_BASE_PRESET_TARGET} 
+    target_include_directories(${CREATE_FROM_BASE_PRESET_TARGET}
         PUBLIC
             $<BUILD_INTERFACE:${MDL_INCLUDE_FOLDER}>
         PRIVATE
@@ -626,8 +705,8 @@ function(CREATE_FROM_BASE_PRESET)
         )
 
     # add system dependencies
-    if(CREATE_FROM_BASE_PRESET_TYPE STREQUAL "SHARED" OR CREATE_FROM_BASE_PRESET_TYPE STREQUAL "EXECUTABLE")
-        target_add_dependencies(TARGET ${CREATE_FROM_BASE_PRESET_TARGET} 
+    if(CREATE_FROM_BASE_PRESET_TYPE STREQUAL "SHARED" OR CREATE_FROM_BASE_PRESET_TYPE STREQUAL "EXECUTABLE" OR CREATE_FROM_BASE_PRESET_TYPE STREQUAL "WIN_EXECUTABLE")
+        target_add_dependencies(TARGET ${CREATE_FROM_BASE_PRESET_TARGET}
             DEPENDS
                 system
             )
@@ -641,21 +720,20 @@ function(CREATE_FROM_BASE_PRESET)
                 ${CREATE_FROM_BASE_PRESET_EMBED_RC}
             )
 
-        target_include_directories(${CREATE_FROM_BASE_PRESET_TARGET} 
+        target_include_directories(${CREATE_FROM_BASE_PRESET_TARGET}
             PRIVATE
                 ${MDL_SRC_FOLDER}/base/system/version # for the version.h
             )
     endif()
 
     # compiler flags and defines
-    target_build_setup(TARGET ${CREATE_FROM_BASE_PRESET_TARGET})
+    target_build_setup(TARGET ${CREATE_FROM_BASE_PRESET_TARGET} ${BUILD_SETUP_OPTIONS})
 
     # configure visual studio and maybe other IDEs
     setup_ide(TARGET ${CREATE_FROM_BASE_PRESET_TARGET} 
-        SOURCES ${CREATE_FROM_BASE_PRESET_SOURCES})
-
+        SOURCES ${CREATE_FROM_BASE_PRESET_SOURCES}
+        VS_PROJECT_NAME ${CREATE_FROM_BASE_PRESET_VS_PROJECT_NAME})
 endfunction()
-
 
 # -------------------------------------------------------------------------------------------------
 # Creates an object library to compile cuda sources to ptx and adds a rule to copy the ptx to 
@@ -667,10 +745,11 @@ endfunction()
 #       mdl_sdk_examples::mdl_sdk_shared
 #     CUDA_SOURCES
 #       "example.cu"
+#     FAST_MATH
 #     )
 #
 function(TARGET_ADD_CUDA_PTX_RULE)
-    set(options)
+    set(options FAST_MATH)
     set(oneValueArgs TARGET ARCH)
     set(multiValueArgs CUDA_SOURCES DEPENDS)
     cmake_parse_arguments(TARGET_ADD_CUDA_PTX_RULE "${options}" "${oneValueArgs}" "${multiValueArgs}" ${ARGN} )
@@ -686,19 +765,28 @@ function(TARGET_ADD_CUDA_PTX_RULE)
         )
 
     if(NOT TARGET_ADD_CUDA_PTX_RULE_CUDA_ARCH)
-        set(TARGET_ADD_CUDA_PTX_RULE_CUDA_ARCH "sm_30")
+        set(TARGET_ADD_CUDA_PTX_RULE_CUDA_ARCH "sm_50")
     endif()
 
     # options
     if(NOT TARGET_ADD_CUDA_PTX_RULE_CUDA_ARCH)
-        set(TARGET_ADD_CUDA_PTX_RULE_CUDA_ARCH "sm_30")
+        set(TARGET_ADD_CUDA_PTX_RULE_CUDA_ARCH "sm_50")
     endif()
 
+    # flags set per project
     target_compile_options(${TARGET_ADD_CUDA_PTX_RULE_TARGET}_PTX
         PRIVATE
             "-rdc=true"
             "-arch=${TARGET_ADD_CUDA_PTX_RULE_CUDA_ARCH}"
     )
+
+    if(TARGET_ADD_CUDA_PTX_RULE_FAST_MATH)
+        # workaround for CMake filtering out --use_fast_math option from NVCC command line
+        target_compile_options(${TARGET_ADD_CUDA_PTX_RULE_TARGET}_PTX
+            PRIVATE
+                --options-file=${MDL_BASE_FOLDER}/cmake/nvcc-option-use_fast_math.lst
+        )
+    endif()
 
     # add dependencies (no linking no post builds since this creates a ptx only)
     target_add_dependencies(TARGET ${TARGET_ADD_CUDA_PTX_RULE_TARGET}_PTX 
@@ -781,37 +869,56 @@ endfunction()
 #
 function(TARGET_ADD_CONTENT)
     set(options)
-    set(oneValueArgs TARGET)
+    set(oneValueArgs TARGET FILE_BASE TARGET_BASE DEP_NAME)
     set(multiValueArgs FILES)
     cmake_parse_arguments(TARGET_ADD_CONTENT "${options}" "${oneValueArgs}" "${multiValueArgs}" ${ARGN} )
 
     # dependency file
+    if(NOT TARGET_ADD_CONTENT_DEP_NAME)
+        set(TARGET_ADD_CONTENT_DEP_NAME "content")
+    endif()
     if(WINDOWS)
-        set(_DEP ${CMAKE_CURRENT_BINARY_DIR}/$(Configuration)/content.d)
+        set(_DEP ${CMAKE_CURRENT_BINARY_DIR}/$(Configuration)/${TARGET_ADD_CONTENT_DEP_NAME}.d)
     else()
-        set(_DEP ${CMAKE_CURRENT_BINARY_DIR}/content.d)
+        set(_DEP ${CMAKE_CURRENT_BINARY_DIR}/${TARGET_ADD_CONTENT_DEP_NAME}.d)
+    endif()
+
+    # make path absolute
+    if (NOT IS_ABSOLUTE ${TARGET_ADD_CONTENT_FILE_BASE})
+        set (TARGET_ADD_CONTENT_FILE_BASE ${CMAKE_CURRENT_SOURCE_DIR}/${TARGET_ADD_CONTENT_FILE_BASE})
     endif()
 
     # add to project
+    foreach(_FILE ${TARGET_ADD_CONTENT_FILES})
+        list(APPEND _ADD_TO_SOURCES ${TARGET_ADD_CONTENT_FILE_BASE}${_FILE})
+    endforeach()
     target_sources(${TARGET_ADD_CONTENT_TARGET}
         PRIVATE
-            ${TARGET_ADD_CONTENT_FILES}
+            ${_ADD_TO_SOURCES}
             ${_DEP}
         )
 
     # do not compile and set group (visual studio)
-    set_source_files_properties(${TARGET_ADD_CONTENT_FILES} PROPERTIES HEADER_FILE_ONLY TRUE)
+    set_source_files_properties(${_ADD_TO_SOURCES} PROPERTIES HEADER_FILE_ONLY TRUE)
     set_source_files_properties(${_DEP} PROPERTIES GENERATED TRUE)
-    setup_ide_folders(FILES ${TARGET_ADD_CONTENT_FILES} ${_DEP})
+    source_group("dependencies" FILES ${_DEP})
 
     # collect files
     foreach(_FILE ${TARGET_ADD_CONTENT_FILES})
-        if(MDL_LOG_FILE_DEPENDENCIES)
-            MESSAGE(STATUS "- content to copy:   ${_FILE}")
+        # adjust source groups
+        get_filename_component(_GROUP ${TARGET_ADD_CONTENT_TARGET_BASE}${_FILE} DIRECTORY)
+        if(_GROUP)
+            string(REPLACE "/" "\\" _GROUP ${_GROUP})
         endif()
-        list(APPEND _COMMAND_LIST COMMAND ${CMAKE_COMMAND} -E copy_if_different ${CMAKE_CURRENT_SOURCE_DIR}/${_FILE} $<TARGET_FILE_DIR:${TARGET_ADD_CONTENT_TARGET}>/${_FILE})
-        list(APPEND _COMMAND_LIST COMMAND ${CMAKE_COMMAND} -E echo "update content file: ${_FILE}")
-        list(APPEND _COPY_DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/${_FILE})
+        source_group(${_GROUP} FILES ${TARGET_ADD_CONTENT_FILE_BASE}${_FILE})
+
+        # copy commands
+        if(MDL_LOG_FILE_DEPENDENCIES)
+            MESSAGE(STATUS "- content to copy:   ${TARGET_ADD_CONTENT_FILE_BASE}${_FILE}")
+        endif()
+        list(APPEND _COMMAND_LIST COMMAND ${CMAKE_COMMAND} -E copy_if_different ${TARGET_ADD_CONTENT_FILE_BASE}${_FILE} $<TARGET_FILE_DIR:${TARGET_ADD_CONTENT_TARGET}>/${TARGET_ADD_CONTENT_TARGET_BASE}${_FILE})
+        list(APPEND _COMMAND_LIST COMMAND ${CMAKE_COMMAND} -E echo "update content file: ${TARGET_ADD_CONTENT_TARGET_BASE}${_FILE}")
+        list(APPEND _COPY_DEPENDS ${TARGET_ADD_CONTENT_FILE_BASE}${_FILE})
     endforeach()
 
     # delete dependency files of other configurations to enforce an update after the build type changed
@@ -821,25 +928,25 @@ function(TARGET_ADD_CONTENT)
         file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/RelWithDebInfo)
 
         list(APPEND _COMMAND_LIST COMMAND ${CMAKE_COMMAND} -E echo "removing: "
-            $<$<CONFIG:Debug>:$<TARGET_FILE_DIR:${TARGET_ADD_CONTENT_TARGET}>/../Release/content.d>
-            $<$<CONFIG:Release>:$<TARGET_FILE_DIR:${TARGET_ADD_CONTENT_TARGET}>/../Debug/content.d>
-            $<$<CONFIG:RelWithDebInfo>:$<TARGET_FILE_DIR:${TARGET_ADD_CONTENT_TARGET}>/../Debug/content.d>
+            $<$<CONFIG:Debug>:$<TARGET_FILE_DIR:${TARGET_ADD_CONTENT_TARGET}>/../Release/${TARGET_ADD_CONTENT_DEP_NAME}.d>
+            $<$<CONFIG:Release>:$<TARGET_FILE_DIR:${TARGET_ADD_CONTENT_TARGET}>/../Debug/${TARGET_ADD_CONTENT_DEP_NAME}.d>
+            $<$<CONFIG:RelWithDebInfo>:$<TARGET_FILE_DIR:${TARGET_ADD_CONTENT_TARGET}>/../Debug/${TARGET_ADD_CONTENT_DEP_NAME}.d>
             )
-        list(APPEND _COMMAND_LIST COMMAND ${CMAKE_COMMAND} -E remove -f $<$<CONFIG:Debug>:$<TARGET_FILE_DIR:${TARGET_ADD_CONTENT_TARGET}>/../Release/content.d>$<$<CONFIG:Release>:$<TARGET_FILE_DIR:${TARGET_ADD_CONTENT_TARGET}>/../Debug/content.d>$<$<CONFIG:RelWithDebInfo>:$<TARGET_FILE_DIR:${TARGET_ADD_CONTENT_TARGET}>/../Debug/content.d>)
+        list(APPEND _COMMAND_LIST COMMAND ${CMAKE_COMMAND} -E remove -f $<$<CONFIG:Debug>:$<TARGET_FILE_DIR:${TARGET_ADD_CONTENT_TARGET}>/../Release/${TARGET_ADD_CONTENT_DEP_NAME}.d>$<$<CONFIG:Release>:$<TARGET_FILE_DIR:${TARGET_ADD_CONTENT_TARGET}>/../Debug/${TARGET_ADD_CONTENT_DEP_NAME}.d>$<$<CONFIG:RelWithDebInfo>:$<TARGET_FILE_DIR:${TARGET_ADD_CONTENT_TARGET}>/../Debug/${TARGET_ADD_CONTENT_DEP_NAME}.d>)
         
         list(APPEND _COMMAND_LIST COMMAND ${CMAKE_COMMAND} -E echo "removing: "
-            $<$<CONFIG:Debug>:$<TARGET_FILE_DIR:${TARGET_ADD_CONTENT_TARGET}>/../RelWithDebInfo/content.d>
-            $<$<CONFIG:Release>:$<TARGET_FILE_DIR:${TARGET_ADD_CONTENT_TARGET}>/../RelWithDebInfo/content.d>
-            $<$<CONFIG:RelWithDebInfo>:$<TARGET_FILE_DIR:${TARGET_ADD_CONTENT_TARGET}>/../Release/content.d>
+            $<$<CONFIG:Debug>:$<TARGET_FILE_DIR:${TARGET_ADD_CONTENT_TARGET}>/../RelWithDebInfo/${TARGET_ADD_CONTENT_DEP_NAME}.d>
+            $<$<CONFIG:Release>:$<TARGET_FILE_DIR:${TARGET_ADD_CONTENT_TARGET}>/../RelWithDebInfo/${TARGET_ADD_CONTENT_DEP_NAME}.d>
+            $<$<CONFIG:RelWithDebInfo>:$<TARGET_FILE_DIR:${TARGET_ADD_CONTENT_TARGET}>/../Release/${TARGET_ADD_CONTENT_DEP_NAME}.d>
             )
-        list(APPEND _COMMAND_LIST COMMAND ${CMAKE_COMMAND} -E remove -f $<$<CONFIG:Debug>:$<TARGET_FILE_DIR:${TARGET_ADD_CONTENT_TARGET}>/../RelWithDebInfo/content.d>$<$<CONFIG:Release>:$<TARGET_FILE_DIR:${TARGET_ADD_CONTENT_TARGET}>/../RelWithDebInfo/content.d>$<$<CONFIG:RelWithDebInfo>:$<TARGET_FILE_DIR:${TARGET_ADD_CONTENT_TARGET}>/../Release/content.d>)
+        list(APPEND _COMMAND_LIST COMMAND ${CMAKE_COMMAND} -E remove -f $<$<CONFIG:Debug>:$<TARGET_FILE_DIR:${TARGET_ADD_CONTENT_TARGET}>/../RelWithDebInfo/${TARGET_ADD_CONTENT_DEP_NAME}.d>$<$<CONFIG:Release>:$<TARGET_FILE_DIR:${TARGET_ADD_CONTENT_TARGET}>/../RelWithDebInfo/${TARGET_ADD_CONTENT_DEP_NAME}.d>$<$<CONFIG:RelWithDebInfo>:$<TARGET_FILE_DIR:${TARGET_ADD_CONTENT_TARGET}>/../Release/${TARGET_ADD_CONTENT_DEP_NAME}.d>)
     endif()
 
     # copy on files changed
     add_custom_command(
         OUTPUT 
             ${_DEP}
-        DEPENDS 
+        DEPENDS
             ${_COPY_DEPENDS}
 
         ${_COMMAND_LIST}
@@ -908,6 +1015,41 @@ function(TARGET_ADD_VS_DEBUGGER_ENV_PATH)
     set_property(TARGET ${TARGET_ADD_VS_DEBUGGER_ENV_PATH_TARGET} PROPERTY VS_DEBUGGER_PATHS_RELWITHDEBINFO ${_ENV_PATHS_RELWITHDEBINFO})
 endfunction()
 
+
+# -------------------------------------------------------------------------------------------------
+# Add a variable to the visual studio environment for the debugger.
+# requires a call to 'TARGET_CREATE_VS_USER_SETTINGS' to actually create the user settings file.
+function(TARGET_ADD_VS_DEBUGGER_ENV_VAR)
+    set(options)
+    set(oneValueArgs TARGET)
+    set(multiValueArgs VARS)
+    cmake_parse_arguments(TARGET_ADD_VS_DEBUGGER_ENV_VAR "${options}" "${oneValueArgs}" "${multiValueArgs}" ${ARGN} )
+    # provides the following variables:
+    # - TARGET_ADD_VS_DEBUGGER_ENV_VAR_TARGET
+    # - TARGET_ADD_VS_DEBUGGER_ENV_VAR_VARS
+
+    if(NOT WINDOWS)
+        return()
+    endif()
+
+    # read current property value
+    get_property(_ENV_VARS TARGET ${TARGET_ADD_VS_DEBUGGER_ENV_VAR_TARGET} PROPERTY VS_DEBUGGER_ENV_VARS)
+    
+    foreach(_VAR ${TARGET_ADD_VS_DEBUGGER_ENV_VAR_VARS})
+        if(MDL_LOG_DEPENDENCIES)
+            message(STATUS "- add property:   Visual Studio Debugger Environment Variable: ${_VAR}")
+        endif()
+        if(_ENV_VARS)
+            set(_ENV_VARS ${_ENV_VARS}\n${_VAR})
+        else()
+            set(_ENV_VARS ${_VAR})
+        endif()
+    endforeach()
+
+    # update property value
+    set_property(TARGET ${TARGET_ADD_VS_DEBUGGER_ENV_VAR_TARGET} PROPERTY VS_DEBUGGER_ENV_VARS ${_ENV_VARS})
+endfunction()
+
 # -------------------------------------------------------------------------------------------------
 # Creates a visual studio user settings file to set environment variables for the debugger.
 # This should only be called after the dependencies of an executable target are added.
@@ -933,20 +1075,36 @@ function(TARGET_CREATE_VS_USER_SETTINGS)
     get_property(_ENV_PATHS_DEBUG TARGET ${TARGET_CREATE_VS_USER_SETTINGS_TARGET} PROPERTY VS_DEBUGGER_PATHS_DEBUG)
     get_property(_ENV_PATHS_RELEASE TARGET ${TARGET_CREATE_VS_USER_SETTINGS_TARGET} PROPERTY VS_DEBUGGER_PATHS_RELEASE)
     get_property(_ENV_PATHS_RELWITHDEBINFO TARGET ${TARGET_CREATE_VS_USER_SETTINGS_TARGET} PROPERTY VS_DEBUGGER_PATHS_RELWITHDEBINFO)
+    get_property(_ENV_VARS TARGET ${TARGET_CREATE_VS_USER_SETTINGS_TARGET} PROPERTY VS_DEBUGGER_ENV_VARS)
+    get_property(_COMMAND_ARGUMENTS TARGET ${TARGET_CREATE_VS_USER_SETTINGS_TARGET} PROPERTY VS_DEBUGGER_COMMAND_ARGUMENTS)
+    get_property(_COMMAND TARGET ${TARGET_CREATE_VS_USER_SETTINGS_TARGET} PROPERTY VS_DEBUGGER_COMMAND)
+    if(_COMMAND)
+    else()
+        set(_COMMAND "$(TargetPath)")
+    endif()
 
     file(WRITE ${CMAKE_CURRENT_BINARY_DIR}/${SETTINGS_FILE}
         "<?xml version=\"1.0\" encoding=\"utf-8\"?>\n"	
         "<Project ToolsVersion=\"4.0\" xmlns=\"http://schemas.microsoft.com/developer/msbuild/2003\">\n"
         "   <PropertyGroup Condition=\"'$(Configuration)'=='Debug'\">\n"
-        "       <LocalDebuggerEnvironment>PATH=${_ENV_PATHS_DEBUG};${_ENV_PATHS};%PATH%</LocalDebuggerEnvironment>\n"
+        "       <LocalDebuggerCommand>${_COMMAND}</LocalDebuggerCommand>\n"
+        "       <LocalDebuggerCommandArguments>${_COMMAND_ARGUMENTS}</LocalDebuggerCommandArguments>\n"
+        "       <LocalDebuggerEnvironment>\nPATH=${_ENV_PATHS_DEBUG};${_ENV_PATHS};%PATH%\n${_ENV_VARS}\n"
+        "       </LocalDebuggerEnvironment>\n"
         "       <DebuggerFlavor>WindowsLocalDebugger</DebuggerFlavor>\n"
         "   </PropertyGroup>\n"
         "   <PropertyGroup Condition=\"'$(Configuration)'=='Release'\">\n"
-        "       <LocalDebuggerEnvironment>PATH=${_ENV_PATHS_RELEASE};${_ENV_PATHS};%PATH%</LocalDebuggerEnvironment>\n"
+        "       <LocalDebuggerCommand>${_COMMAND}</LocalDebuggerCommand>\n"
+        "       <LocalDebuggerCommandArguments>${_COMMAND_ARGUMENTS}</LocalDebuggerCommandArguments>\n"
+        "       <LocalDebuggerEnvironment>\nPATH=${_ENV_PATHS_RELEASE};${_ENV_PATHS};%PATH%\n${_ENV_VARS}\n"
+        "       </LocalDebuggerEnvironment>\n"
         "       <DebuggerFlavor>WindowsLocalDebugger</DebuggerFlavor>\n"
         "   </PropertyGroup>\n"
         "   <PropertyGroup Condition=\"'$(Configuration)'=='RelWithDebInfo'\">\n"
-        "       <LocalDebuggerEnvironment>PATH=${_ENV_PATHS_RELWITHDEBINFO};${_ENV_PATHS};%PATH%</LocalDebuggerEnvironment>\n"
+        "       <LocalDebuggerCommand>${_COMMAND}</LocalDebuggerCommand>\n"
+        "       <LocalDebuggerCommandArguments>${_COMMAND_ARGUMENTS}</LocalDebuggerCommandArguments>\n"
+        "       <LocalDebuggerEnvironment>\nPATH=${_ENV_PATHS_RELWITHDEBINFO};${_ENV_PATHS};%PATH%\n${_ENV_VARS}\n"
+        "       </LocalDebuggerEnvironment>\n"
         "       <DebuggerFlavor>WindowsLocalDebugger</DebuggerFlavor>\n"
         "   </PropertyGroup>\n"
         "</Project>\n"
@@ -964,12 +1122,10 @@ if(MDL_ENABLE_TESTS)
         --output-log ${CMAKE_BINARY_DIR}/Testing/log.txt    # test log in one file, individual logs are platform dependent
         --parallel 1                                        # run tests in serial 
         )
-    set_target_properties(check PROPERTIES 
+    set_target_properties(check PROPERTIES
         PROJECT_LABEL   "check"
         FOLDER          "tests"
         )
-
-     set(MDL_TEST_LIST_POST "" CACHE INTERNAL "list of test directories to add after regular targets are defined")
 endif()
 
 # add tests to individual targets when defined in a corresponding sub-directory

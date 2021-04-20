@@ -1,5 +1,5 @@
 /***************************************************************************************************
- * Copyright (c) 2004-2019, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2004-2020, NVIDIA CORPORATION. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -207,6 +207,14 @@ void Serializer_impl::write(const std::string& value)
     write(value.c_str(), value.size());
 }
 
+void Serializer_impl::write(const mi::base::Uuid& value)
+{
+    write(value.m_id1);
+    write(value.m_id2);
+    write(value.m_id3);
+    write(value.m_id4);
+}
+
 void Serializer_impl::write(const mi::math::Color& value)
 {
     write(value.r);
@@ -356,7 +364,6 @@ void Deserializer_impl::read(DB::Tag* value_pointer)
     *value_pointer = DB::Tag(tag);
 }
 
-
 void Deserializer_impl::read(char** value_pointer)
 {
     size_t size;
@@ -391,6 +398,14 @@ void Deserializer_impl::read(std::string* value_pointer)
     value_pointer->resize(size);
     if (size > 0)
         read(&((*value_pointer)[0]), size);
+}
+
+void Deserializer_impl::read(mi::base::Uuid* value_pointer)
+{
+    read(&value_pointer->m_id1);
+    read(&value_pointer->m_id2);
+    read(&value_pointer->m_id3);
+    read(&value_pointer->m_id4);
 }
 
 void Deserializer_impl::read(mi::math::Color* value_pointer)
@@ -488,12 +503,11 @@ void Deserialization_manager_impl::register_class(
     Class_id class_identifier,			// class id to be registered
     Factory_function* factory)			// factory for this class id
 {
-    if (class_identifier == 0)
-        ASSERT(M_DB, !"Registering serialization class with null ID");
+    ASSERT(M_DB, class_identifier || !"Registering serialization class with null ID");
     mi::base::Lock::Block block(&m_lock);
     Deserialization_class pattern(class_identifier);
-    if (m_classes.find(pattern) != m_classes.end())
-        ASSERT(M_DB, !"Duplicate registration of serialization class");
+    ASSERT(M_DB, m_classes.find(pattern) == m_classes.end()
+             || !"Duplicate registration of serialization class");
 
     m_classes.insert(Deserialization_class(class_identifier, factory));
 }
@@ -505,12 +519,11 @@ void Deserialization_manager_impl::register_class(
     Class_id class_identifier,			// class id to be registered
     IDeserialization_factory* factory)		// factory class for this class id
 {
-    if (class_identifier == 0)
-        ASSERT(M_DB, !"Registering serialization class with null ID");
+    ASSERT(M_DB, class_identifier || !"Registering serialization class with null ID");
     mi::base::Lock::Block block(&m_lock);
     Deserialization_class pattern(class_identifier);
-    if (m_classes.find(pattern) != m_classes.end())
-        ASSERT(M_DB, !"Duplicate registration of serialization class");
+    ASSERT(M_DB, m_classes.find(pattern) == m_classes.end()
+             || !"Duplicate registration of serialization class");
 
     m_classes.insert(Deserialization_class(class_identifier, factory));
 }
@@ -552,13 +565,6 @@ bool Deserializer_impl::check_extension()
 void Deserializer_impl::set_error_handler(IDeserializer_error_handler<>* handler)
 {
     m_error_handler = mi::base::make_handle_dup< IDeserializer_error_handler<> >(handler);
-}
-
-void Deserializer_impl::read_direct(Deserializer* deserializer, char* buffer, size_t size)
-{
-    Deserializer_impl* di(reinterpret_cast<Deserializer_impl*>(deserializer));
-    ASSERT(M_DB, di);
-    di->read_impl(buffer, size);
 }
 
 } // namespace DB

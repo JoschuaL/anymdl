@@ -1,5 +1,5 @@
 /******************************************************************************
- * Copyright (c) 2019, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2019-2020, NVIDIA CORPORATION. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -34,11 +34,18 @@
 #include "common.h"
 #include "window.h"
 
-namespace mdl_d3d12
+namespace mi { namespace examples { namespace gui
+{
+    class Root;
+}}}
+
+namespace mi { namespace examples { namespace mdl_d3d12
 {
     class Base_application;
     class Base_application_message_interface;
     class Texture;
+
+    // ------------------------------------------------------------------------
 
     class Window_win32 : public IWindow
     {
@@ -50,6 +57,7 @@ namespace mdl_d3d12
 
         int show(int nCmdShow) override;
         void close() override;
+        bool has_focus() const override;
 
         Texture* get_back_buffer() const override;
         D3D12_CPU_DESCRIPTOR_HANDLE get_back_buffer_rtv() const override;
@@ -66,10 +74,13 @@ namespace mdl_d3d12
         IWindow::Mode get_window_mode() const override { return m_mode; }
 
         // low level interfaces to the applications message pump
-        void add_message_callback(std::function<bool(HWND, UINT, WPARAM, LPARAM)> callback);
+        void add_message_callback(std::function<LRESULT(HWND, UINT, WPARAM, LPARAM)> callback);
 
         // low level interfaces to application window
         HWND get_window_handle() const { return m_window_handle; }
+
+        // get the windows main UI instance
+        mi::examples::gui::Root* get_gui() final { return m_gui; };
 
     private:
         Base_application* m_app;
@@ -89,8 +100,11 @@ namespace mdl_d3d12
         std::vector<UINT64> m_swap_fence_handles;
         std::vector<Descriptor_heap_handle> m_render_target_views_heap_indices;
 
-        std::vector<std::function<bool(HWND, UINT, WPARAM, LPARAM)>> m_message_callbacks;
+        std::vector<std::function<LRESULT(HWND, UINT, WPARAM, LPARAM)>> m_message_callbacks;
         bool m_close;
+
+        mi::examples::gui::Root* m_gui;
     };
-}
+
+}}} // mi::examples::mdl_d3d12
 #endif

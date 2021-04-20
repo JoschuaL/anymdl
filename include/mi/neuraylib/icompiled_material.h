@@ -1,5 +1,5 @@
 /***************************************************************************************************
- * Copyright (c) 2015-2019, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2015-2020, NVIDIA CORPORATION. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -40,6 +40,7 @@ namespace mi {
 namespace neuraylib {
 
     class IMaterial_instance;
+    class IMdl_execution_context;
 
 /** \addtogroup mi_neuray_mdl_elements
 @{
@@ -67,15 +68,17 @@ enum Material_slot {
     SLOT_FORCE_32_BIT = 0xffffffffU
 };
 
+mi_static_assert( sizeof( Material_slot) == sizeof( mi::Uint32));
+
 /// The compiled material's opacity.
 enum Material_opacity {
-    OPACITY_OPAQUE,                     /// material is opaque
-    OPACITY_TRANSPARENT,                /// material is transparent
-    OPACITY_UNKNOWN,                    /// material might be transparent
+    OPACITY_OPAQUE,                     ///< material is opaque
+    OPACITY_TRANSPARENT,                ///< material is transparent
+    OPACITY_UNKNOWN,                    ///< material might be transparent
     OPACITY_FORCE_32_BIT = 0xffffffffU
 };
 
-mi_static_assert( sizeof( Material_slot) == sizeof( mi::Uint32));
+mi_static_assert( sizeof( Material_opacity) == sizeof( mi::Uint32));
 
 /// This interface represents a compiled material.
 ///
@@ -114,23 +117,6 @@ public:
     /// Returns the direct call expression that represents the body of the compiled material.
     virtual const IExpression_direct_call* get_body() const = 0;
 
-#ifdef MI_NEURAYLIB_DEPRECATED_8_1
-    const IExpression* get_field( const char* name) const
-    {
-        mi::base::Handle<const IExpression_direct_call> body( get_body());
-        mi::base::Handle<const IExpression_list> arguments( body->get_arguments());
-        return arguments->get_expression( name);
-    }
-
-    template<class T>
-    const T* get_field( const char* name) const
-    {
-        mi::base::Handle<const IExpression_direct_call> body( get_body());
-        mi::base::Handle<const IExpression_list> arguments( body->get_arguments());
-        return arguments->get_expression<T>( name);
-    }
-#endif
-
     /// Returns the number of temporaries used by this compiled material.
     virtual Size get_temporary_count() const = 0;
 
@@ -149,7 +135,7 @@ public:
     /// on the returned pointer, since the return type already is a pointer to the type \p T
     /// specified as template parameter.
     ///
-    /// \tparam T               The interface type of the requested element
+    /// \tparam T               The interface type of the requested element.
     /// \param index            The index of the temporary.
     /// \return                 The expression of the temporary, or \c NULL if \p index is out of
     ///                         range.
@@ -182,6 +168,17 @@ public:
 
     /// Indicates whether this material depends on global distribution (edf).
     virtual bool depends_on_global_distribution() const = 0;
+
+    /// Indicates whether this material depends on uniform scene data.
+    virtual bool depends_on_uniform_scene_data() const = 0;
+
+    /// Returns the number of scene data attributes referenced by this instance.
+    virtual Size get_referenced_scene_data_count() const = 0;
+
+    /// Return the name of a scene data attribute referenced by this instance.
+    ///
+    /// \param index  the index of the scene data attribute
+    virtual const char* get_referenced_scene_data_name( Size index) const = 0;
 
     //@}
     /// \name Additional methods related to class compilation
@@ -313,7 +310,16 @@ public:
         Sint32* errors = 0) const = 0;
     
     /// Returns the opacity of the material.
+    ///
+    /// First, the cutout_opacity is checked. In case of opaque
+    /// materials it is checked if a transmissive BSDF is present in the \c surface.scattering
+    /// slot of the material.
     virtual Material_opacity get_opacity() const = 0;
+
+    /// Returns the surface opacity of the material by checking, if a
+    /// transmissive BSDF is present in the \c surface.scattering slot of
+    /// the material.
+    virtual Material_opacity get_surface_opacity() const = 0;
 
     /// Returns the cutout opacity of the material if it is constant.
     ///
@@ -321,7 +327,16 @@ public:
     ///
     /// \returns true of success, false if the value is not a constant, but depends on parameters
     ///          or complex user expressions
-    virtual bool get_cutout_opacity(Float32 *cutout_opacity) const = 0;
+    virtual bool get_cutout_opacity( Float32* cutout_opacity) const = 0;
+
+    /// Returns true, if the compiled material is valid, false otherwise.
+    ///
+    /// \param context     In case of failure, the execution context can be checked for error
+    ///                    messages. Can be \c NULL.
+    ///
+    /// A compiled material becomes invalid, if any of the modules it uses definitions from has
+    /// has been reloaded.
+    virtual bool is_valid( IMdl_execution_context* context) const = 0;
 
     //@}
 };

@@ -1,5 +1,5 @@
 /******************************************************************************
- * Copyright (c) 2011-2019, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2011-2020, NVIDIA CORPORATION. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -33,9 +33,12 @@
 
 #include <mi/base/lock.h>
 
+#include <mi/mdl/mdl_translator_plugin.h>
+
 #include "compilercore_cc_conf.h"
 #include "compilercore_mdl.h"
 #include "compilercore_allocator.h"
+#include "compilercore_analysis.h"
 #include "compilercore_debug_tools.h"
 #include "compilercore_encapsulator.h"
 #include "compilercore_factories.h"
@@ -82,9 +85,21 @@ char const *MDL::option_limits_float_max              = MDL_OPTION_LIMITS_FLOAT_
 char const *MDL::option_limits_double_min             = MDL_OPTION_LIMITS_DOUBLE_MIN;
 char const *MDL::option_limits_double_max             = MDL_OPTION_LIMITS_DOUBLE_MAX;
 char const *MDL::option_state_wavelength_base_max     = MDL_OPTION_STATE_WAVELENGTH_BASE_MAX;
+char const *MDL::option_keep_original_resource_file_paths
+                                                  = MDL_OPTION_KEEP_ORIGINAL_RESOURCE_FILE_PATHS;
 
 // forward
 class Jitted_code;
+
+extern ICode_generator *create_code_generator_dag(IAllocator *alloc, MDL *mdl);
+extern void serialize_code_dag(
+    IGenerated_code_dag const *code,
+    ISerializer               *is,
+    MDL_binary_serializer     &bin_serializer);
+extern IGenerated_code_dag const *deserialize_code_dag(
+    IDeserializer           *ds,
+    MDL_binary_deserializer &bin_deserializer,
+    MDL                     *compiler);
 
 extern ICode_generator *create_code_generator_jit(IAllocator *alloc, MDL *mdl);
 extern ICode_generator *create_code_generator_glsl(IAllocator *alloc, MDL *mdl);
@@ -111,11 +126,6 @@ public:
     /// \param col   the start column of the syntax error
     /// \param s     the human readable error message
     void Warning(int line, int col, wchar_t const *s) MDL_FINAL;
-
-    /// Report a syntax warning.
-    ///
-    /// \param s     the human readable error message
-    void Warning(wchar_t const *s) MDL_FINAL;
 
     /// Report an error at given line, column pair.
     ///
@@ -174,13 +184,6 @@ void Syntax_error::Warning(int line, int col, wchar_t const *s)
 {
     string tmp(m_builder.get_allocator());
     Position_impl pos(line, col, line, col);
-    m_msg.add_warning_message(SYNTAX_ERROR, MESSAGE_CLASS, 0, &pos, wchar_to_utf8(tmp, s));
-}
-
-void Syntax_error::Warning(wchar_t const *s)
-{
-    string tmp(m_builder.get_allocator());
-    Position_impl pos(-1, -1, -1, -1);
     m_msg.add_warning_message(SYNTAX_ERROR, MESSAGE_CLASS, 0, &pos, wchar_to_utf8(tmp, s));
 }
 
@@ -302,7 +305,7 @@ void Scanner::enable_native_keyword(bool flag)
 
 void Scanner::set_mdl_version(int major, int minor)
 {
-#define HAS_VERSION(x, y) (major > x || (major == x && minor >= y))
+#define HAS_VERSION(x, y) (major > (x) || (major == (x) && minor >= (y)))
 
     if (HAS_VERSION(1, 1)) {
         // enable MDL 1.1 keywords
@@ -379,12 +382,161 @@ MDL::MDL(IAllocator *alloc)
 , m_global_lock()
 , m_search_path_lock()
 , m_weak_module_lock()
-, m_builtin_modules_created(false)
 , m_predefined_types_build(false)
 , m_jitted_code(NULL)
+, m_translator_list(alloc)
 {
     create_options();
     create_builtin_semantics();
+
+    // create built-in modules
+    mi::base::Handle<Thread_context> ctx(create_thread_context());
+
+    // load state.mdl,
+    // must be first due to dependencies of material structs to state::normal
+    {
+        mi::base::Handle<Buffer_Input_stream> s(m_builder.create<Encoded_buffer_Input_stream>(
+            m_builder.get_allocator(),
+            mdl_module_state, sizeof(mdl_module_state), ""));
+        Module *state_mod = load_module(
+            NULL, ctx.get(), "::state", s.get(), Module::MF_IS_STDLIB);
+
+        // takes ownership
+        register_builtin_module(state_mod);
+    }
+
+    // load tex.mdl next, this defines the gamma_mode enum
+    {
+        mi::base::Handle<Buffer_Input_stream> s(m_builder.create<Encoded_buffer_Input_stream>(
+            m_builder.get_allocator(),
+            mdl_module_tex, sizeof(mdl_module_tex), ""));
+        Module *tex_mod = load_module(
+            NULL, ctx.get(), "::tex", s.get(), Module::MF_IS_STDLIB);
+
+        // takes ownership
+        register_builtin_module(tex_mod);
+    }
+
+    // load limits.mdl
+    {
+        mi::base::Handle<Buffer_Input_stream> s(m_builder.create<Encoded_buffer_Input_stream>(
+            m_builder.get_allocator(),
+            mdl_module_limits, sizeof(mdl_module_limits), ""));
+        Module *limits_mod = load_module(
+            NULL, ctx.get(), "::limits", s.get(), Module::MF_IS_STDLIB);
+
+        // takes ownership
+        register_builtin_module(limits_mod);
+    }
+
+    // load anno.mdl
+    {
+        mi::base::Handle<Buffer_Input_stream> s(m_builder.create<Encoded_buffer_Input_stream>(
+            m_builder.get_allocator(),
+            mdl_module_anno, sizeof(mdl_module_anno), ""));
+        Module *anno_mod = load_module(
+            NULL, ctx.get(), "::anno", s.get(), Module::MF_IS_STDLIB);
+
+        // takes ownership
+        register_builtin_module(anno_mod);
+    }
+
+    // load math.mdl
+    {
+        mi::base::Handle<Buffer_Input_stream> s(m_builder.create<Encoded_buffer_Input_stream>(
+            m_builder.get_allocator(),
+            mdl_module_math, sizeof(mdl_module_math), ""));
+        Module *math_mod = load_module(
+            NULL, ctx.get(), "::math", s.get(), Module::MF_IS_STDLIB);
+
+        // takes ownership
+        register_builtin_module(math_mod);
+    }
+
+    // load noise.mdl
+    {
+        mi::base::Handle<Buffer_Input_stream> s(m_builder.create<Encoded_buffer_Input_stream>(
+            m_builder.get_allocator(),
+            mdl_module_noise, sizeof(mdl_module_noise), ""));
+        Module *noise_mod = load_module(
+            NULL, ctx.get(), "::noise", s.get(), Module::MF_IS_STDLIB);
+
+        // takes ownership
+        register_builtin_module(noise_mod);
+    }
+
+    // load df.mdl
+    {
+        mi::base::Handle<Buffer_Input_stream> s(m_builder.create<Encoded_buffer_Input_stream>(
+            m_builder.get_allocator(),
+            mdl_module_df, sizeof(mdl_module_df), ""));
+        Module *df_mod = load_module(
+            NULL, ctx.get(), "::df", s.get(), Module::MF_IS_STDLIB);
+
+        // takes ownership
+        register_builtin_module(df_mod);
+    }
+
+    // load scene.mdl
+    {
+        mi::base::Handle<Buffer_Input_stream> s(m_builder.create<Encoded_buffer_Input_stream>(
+            m_builder.get_allocator(),
+            mdl_module_scene, sizeof(mdl_module_scene), ""));
+        Module *scene_mod = load_module(
+            NULL, ctx.get(), "::scene", s.get(), Module::MF_IS_STDLIB);
+
+        // takes ownership
+        register_builtin_module(scene_mod);
+    }
+
+    // load debug.mdl
+    {
+        mi::base::Handle<Buffer_Input_stream> s(m_builder.create<Encoded_buffer_Input_stream>(
+            m_builder.get_allocator(),
+            mdl_module_debug, sizeof(mdl_module_debug), ""));
+        Module *debug_mod = load_module(
+            NULL, ctx.get(), "::debug", s.get(), Module::MF_IS_STDLIB | Module::MF_IS_DEBUG);
+
+        // takes ownership
+        register_builtin_module(debug_mod);
+    }
+
+    // load std.mdl after all the above
+    {
+        mi::base::Handle<Buffer_Input_stream> s(m_builder.create<Encoded_buffer_Input_stream>(
+            m_builder.get_allocator(),
+            mdl_module_std, sizeof(mdl_module_std), ""));
+        Module *std_mod = load_module(
+            NULL, ctx.get(), "::std", s.get(), Module::MF_IS_STDLIB);
+
+        // takes ownership
+        register_builtin_module(std_mod);
+    }
+    // finally load builtins.mdl
+    {
+        mi::base::Handle<Buffer_Input_stream> s(m_builder.create<Encoded_buffer_Input_stream>(
+            m_builder.get_allocator(),
+            mdl_module_builtins, sizeof(mdl_module_builtins), ""));
+        Module *builtins_mod = load_module(
+            NULL, ctx.get(), "::<builtins>", s.get(),
+            Module::MF_IS_STDLIB | Module::MF_IS_BUILTIN);
+
+        // takes ownership
+        register_builtin_module(builtins_mod);
+    }
+
+    // currently load base.mdl, this must be hashed
+    {
+        mi::base::Handle<Buffer_Input_stream> s(m_builder.create<Encoded_buffer_Input_stream>(
+            m_builder.get_allocator(),
+            mdl_module_base, sizeof(mdl_module_base), ""));
+        Module *base_mod = load_module(
+            NULL, ctx.get(), "::base", s.get(), Module::MF_IS_OWNED | Module::MF_IS_HASHED);
+
+        // takes ownership
+        register_builtin_module(base_mod);
+    }
+
 }
 
 // Destructor.
@@ -434,9 +586,6 @@ Module *MDL::create_module(
         ctx->clear_messages();
     }
 
-    // create the standard modules lazy
-    create_builtin_modules();
-
     Module *res = create_module(module_name, "", version, Module::MF_STANDARD);
 
     // copy the messages from the module to the context, so they are available over both
@@ -454,162 +603,20 @@ void MDL::install_search_path(IMDL_search_path *search_path)
     m_search_path = search_path;
 }
 
-// Build all builtin modules.
-void MDL::create_builtin_modules()
+// Register built-in modules at a module cache.
+void MDL::register_builtin_module_at_cache(IModule_cache *cache)
 {
-    if (!m_builtin_modules_created) {
+    if (cache != NULL) {
         mi::base::Lock::Block block(&m_global_lock);
 
-        if (m_builtin_modules_created) {
-            // check again due to potential race condition
-            return;
+        if (IModule_loaded_callback *callback = cache->get_module_loading_callback()) {
+            for (size_t i = 0, n = m_builtin_modules.size(); i < n; ++i) {
+                if (!callback->is_builtin_module_registered(m_builtin_modules[i]->get_name())) {
+                    callback->register_module(m_builtin_modules[i].get());
+                }
+            }
         }
-
-        mi::base::Handle<Thread_context> ctx(create_thread_context());
-
-        // load state.mdl, must be first due to dependencies of material structs to state::normal
-        {
-            mi::base::Handle<Buffer_Input_stream> s(m_builder.create<Encoded_buffer_Input_stream>(
-                m_builder.get_allocator(),
-                mdl_module_state, sizeof(mdl_module_state), ""));
-            Module *state_mod = load_module(
-                NULL, ctx.get(), "::state", s.get(), Module::MF_IS_STDLIB);
-
-            // takes ownership
-            register_builtin_module(state_mod);
-        }
-
-        // load tex.mdl next, this defined the gamma_mode enum
-        {
-            mi::base::Handle<Buffer_Input_stream> s(m_builder.create<Encoded_buffer_Input_stream>(
-                m_builder.get_allocator(),
-                mdl_module_tex, sizeof(mdl_module_tex), ""));
-            Module *tex_mod = load_module(
-                NULL, ctx.get(), "::tex", s.get(), Module::MF_IS_STDLIB);
-
-            // takes ownership
-            register_builtin_module(tex_mod);
-        }
-
-        // load limits.mdl
-        {
-            mi::base::Handle<Buffer_Input_stream> s(m_builder.create<Encoded_buffer_Input_stream>(
-                m_builder.get_allocator(),
-                mdl_module_limits, sizeof(mdl_module_limits), ""));
-            Module *limits_mod = load_module(
-                NULL, ctx.get(), "::limits", s.get(), Module::MF_IS_STDLIB);
-
-            // takes ownership
-            register_builtin_module(limits_mod);
-        }
-
-        // load anno.mdl
-        {
-            mi::base::Handle<Buffer_Input_stream> s(m_builder.create<Encoded_buffer_Input_stream>(
-                m_builder.get_allocator(),
-                mdl_module_anno, sizeof(mdl_module_anno), ""));
-            Module *anno_mod = load_module(
-                NULL, ctx.get(), "::anno", s.get(), Module::MF_IS_STDLIB);
-
-            // takes ownership
-            register_builtin_module(anno_mod);
-        }
-
-        // load math.mdl
-        {
-            mi::base::Handle<Buffer_Input_stream> s(m_builder.create<Encoded_buffer_Input_stream>(
-                m_builder.get_allocator(),
-                mdl_module_math, sizeof(mdl_module_math), ""));
-            Module *math_mod = load_module(
-                NULL, ctx.get(), "::math", s.get(), Module::MF_IS_STDLIB);
-
-            // takes ownership
-            register_builtin_module(math_mod);
-        }
-
-        // load noise.mdl
-        {
-            mi::base::Handle<Buffer_Input_stream> s(m_builder.create<Encoded_buffer_Input_stream>(
-                m_builder.get_allocator(),
-                mdl_module_noise, sizeof(mdl_module_noise), ""));
-            Module *noise_mod = load_module(
-                NULL, ctx.get(), "::noise", s.get(), Module::MF_IS_STDLIB);
-
-            // takes ownership
-            register_builtin_module(noise_mod);
-        }
-
-        // load df.mdl
-        {
-            mi::base::Handle<Buffer_Input_stream> s(m_builder.create<Encoded_buffer_Input_stream>(
-                m_builder.get_allocator(),
-                mdl_module_df, sizeof(mdl_module_df), ""));
-            Module *df_mod = load_module(
-                NULL, ctx.get(), "::df", s.get(), Module::MF_IS_STDLIB);
-
-            // takes ownership
-            register_builtin_module(df_mod);
-        }
-
-        // load debug.mdl
-        {
-            mi::base::Handle<Buffer_Input_stream> s(m_builder.create<Encoded_buffer_Input_stream>(
-                m_builder.get_allocator(),
-                mdl_module_debug, sizeof(mdl_module_debug), ""));
-            Module *debug_mod = load_module(
-                NULL, ctx.get(), "::debug", s.get(), Module::MF_IS_STDLIB | Module::MF_IS_DEBUG);
-
-            // takes ownership
-            register_builtin_module(debug_mod);
-        }
-
-        // load std.mdl after all the above
-        {
-            mi::base::Handle<Buffer_Input_stream> s(m_builder.create<Encoded_buffer_Input_stream>(
-                m_builder.get_allocator(),
-                mdl_module_std, sizeof(mdl_module_std), ""));
-            Module *std_mod = load_module(
-                NULL, ctx.get(), "::std", s.get(), Module::MF_IS_STDLIB);
-
-            // takes ownership
-            register_builtin_module(std_mod);
-        }
-        // finally load builtins.mdl
-        {
-            mi::base::Handle<Buffer_Input_stream> s(m_builder.create<Encoded_buffer_Input_stream>(
-                m_builder.get_allocator(),
-                mdl_module_builtins, sizeof(mdl_module_builtins), ""));
-            Module *builtins_mod = load_module(
-                NULL, ctx.get(), "::<builtins>", s.get(),
-                Module::MF_IS_STDLIB | Module::MF_IS_BUILTIN);
-
-            // takes ownership
-            register_builtin_module(builtins_mod);
-        }
-
-        // currently load base.mdl, this must be hashed
-        {
-            mi::base::Handle<Buffer_Input_stream> s(m_builder.create<Encoded_buffer_Input_stream>(
-                m_builder.get_allocator(),
-                mdl_module_base, sizeof(mdl_module_base), ""));
-            Module *base_mod = load_module(
-                NULL, ctx.get(), "::base", s.get(), Module::MF_IS_OWNED | Module::MF_IS_HASHED);
-
-            // takes ownership
-            register_builtin_module(base_mod);
-        }
-
-        m_builtin_modules_created = true;
     }
-}
-
-// Build all builtin modules.
-void MDL::create_builtin_modules() const
-{
-    // this is really a lazy construction, but should work on const compilers
-    // (needed for deserialization for instance) so make this cast
-    MDL *self = const_cast<MDL *>(this);
-    self->create_builtin_modules();
 }
 
 // Create all builtin semantics.
@@ -885,7 +892,50 @@ void MDL::create_builtin_semantics()
         IDefinition::DS_INTRINSIC_DF_MEASURED_FACTOR;
     m_builtin_semantics["::df::chiang_hair_bsdf"] =
         IDefinition::DS_INTRINSIC_DF_CHIANG_HAIR_BSDF;
+    m_builtin_semantics["::df::sheen_bsdf"] =
+        IDefinition::DS_INTRINSIC_DF_SHEEN_BSDF;
 
+
+
+    // scene module
+    m_builtin_semantics["::scene::data_isvalid"] =
+        IDefinition::DS_INTRINSIC_SCENE_DATA_ISVALID;
+    m_builtin_semantics["::scene::data_lookup_int"] =
+        IDefinition::DS_INTRINSIC_SCENE_DATA_LOOKUP_INT;
+    m_builtin_semantics["::scene::data_lookup_int2"] =
+        IDefinition::DS_INTRINSIC_SCENE_DATA_LOOKUP_INT2;
+    m_builtin_semantics["::scene::data_lookup_int3"] =
+        IDefinition::DS_INTRINSIC_SCENE_DATA_LOOKUP_INT3;
+    m_builtin_semantics["::scene::data_lookup_int4"] =
+        IDefinition::DS_INTRINSIC_SCENE_DATA_LOOKUP_INT4;
+    m_builtin_semantics["::scene::data_lookup_float"] =
+        IDefinition::DS_INTRINSIC_SCENE_DATA_LOOKUP_FLOAT;
+    m_builtin_semantics["::scene::data_lookup_float2"] =
+        IDefinition::DS_INTRINSIC_SCENE_DATA_LOOKUP_FLOAT2;
+    m_builtin_semantics["::scene::data_lookup_float3"] =
+        IDefinition::DS_INTRINSIC_SCENE_DATA_LOOKUP_FLOAT3;
+    m_builtin_semantics["::scene::data_lookup_float4"] =
+        IDefinition::DS_INTRINSIC_SCENE_DATA_LOOKUP_FLOAT4;
+    m_builtin_semantics["::scene::data_lookup_color"] =
+        IDefinition::DS_INTRINSIC_SCENE_DATA_LOOKUP_COLOR;
+    m_builtin_semantics["::scene::data_lookup_uniform_int"] =
+        IDefinition::DS_INTRINSIC_SCENE_DATA_LOOKUP_UNIFORM_INT;
+    m_builtin_semantics["::scene::data_lookup_uniform_int2"] =
+        IDefinition::DS_INTRINSIC_SCENE_DATA_LOOKUP_UNIFORM_INT2;
+    m_builtin_semantics["::scene::data_lookup_uniform_int3"] =
+        IDefinition::DS_INTRINSIC_SCENE_DATA_LOOKUP_UNIFORM_INT3;
+    m_builtin_semantics["::scene::data_lookup_uniform_int4"] =
+        IDefinition::DS_INTRINSIC_SCENE_DATA_LOOKUP_UNIFORM_INT4;
+    m_builtin_semantics["::scene::data_lookup_uniform_float"] =
+        IDefinition::DS_INTRINSIC_SCENE_DATA_LOOKUP_UNIFORM_FLOAT;
+    m_builtin_semantics["::scene::data_lookup_uniform_float2"] =
+        IDefinition::DS_INTRINSIC_SCENE_DATA_LOOKUP_UNIFORM_FLOAT2;
+    m_builtin_semantics["::scene::data_lookup_uniform_float3"] =
+        IDefinition::DS_INTRINSIC_SCENE_DATA_LOOKUP_UNIFORM_FLOAT3;
+    m_builtin_semantics["::scene::data_lookup_uniform_float4"] =
+        IDefinition::DS_INTRINSIC_SCENE_DATA_LOOKUP_UNIFORM_FLOAT4;
+    m_builtin_semantics["::scene::data_lookup_uniform_color"] =
+        IDefinition::DS_INTRINSIC_SCENE_DATA_LOOKUP_UNIFORM_COLOR;
 
     // debug module
     m_builtin_semantics["::debug::breakpoint"] =
@@ -977,6 +1027,9 @@ void MDL::create_options()
         "The number of wavelengths returned in the result of wavelength base()");
 
 
+    m_options.add_option(option_keep_original_resource_file_paths, "false",
+        "Keep original resource file paths as is.");
+
 #undef _STR
 #undef STR
 }
@@ -991,6 +1044,15 @@ Module *MDL::load_module(
     char const      *msg_name)
 {
     Thread_context *ctx = impl_cast<Thread_context>(context);
+
+    // make sure there is a waiting table entry in case the module needs loading
+    if (cache) {
+        mi::base::Handle<const mi::mdl::IModule> existing_module(cache->lookup(module_name, NULL));
+        if (existing_module) {
+            // the module is cached and we load it anyway
+            MDL_ASSERT(!"tied to load an already cached module");
+        }
+    }
 
     Module *module =
         create_module(module_name, s->get_filename(), IMDL::MDL_DEFAULT_VERSION, flags);
@@ -1028,11 +1090,11 @@ Module *MDL::load_module(
         if (imdle_s.is_valid_interface()) {
             // this module was loaded from an mdle, compute function hashes
             module->m_is_hashed = true;
+            module->m_is_mdle   = true;
         }
     }
 
-    module->analyze(cache, ctx, get_compiler_bool_option(ctx, option_resolve_resources, true));
-
+    module->analyze(cache, ctx);
     return module;
 }
 
@@ -1056,14 +1118,21 @@ Module const *MDL::load_module(
     ctx->clear_messages();
 
     // create the standard modules lazy
-    create_builtin_modules();
+    register_builtin_module_at_cache(cache);
 
-    Module const *res = compile_module(*ctx, module_name, cache);
+    Module const *res = NULL;
+
+    if (IMDL_foreign_module_translator *translator = is_foreign_module(module_name)) {
+        res = compile_foreign_module(*translator, *ctx, module_name, cache);
+    } else {
+        res = compile_module(*ctx, module_name, cache);
+    }
 
     // copy the messages from the module to the context, so they are available over both
     // access paths
-    if (context != NULL)
+    if (context != NULL) {
         copy_message(ctx->access_messages_impl(), res);
+    }
     return res;
 }
 
@@ -1102,7 +1171,7 @@ IModule const *MDL::load_module_from_stream(
     ctx->clear_messages();
 
     // create the standard modules lazy
-    create_builtin_modules();
+    register_builtin_module_at_cache(cache);
 
     char const *fname = stream->get_filename();
     if (fname == NULL || fname[0] == '\0')
@@ -1113,10 +1182,47 @@ IModule const *MDL::load_module_from_stream(
 
     // copy the messages from the module to the context, so they are available over both
     // access paths
-    if (context != NULL)
+    if (context != NULL) {
         copy_message(ctx->access_messages_impl(), res);
+    }
     return res;
 }
+
+namespace
+{
+    // report success or failure of the loading process to the application
+    void report_module_loading_result(
+        Module          *mod,
+        Module_callback &cb)
+    {
+        // only if there is a module cache
+        if (!cb.is_valid()) {
+            return;
+        }
+
+        MDL_ASSERT(cb.is_processing() &&
+                   "Module is supposed to be processed in this context");
+
+        // notify waiting threads about success or failure
+        if (mod == NULL || !mod->is_valid()) {
+            // notify about failure
+            cb.module_loading_failed();
+        } else {
+            MDL_ASSERT(strcmp(mod->get_name(), cb.get_lookup_name()) == 0 &&
+                        "module name and the cache lookup name do not match");
+
+            // add an entry to the database
+            if (!cb.register_module(mod)) {
+                // there is a problem with this module outside of MDL Core, e.g. DB name clashes
+                mod->access_messages_impl().add_error_message(
+                    EXTERNAL_APPLICATION_ERROR, 'C', 0, 0,
+                    "Module loading callback reported a registration failure");
+            }
+        }
+    }
+}
+
+
 // Compile a module with a given name.
 Module const *MDL::compile_module(
     Thread_context &ctx,
@@ -1139,6 +1245,7 @@ Module const *MDL::compile_module(
         resolver.set_module_replacement(repl_module_name, repl_file_name);
     }
 
+    // resolve the module file
     mi::base::Handle<IMDL_import_result> result(resolve_import(
         resolver, module_name, /*owner_module=*/NULL, /*pos=*/NULL));
     if (!result.is_valid_interface()) {
@@ -1153,8 +1260,14 @@ Module const *MDL::compile_module(
         return std_mod;
     }
 
+    // if the module was resolved successful and there is a cache,
+    // announce that this module is now created or wait for another thread that currently processes
+    // this module and then continue returning the cached module (processed by the other thread)
+    Module_callback cb(module_cache);
+
     if (module_cache != NULL) {
-        Module const *cached_mod = impl_cast<Module>(module_cache->lookup(mname.c_str()));
+        Module const *cached_mod = impl_cast<Module>(module_cache->lookup(mname.c_str(), cb));
+
         if (cached_mod != NULL) {
             if (!cached_mod->is_analyzed()) {
                 // We found a not analyzed module. This can only happen if we
@@ -1164,21 +1277,84 @@ Module const *MDL::compile_module(
                 return NULL;
             }
             return cached_mod;
+        } else if (cb.is_valid() && !cb.is_processing()) {
+            // loading failed on different thread
+            ctx.access_messages_impl().add_error_message(
+                ERRONEOUS_IMPORT, 'C', 0, 0,
+                "Loading module failed on a different context.");
+            return NULL;
         }
+        // continue with loading the module on this context
     }
 
-    mi::base::Handle<IInput_stream> input(result->open(ctx));
+    mi::base::Handle<IInput_stream> input(result->open(&ctx));
 
-    if (! input) {
+    if (!input) {
         // FIXME: add an error ??
-        return NULL;
-    }
-    Module *mod = load_module(module_cache, &ctx, mname.c_str(), input.get(), Module::MF_STANDARD);
-    if (mod == NULL) {
-        // any error was already handled by load_module() above
+
+        // If the top module can not be opened, notify all other waiting threads
+        if (cb.is_valid()) {
+            MDL_ASSERT(cb.is_processing() &&
+                "Module is not supposed to be processed in this context");
+
+            // notify via callback
+            cb.module_loading_failed();
+        }
         return NULL;
     }
 
+    // load and compile the actual module
+    Module *mod = load_module(module_cache, &ctx, mname.c_str(), input.get(), Module::MF_STANDARD);
+
+    // notify waiting threads about success or failure
+    report_module_loading_result(mod, cb);
+
+    // any error was already handled by load_module() above
+    return mod;
+}
+
+// Compile a foreign module with a given name.
+Module const *MDL::compile_foreign_module(
+    IMDL_foreign_module_translator &translator,
+    Thread_context                 &ctx,
+    char const                     *module_name,
+    IModule_cache                  *module_cache)
+{
+    // if the module was resolved successful and there is a cache,
+    // announce that this module is now created or wait for another thread that currently processes
+    // this module and then continue returning the cached module (processed by the other thread)
+    Module_callback cb(module_cache);
+
+    if (module_cache != NULL) {
+        Module const *cached_mod = impl_cast<Module>(module_cache->lookup(module_name, cb));
+
+        if (cached_mod != NULL) {
+            if (!cached_mod->is_analyzed()) {
+                // We found a not analyzed module. This can only happen if we
+                // import something that is not processed because we have a dependency
+                // loop in the import tree. This is not allowed.
+                cached_mod->release();
+                return NULL;
+            }
+            return cached_mod;
+        } else if (cb.is_valid() && !cb.is_processing()) {
+            // loading failed on different thread
+            ctx.access_messages_impl().add_error_message(
+                ERRONEOUS_IMPORT, 'C', 0, 0,
+                "Loading module failed on a different context.");
+            return NULL;
+        }
+        // continue with loading the module on this context
+    }
+
+    // load and translate the foreign module
+    Module const *mod =
+        impl_cast<Module>(translator.compile_foreign_module(&ctx, module_name, module_cache));
+
+    // notify waiting threads about success or failure
+    report_module_loading_result(const_cast<Module *>(mod), cb);
+
+    // any error was already handled by compile_foreign_module() above
     return mod;
 }
 
@@ -1216,8 +1392,14 @@ Module const *MDL::compile_module_from_stream(
         return NULL;
     }
 
+    // if the module was resolved successful and there is a cache, 
+    // announce that this module is now created or wait for another thread that currently processes 
+    // this module and then continue returning the cached module (processed by the other thread)
+    Module_callback cb(module_cache);
+
     if (module_cache != NULL) {
-        Module const *cached_mod = impl_cast<Module>(module_cache->lookup(module_name));
+        Module const *cached_mod = impl_cast<Module>(module_cache->lookup(module_name, cb));
+
         if (cached_mod != NULL) {
             // already exists, overwrite is not allowed
             cached_mod->release();
@@ -1228,10 +1410,11 @@ Module const *MDL::compile_module_from_stream(
     // note: this will set the message list's file name to msg_name
     Module *mod = load_module(
         module_cache, &ctx, module_name, input, Module::MF_STANDARD, msg_name);
-    if (mod == NULL) {
-        // any error was already handled by load_module() above
-        return NULL;
-    }
+
+    // notify waiting threads about success or failure
+    report_module_loading_result(mod, cb);
+
+    // any error was already handled by load_module() above
     return mod;
 }
 
@@ -1239,8 +1422,7 @@ Module const *MDL::compile_module_from_stream(
 ICode_generator *MDL::load_code_generator(const char *target_language)
 {
     if (strcmp(target_language, "dag") == 0) {
-        return m_builder.create<Code_generator_dag>(
-            m_builder.get_allocator(), this);
+        return create_code_generator_dag(m_builder.get_allocator(), this);
     } else if (strcmp(target_language, "glsl") == 0) {
         return create_code_generator_glsl(m_builder.get_allocator(), this);
     } else if (strcmp(target_language, "jit") == 0) {
@@ -1269,6 +1451,22 @@ IExpression const *MDL::parse_expression(
 
     parser.set_module(module, enable_experimental_features);
     return parser.parse_expression();
+}
+
+// Check if the given module name names a foreign module.
+IMDL_foreign_module_translator *MDL::is_foreign_module(
+    char const     *module_name)
+{
+    for (Translator_list::iterator it(m_translator_list.begin()), end(m_translator_list.end());
+        it != end;
+        ++it)
+    {
+        IMDL_foreign_module_translator *translator = it->get();
+
+        if (translator->is_foreign_module(module_name))
+            return translator;
+    }
+    return NULL;
 }
 
 // Create a printer.
@@ -1356,7 +1554,7 @@ void MDL::serialize_module(
 }
 
 // Deserialize a module from a given deserializer.
-IModule const *MDL::deserialize_module(IDeserializer *ds)
+Module const *MDL::deserialize_module(IDeserializer *ds)
 {
     MDL_binary_deserializer bin_deserializer(get_allocator(), ds, this);
 
@@ -1439,16 +1637,14 @@ IInput_stream *MDL::create_file_input_stream(char const *filename) const
     return NULL;
 }
 
+
 // Serialize a code DAG to the given serializer.
 void MDL::serialize_code_dag(
     IGenerated_code_dag const *code,
     ISerializer               *is) const
 {
     MDL_binary_serializer bin_serializer(get_allocator(), this, is);
-
-    Generated_code_dag const *cod = impl_cast<Generated_code_dag>(code);
-
-    cod->serialize(is, &bin_serializer);
+    mi::mdl::serialize_code_dag(code, is, bin_serializer);
 }
 
 // Deserialize a code DAG from a given deserializer.
@@ -1456,29 +1652,7 @@ IGenerated_code_dag const *MDL::deserialize_code_dag(IDeserializer *ds)
 {
     MDL_binary_deserializer bin_deserializer(get_allocator(), ds, this);
 
-    Tag_t t;
-
-    // currently we support only binaries, no single units
-    t = bin_deserializer.read_section_tag();
-    MDL_ASSERT(t == Serializer::ST_DAG_START);
-    DOUT(("Starting DAG Deserialization\n")); INC_SCOPE();
-
-    mi::base::Handle<IGenerated_code_dag const> code;
-    for (;;) {
-        code = mi::base::make_handle(
-            Generated_code_dag::deserialize(ds, &bin_deserializer, this));
-        t = bin_deserializer.read_section_tag();
-        if (t != Serializer::ST_DAG_END) {
-        } else {
-            MDL_ASSERT(t == Serializer::ST_DAG_END);
-            DEC_SCOPE(); DOUT(("DAG Deserialization Finished\n\n"));
-            break;
-        }
-    }
-
-    if (code.is_valid_interface())
-        code->retain();
-    return code.get();
+    return mi::mdl::deserialize_code_dag(ds, bin_deserializer, this);
 }
 
 // Create a new MDL lambda function.
@@ -1550,8 +1724,6 @@ bool MDL::add_builtin_module(
     bool       is_encoded,
     bool       is_native)
 {
-    create_builtin_modules();
-
     mi::base::Handle<Buffer_Input_stream> s;
 
     if (is_encoded) {
@@ -1602,6 +1774,27 @@ Thread_context *MDL::create_thread_context()
     return m_builder.create<Thread_context>(get_allocator(), &m_options);
 }
 
+// Creates a new thread context from current analysis settings.
+Thread_context *MDL::create_thread_context(
+    Analysis const &ana,
+    char const    *front_path)
+{
+    Thread_context *ctx = m_builder.create<Thread_context>(get_allocator(), &m_options);
+
+    ctx->set_front_path(front_path);
+
+    ctx->access_options().set_option(
+        MDL::option_strict,
+        ana.strict_mode() ? "true" : "false");
+    ctx->access_options().set_option(
+        MDL::option_experimental_features,
+        ana.enable_experimental_features() ? "true" : "false");
+    ctx->access_options().set_option(
+        MDL::option_resolve_resources,
+        ana.resolve_resources() ? "true" : "false");
+    return ctx;
+}
+
 // Create an MDL exporter.
 MDL_exporter *MDL::create_exporter() const
 {
@@ -1627,7 +1820,7 @@ static bool is_mdl_digit(char c)
 }
 
 // Check if a given identifier is a valid MDL identifier.
-bool MDL::is_valid_mdl_identifier(char const *ident) const
+bool MDL::valid_mdl_identifier(char const *ident)
 {
     if (ident == NULL)
         return false;
@@ -1687,7 +1880,7 @@ bool MDL::is_valid_mdl_identifier(char const *ident) const
         if (p[1] == 'e') {
             FORBIDDEN("delete", 2);
         } else if (p[1] == 'o') {
-            if (p[2] != '\0')
+            if (p[2] == '\0')
                 return false;
             FORBIDDEN("double",    2);
             FORBIDDEN("double2",   2);
@@ -1898,6 +2091,12 @@ bool MDL::is_valid_mdl_identifier(char const *ident) const
     return true;
 }
 
+// Check if a given identifier is a valid MDL identifier.
+bool MDL::is_valid_mdl_identifier(char const *ident) const
+{
+    return valid_mdl_identifier(ident);
+}
+
 // Create an MDL entity resolver.
 IEntity_resolver *MDL::create_entity_resolver(
     IModule_cache *module_cache) const
@@ -1908,6 +2107,18 @@ IEntity_resolver *MDL::create_entity_resolver(
         module_cache,
         m_external_resolver,
         m_search_path);
+}
+
+/// Return the current MDL entity resolver.
+IEntity_resolver *MDL::get_entity_resolver(
+    IModule_cache *module_cache) const
+{
+    if (m_external_resolver) {
+        m_external_resolver->retain();
+        return m_external_resolver.get();
+    }
+
+    return create_entity_resolver(module_cache);
 }
 
 // Create an MDL archive tool using this compiler.
@@ -1949,6 +2160,35 @@ void MDL::set_external_entity_resolver(IEntity_resolver *resolver)
     m_external_resolver = mi::base::make_handle_dup(resolver);
 }
 
+// Check if an external entity resolver is installed.
+bool MDL::uses_external_entity_resolver() const
+{
+    return m_external_resolver.is_valid_interface();
+}
+
+// Add a foreign module translator.
+void MDL::add_foreign_module_translator(
+    IMDL_foreign_module_translator *translator)
+{
+    m_translator_list.push_back(mi::base::make_handle_dup(translator));
+}
+
+// Remove a foreign module translator.
+bool MDL::remove_foreign_module_translator(
+    IMDL_foreign_module_translator *translator)
+{
+    for (Translator_list::iterator it(m_translator_list.begin()), end(m_translator_list.end());
+        it != end;
+        ++it)
+    {
+        if ((*it).get() == translator) {
+            m_translator_list.erase(it);
+            return true;
+        }
+    }
+    return false;
+}
+
 // Check if the compiler supports a requested MDL version.
 bool MDL::check_version(int major, int minor, MDL_version &version, bool enable_experimental_features)
 {
@@ -1975,9 +2215,12 @@ bool MDL::check_version(int major, int minor, MDL_version &version, bool enable_
             version = MDL_VERSION_1_5;
             return true;
         case 6:
+            version = MDL_VERSION_1_6;
+            return true;
+        case 7:
             if (!enable_experimental_features)
                 return false;
-            version = MDL_VERSION_1_6;
+            version = MDL_VERSION_1_7;
             return true;
         }
     }
@@ -2036,6 +2279,31 @@ IDefinition const *MDL::find_stdlib_signature(
     return NULL;
 }
 
+/// Check if the owner name represents a module in the root package.
+static bool owner_is_in_root(char const *owner_name)
+{
+    if (owner_name == NULL) {
+        // an import from root itself
+        return true;
+    }
+    MDL_ASSERT(owner_name[0] == ':' && owner_name[1] == ':');
+
+    for (char const *p = owner_name + 2; p != NULL;) {
+        char const *n = strchr(p, ':');
+
+        if (n != NULL) {
+            if (n[1] == ':') {
+                // found an '::' at n, we are inside a package
+                return false;
+            }
+            ++n;
+        }
+        p = n;
+    }
+    // "::" was not found
+    return true;
+}
+
 // Resolve an import (module) name to the corresponding absolute module name.
 IMDL_import_result *MDL::resolve_import(
     File_resolver  &resolver,
@@ -2049,6 +2317,27 @@ IMDL_import_result *MDL::resolve_import(
     if (owner_module != NULL) {
         owner_name     = owner_module->get_name();
         owner_filename = owner_module->get_filename();
+    }
+
+    string builtin_name(get_allocator());
+    if (import_name[0] == ':' && import_name[1] == ':') {
+        // fast path: if it is a absolute name, check for builtin modules
+        builtin_name = import_name;
+    } else if (owner_is_in_root(owner_name)) {
+        // fast path 2: if we are at root, every import starts also at root
+        builtin_name = "::";
+        builtin_name += import_name;
+    }
+
+    if (!builtin_name.empty()) {
+        if (Module const *mod = find_builtin_module(builtin_name)) {
+            // found
+            Allocator_builder builder(get_allocator());
+            return builder.create<MDL_import_result>(
+                get_allocator(),
+                string(mod->get_name(), get_allocator()),
+                string(mod->get_filename(), get_allocator()));
+        }
     }
 
     Position_impl zero_pos(0, 0, 0, 0);
@@ -2081,8 +2370,7 @@ IMDL_import_result *MDL::resolve_import(
     }
 
     // not found
-    Messages_impl &msgs = owner_module != NULL ?
-        owner_module->access_messages_impl() : resolver.get_messages_impl();
+    Messages_impl &msgs = resolver.get_messages_impl();
 
     size_t mod_id = 0;
     if (owner_filename != NULL) {
@@ -2203,18 +2491,12 @@ double MDL::get_compiler_double_option(
 // Return the number of builtin modules.
 size_t MDL::get_builtin_module_count() const
 {
-    // ensure that the modules are created
-    create_builtin_modules();
-
     return m_builtin_modules.size();
 }
 
 // Get the builtin module of given index.
 Module const *MDL::get_builtin_module(size_t idx) const
 {
-    // ensure that the modules are created
-    create_builtin_modules();
-
     return m_builtin_modules[idx].get();
 }
 

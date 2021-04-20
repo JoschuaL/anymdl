@@ -1,5 +1,5 @@
 /***************************************************************************************************
- * Copyright (c) 2004-2019, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2004-2020, NVIDIA CORPORATION. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -46,7 +46,7 @@ namespace SERIAL {
 class Serializer_impl : public Serializer, public MI::MEM::Allocatable
 {
 public:
-    Serializer_impl() : m_id_counter(1) { }
+    Serializer_impl() : m_id_counter(1), m_helper() { }
 
     virtual ~Serializer_impl() { };
 
@@ -87,6 +87,7 @@ public:
     void write(const DB::Tag& value);
     void write(const char* value);
     void write(const std::string& value);
+    void write(const mi::base::Uuid& value);
     void write(const mi::math::Color& value);
     void write(const CONT::Bitvector& value);
     void write(const CONT::Dictionary& value);
@@ -181,6 +182,7 @@ public:
     void read(DB::Tag* value_pointer);
     void read(char** value_pointer);
     void read(std::string* value_pointer);
+    void read(mi::base::Uuid* value_pointer);
     void read(mi::math::Color* value_pointer);
     void read(CONT::Bitvector* value_type);
     void read(CONT::Dictionary* value_pointer);
@@ -190,8 +192,6 @@ public:
     void release(const char *str);
 
     void read(Serializable* object) { object->deserialize(this); }
-
-    static void read_direct(Deserializer* deserializer, char* buffer, size_t size);
 
     bool check_extension();
 

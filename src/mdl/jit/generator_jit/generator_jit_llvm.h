@@ -1,5 +1,5 @@
 /******************************************************************************
- * Copyright (c) 2013-2019, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2013-2020, NVIDIA CORPORATION. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -210,6 +210,13 @@ public:
         KI_STATE_OBJECT_ID,                     ///< Kind of state::object_id()
         KI_STATE_CALL_LAMBDA_FLOAT,             ///< Kind of state::call_lambda_float(int)
         KI_STATE_CALL_LAMBDA_FLOAT3,            ///< Kind of state::call_lambda_float3(int)
+        KI_STATE_CALL_LAMBDA_UINT,              ///< Kind of state::call_lambda_uint(int)
+        KI_STATE_GET_ARG_BLOCK_FLOAT,           ///< Kind of state::get_arg_block_float(int)
+        KI_STATE_GET_ARG_BLOCK_FLOAT3,          ///< Kind of state::get_arg_block_float3(int)
+        KI_STATE_GET_ARG_BLOCK_UINT,            ///< Kind of state::get_arg_block_uint(int)
+        KI_STATE_GET_ARG_BLOCK_BOOL,            ///< Kind of state::get_arg_block_bool(int)
+        KI_STATE_GET_MEASURED_CURVE_VALUE,      ///< Kind of state::get_measured_curve_value()
+        KI_STATE_ADAPT_MICROFACET_ROUGHNESS,    ///< Kind of state::adapt_microfacet_roughness()
 
         /// Kind of df::bsdf_measurement_resolution(int,int)
         KI_DF_BSDF_MEASUREMENT_RESOLUTION,
@@ -798,7 +805,8 @@ public:
         LLVM_code_generator &code_gen,
         mi::mdl::IAllocator *alloc) const = 0;
 
-    /// Assume the first argument is a boolean branch condition and translate it.
+    /// Translate this call as a boolean condition.
+    /// If this is a ternary operator call, translate the first argument.
     ///
     /// \param code_gen  the LLVM code generator
     /// \param ctx       the current function context
@@ -876,6 +884,73 @@ typedef vector<Light_profile_attribute_entry>::Type    Light_profile_table;
 typedef vector<Bsdf_measurement_attribute_entry>::Type Bsdf_measurement_table;
 typedef vector<string>::Type                           String_table;
 
+
+/// Helper class storing information about state usage per function and module.
+class State_usage_analysis
+{
+public:
+    typedef IGenerated_code_lambda_function::State_usage State_usage;
+
+    /// Constructor.
+    State_usage_analysis(LLVM_code_generator &code_gen);
+
+    /// Register a function to take part in the analysis.
+    void register_function(llvm::Function *func);
+
+    /// Add a state usage flag to the given function.
+    void add_state_usage(llvm::Function *func, State_usage flag_to_add);
+
+    /// Add a call to the call graph.
+    void add_call(llvm::Function *caller, llvm::Function *callee);
+
+    /// Updates the state usage of the exported functions of the code generator.
+    void update_exported_functions_state_usage();
+
+    /// Returns the state usage for the whole module.
+    State_usage get_module_state_usage() const
+    {
+        return m_module_state_usage;
+    }
+
+    void clear()
+    {
+        m_module_state_usage = 0;
+        m_func_state_usage_info_map.clear();
+    }
+
+private:
+    /// The code generator whose exported functions will be updated in finalize state usage.
+    LLVM_code_generator &m_code_gen;
+
+    /// The memory arena used to allocate usage information.
+    mi::mdl::Memory_arena m_arena;
+
+    /// The builder for objects on the memory arena.
+    mi::mdl::Arena_builder m_arena_builder;
+
+    /// The state usage of the whole module.
+    State_usage m_module_state_usage;
+
+    class Function_state_usage_info
+    {
+    public:
+        State_usage state_usage;
+        mi::mdl::Arena_ptr_hash_set<llvm::Function>::Type called_funcs;
+
+        Function_state_usage_info(Memory_arena *arena)
+            : state_usage(0)
+            , called_funcs(arena)
+        {}
+    };
+
+    typedef mi::mdl::ptr_hash_map<llvm::Function, Function_state_usage_info *>::Type
+        Function_state_usage_info_map;
+
+    /// Map from LLVM functions to per-function state-usage information.
+    Function_state_usage_info_map m_func_state_usage_info_map;
+};
+
+
 ///
 /// Implementation of the LLVM jit code generator.
 ///
@@ -887,6 +962,7 @@ class LLVM_code_generator
     friend class Function_context;
     friend class Df_component_info;
     friend class Derivative_infos;
+    friend class State_usage_analysis;
 public:
     static char const MESSAGE_CLASS = 'J';
 
@@ -938,6 +1014,7 @@ public:
         DFSTATE_SAMPLE,     ///< Generating BSDF sample functions
         DFSTATE_EVALUATE,   ///< Generating BSDF evaluate functions
         DFSTATE_PDF,        ///< Generating BSDF PDF functions
+        DFSTATE_AUXILIARY,  ///< Generating BSDF auxiliary functions
         DFSTATE_END_STATE
     };
 
@@ -998,6 +1075,8 @@ public:
         // The name may later be updated by the actual target code generator.
         string                                         name;
         vector<string>::Type                           prototypes;
+        vector<string>::Type                           df_handles;
+        State_usage                                    state_usage;
 
         Exported_function(
             IAllocator                                    *alloc,
@@ -1011,6 +1090,8 @@ public:
         , arg_block_index(arg_block_index)
         , name(func->getName().begin(), func->getName().end(), alloc)
         , prototypes(alloc)
+        , df_handles(alloc)
+        , state_usage(0)
         {
         }
 
@@ -1022,6 +1103,11 @@ public:
                 prototypes.resize(size_t(lang) + 1, string(prototypes.get_allocator()));
             }
             prototypes[size_t(lang)] = prototype;
+        }
+
+        void add_df_handle(char const *handle_name)
+        {
+            df_handles.push_back(string(handle_name, df_handles.get_allocator()));
         }
     };
 
@@ -1094,6 +1180,18 @@ public:
     /// \param t  an MDL type to check
     bool can_be_stored_in_ro_segment(IType const *t);
 
+    typedef vector<Resource_tag_tuple>::Type Resource_tag_map;
+
+    /// Set a resource to tag map.
+    void set_resource_tag_map(Resource_tag_map const *resource_tag_map) {
+        m_resource_tag_map = resource_tag_map;
+    }
+
+    /// Find a tag for a given resource if available in the resource tag map.
+    ///
+    /// \param res  the resource
+    int find_resource_tag(IValue_resource const *res) const;
+
     /// Compile all functions of a module.
     ///
     /// \param module   the module to compile
@@ -1104,12 +1202,14 @@ public:
 
     /// Compile a distribution function into an LLVM Module and return the LLVM module.
     ///
-    /// \param incremental           if true, the module will not be finished
-    /// \param dist_func             the distribution function
-    /// \param resolver              the call resolver interface to be used
-    /// \param llvm_funcs            the generated LLVM functions
-    /// \param next_arg_block_index  the next argument block index to use, if an argument block
-    ///                              is used by the function
+    /// \param incremental            if true, the module will not be finished
+    /// \param dist_func              the distribution function
+    /// \param resolver               the call resolver interface to be used
+    /// \param llvm_funcs             the generated LLVM functions
+    /// \param next_arg_block_index   the next argument block index to use, if an argument block
+    ///                               is used by the function
+    /// \param main_function_indices  array which will receive the index of the first exported
+    ///                               function per main function or NULL if not requested.
     ///
     /// \returns The LLVM module containing the generated functions for this material
     ///          or NULL on compilation errors.
@@ -1118,19 +1218,8 @@ public:
         Distribution_function const &dist_func,
         ICall_name_resolver const   *resolver,
         Function_vector             &llvm_funcs,
-        size_t                      next_arg_block_index);
-
-    /// Compile an environment lambda function into an LLVM Module and return the LLVM function.
-    ///
-    /// \param incremental  if true, the module will not be finished
-    /// \param lambda       the lambda function
-    /// \param resolver     the call resolver interface to be used
-    ///
-    /// \returns The LLVM function for this lambda function or NULL on compilation errors.
-    llvm::Function *compile_environment_lambda(
-        bool                      incremental,
-        Lambda_function const     &lambda,
-        ICall_name_resolver const *resolver);
+        size_t                      next_arg_block_index,
+        size_t                      *main_function_indices);
 
     /// Compile an constant lambda function into an LLVM Module and return the LLVM function.
     ///
@@ -1165,7 +1254,8 @@ public:
         ICall_name_resolver const *resolver,
         size_t                    next_arg_block_index);
 
-    /// Compile a generic lambda function into an LLVM Module and return the LLVM function.
+    /// Compile a generic or environment lambda function into an LLVM Module and return the
+    /// LLVM function.
     ///
     /// \param incremental           if true, the module will not be finished
     /// \param lambda                the lambda function
@@ -1177,7 +1267,7 @@ public:
     /// \return the compiled function or NULL on compilation errors
     ///
     /// \note the lambda function must have only one root expression.
-    llvm::Function *compile_generic_lambda(
+    llvm::Function *compile_lambda(
         bool                      incremental,
         Lambda_function const     &lambda,
         ICall_name_resolver const *resolver,
@@ -1220,6 +1310,15 @@ public:
     /// Return true if reciprocal math is enabled (i.e. a/b = a * 1/b).
     bool is_reciprocal_math_enabled() const { return m_reciprocal_math; }
 
+    /// Returns true if generated LLVM functions should receive the AlwaysInline attribute.
+    bool is_always_inline_enabled() const { return m_always_inline; }
+
+    /// Set LLVM function attributes which need to be consistent to avoid loosing
+    /// them during inlining (e.g. for fast math).
+    ///
+    /// \param func  LLVM function which should get the attributes
+    void set_llvm_function_attributes(llvm::Function *func);
+
     /// Return true, if the state parameter was used inside the generated code.
     ///
     /// \note Currently this property is calculated statically at code generation
@@ -1230,7 +1329,7 @@ public:
     /// Get the potential render state usage of the currently compiled entity.
     IGenerated_code_lambda_function::State_usage get_render_state_usage() const
     {
-        return m_render_state_usage;
+        return m_state_usage_analysis.get_module_state_usage();
     }
 
     /// Get the MDL types of the captured arguments if any.
@@ -1675,7 +1774,7 @@ public:
     static void register_native_runtime_functions(Jitted_code *jitted_code);
 
     /// Get the number of error messages.
-    int get_error_message_count();
+    size_t get_error_message_count();
 
     /// Add a JIT backend error message to the messages.
     ///
@@ -2252,11 +2351,24 @@ private:
     /// \param call  the LLVM call instruction calling a BSDF member function
     Distribution_function_state get_dist_func_state_from_call(llvm::CallInst *call);
 
-    /// Get the BSDF function for the given semantics and the current distribution function state
+    /// Get the BSDF function for the given DAG call and the current distribution function state
     /// from the BSDF library.
     llvm::Function *get_libbsdf_function(
-        IDefinition::Semantics sema, 
-        IType::Kind kind);
+        DAG_call const *dag_call);
+
+    /// Generate a call to an expression lambda function.
+    ///
+    /// \param ctx                 the function context
+    /// \param expr_lambda         the precalculated lambda function
+    /// \param opt_results_buffer  an optional results buffer. The result will be converted
+    ///                            before writing it there, if necessary
+    /// \param opt_result_index    the index of the result in the results buffer
+    /// \returns the result pointer
+    Expression_result generate_expr_lambda_call(
+        Function_context       &ctx,
+        ILambda_function const *expr_lambda,
+        llvm::Value            *opt_results_ptr = NULL,
+        size_t                 opt_result_index = ~0);
 
     /// Generate a call to an expression lambda function.
     ///
@@ -2336,6 +2448,16 @@ private:
         size_t           lambda_index,
         llvm::Type       *expected_type);
 
+    /// Translate a DAG call argument which may be a precalculated lambda function to LLVM IR.
+    ///
+    /// \param ctx             the function context
+    /// \param arg             the DAG call argument to translate
+    /// \param expected_type   the result will be converted to this type if necessary
+    Expression_result translate_call_arg(
+        Function_context &ctx,
+        DAG_node const   *arg,
+        llvm::Type       *expected_type);
+
     /// Get the BSDF parameter ID metadata for an instruction.
     ///
     /// \param inst            the instruction for which the metadata should be retrieved
@@ -2406,13 +2528,18 @@ private:
         DAG_call const *dag_call);
 
 
-    /// Translate the current distribution function to LLVM IR.
+    /// Translate the distribution function DAG node to LLVM IR.
     ///
     /// \param ctx                  the function context
+    /// \param df_node              the distribution function DAG node to translate
     /// \param lambda_result_exprs  the list of expression lambda indices for the lambda results
+    /// \param mat_data_global      if non-null, the global variable containing the material data
+    ///                             for the interpreter for the current distribution function
     Expression_result translate_distribution_function(
         Function_context                     &ctx,
-        llvm::SmallVector<unsigned, 8> const &lambda_result_exprs);
+        DAG_node const                       *df_node,
+        llvm::SmallVector<unsigned, 8> const &lambda_result_exprs,
+        llvm::GlobalVariable                 *mat_data_global);
 
     /// Translate the init function of the current distribution function to LLVM IR.
     ///
@@ -2619,14 +2746,6 @@ private:
         Function_context          &ctx,
         mi::mdl::ICall_expr const *call_expr);
 
-    /// Translate a color from spectrum constructor call to LLVM IR.
-    ///
-    /// \param ctx        the function context
-    /// \param call_expr  the call expression to translate
-    Expression_result translate_color_from_spectrum(
-        Function_context          &ctx,
-        mi::mdl::ICall_expr const *call_expr);
-
     /// Translate an array constructor call to LLVM IR.
     ///
     /// \param ctx        the function context
@@ -2654,7 +2773,25 @@ private:
     /// \param N         number of rows of the left matrix
     /// \param M         number of columns of the left and number of rows of the right matrix
     /// \param K         number of columns of the right matrix
-    llvm::Value *do_matrix_multiplication(
+    llvm::Value *do_matrix_multiplication_MxM(
+        Function_context &ctx,
+        llvm::Type       *res_type,
+        llvm::Value      *l,
+        llvm::Value      *r,
+        int              N,
+        int              M,
+        int              K);
+
+    /// Create a matrix by matrix multiplication with derivatives.
+    ///
+    /// \param ctx       the function context
+    /// \param res_type  the LLVM result type of the multiplication
+    /// \param l         the left NxM matrix
+    /// \param r         the right MxK matrix
+    /// \param N         number of rows of the left matrix
+    /// \param M         number of columns of the left and number of rows of the right matrix
+    /// \param K         number of columns of the right matrix
+    llvm::Value *do_matrix_multiplication_MxM_deriv(
         Function_context &ctx,
         llvm::Type       *res_type,
         llvm::Value      *l,
@@ -2679,6 +2816,22 @@ private:
         int              M,
         int              K);
 
+    /// Create a vector by matrix multiplication with derivatives.
+    ///
+    /// \param ctx       the function context
+    /// \param res_type  the LLVM result type of the multiplication
+    /// \param l         the left derivable vector
+    /// \param r         the right MxK derivable matrix
+    /// \param M         size of the left vector and number of rows of the right matrix
+    /// \param K         number of columns of the right matrix
+    llvm::Value *do_matrix_multiplication_VxM_deriv(
+        Function_context &ctx,
+        llvm::Type       *res_type,
+        llvm::Value      *l,
+        llvm::Value      *r,
+        int              M,
+        int              K);
+
     /// Create a matrix by vector multiplication.
     ///
     /// \param ctx       the function context
@@ -2694,6 +2847,58 @@ private:
         llvm::Value      *r,
         int              N,
         int              M);
+
+    /// Create a matrix by vector multiplication with derivatives.
+    ///
+    /// \param ctx       the function context
+    /// \param res_type  the LLVM result type of the multiplication
+    /// \param l         the left NxM derivable matrix
+    /// \param r         the right derivable vector
+    /// \param N         number of rows of the left matrix
+    /// \param M         number of columns of the left matrix and size of the right vector
+    llvm::Value *do_matrix_multiplication_MxV_deriv(
+        Function_context &ctx,
+        llvm::Type       *res_type,
+        llvm::Value      *l,
+        llvm::Value      *r,
+        int              N,
+        int              M);
+
+    /// Create a matrix by scalar multiplication.
+    ///
+    /// \param ctx       the function context
+    /// \param res_type  the LLVM result type of the multiplication
+    /// \param l         the left matrix
+    /// \param r         the right scalar
+    llvm::Value *do_matrix_multiplication_MxS(
+        Function_context &ctx,
+        llvm::Type       *res_llvm_type,
+        llvm::Value      *l,
+        llvm::Value      *r);
+
+    /// Create a matrix by scalar multiplication with derivatives.
+    ///
+    /// \param ctx       the function context
+    /// \param res_type  the LLVM result type of the multiplication
+    /// \param l         the left matrix
+    /// \param r         the right scalar
+    llvm::Value *do_matrix_multiplication_MxS_deriv(
+        Function_context &ctx,
+        llvm::Type       *res_llvm_type,
+        llvm::Value      *l,
+        llvm::Value      *r);
+
+    /// Create a matrix by matrix addition.
+    ///
+    /// \param ctx       the function context
+    /// \param res_type  the LLVM result type of the multiplication
+    /// \param l         the left matrix
+    /// \param r         the right matrix
+    llvm::Value *do_matrix_addition(
+        Function_context &ctx,
+        llvm::Type *res_llvm_type,
+        llvm::Value *l,
+        llvm::Value *r);
 
     /// Compile all functions waiting in the wait queue into the current module.
     void compile_waiting_functions();
@@ -2861,6 +3066,10 @@ private:
     /// Creates the string table finally.
     void create_string_table();
 
+    /// Replace all calls to state::get_bsdf_data_texture_id() by the registered texture IDs.
+    /// Must happen in finalize_module() when all texture IDs of a link unit are known.
+    void replace_bsdf_data_calls();
+
 
     /// Get libdevice as LLVM bitcode.
     ///
@@ -2897,7 +3106,13 @@ private:
     /// Load the libbsdf LLVM module.
     ///
     /// \param llvm_context  the context for the loader
-    std::unique_ptr<llvm::Module> load_libbsdf(llvm::LLVMContext &llvm_context);
+    std::unique_ptr<llvm::Module> load_libbsdf(
+        llvm::LLVMContext &llvm_context, mdl::Df_handle_slot_mode hsm);
+
+    /// Load the libmdlrt LLVM module.
+    ///
+    /// \param llvm_context  the context for the loader
+    std::unique_ptr<llvm::Module> load_libmdlrt(llvm::LLVMContext &llvm_context);
 
     /// Determines the semantics for a libbsdf df function name.
     ///
@@ -2943,12 +3158,36 @@ private:
     /// Load and link libbsdf into the current LLVM module.
     /// It maps the types from libbsdf to our types and resolves referenced API functions
     /// to our intrinsics.
+    /// \param hsm       df handle type to use, which will be used to select the libbsdf version
     ///
     /// \returns false if there was any error.
-    bool load_and_link_libbsdf();
+    bool load_and_link_libbsdf(mdl::Df_handle_slot_mode hsm);
 
     /// Returns the set of context data flags to use for functions used with distribution functions.
-    LLVM_context_data::Flags get_df_function_flags();
+    LLVM_context_data::Flags get_df_function_flags(const llvm::Function *func);
+
+    /// Translate a potential runtime call in a libmdlrt function to a call to the according
+    /// intrinsic, converting the arguments as necessary.
+    ///
+    /// \param call      the call instruction to translate
+    /// \param ii        the instruction iterator, which will be updated if the call is translated
+    /// \param ctx       the context for the translation
+    ///
+    /// \returns false if there was any error
+    bool translate_libmdlrt_runtime_call(
+        llvm::CallInst             *call,
+        llvm::BasicBlock::iterator &ii,
+        Function_context           &ctx);
+
+    /// Load and link libmdlrt into the current LLVM module.
+    /// It maps the types from libmdlrt to our types and resolves referenced API functions
+    /// to our intrinsics.
+    ///
+    /// \returns false if there was any error.
+    bool load_and_link_libmdlrt(llvm::Module *llvm_module);
+
+    /// Load and link user-defined renderer module into the given LLVM module.
+    bool load_and_link_renderer_module(llvm::Module *llvm_module);
 
     /// Clear the DAG-to-LLVM-IR node map.
     void clear_dag_node_map() { m_node_value_map.clear(); }
@@ -2963,6 +3202,11 @@ private:
     ///
     /// \param name  a valid call mode name
     static Function_context::Tex_lookup_call_mode parse_call_mode(char const *name);
+
+    /// Parse the Df_handle_slot_mode
+    ///
+    /// \param name  a valid Df_handle_slot_mode name
+    static mi::mdl::Df_handle_slot_mode parse_df_handle_slot_mode(char const *name);
 
     /// Get a unique string value object used to represent the string of the value.
     ///
@@ -2991,6 +3235,19 @@ private:
     /// The internal space for which to compile.
     char const *m_internal_space;
 
+    /// If true, occurrences of the functions state::meters_per_scene_unit() and
+    /// state::scene_units_per_meter() will be folded using \c m_meters_per_scene_unit.
+    bool m_fold_meters_per_scene_unit;
+
+    /// The value for the meter/scene unit conversion, only used when folding is enabled.
+    float m_meters_per_scene_unit;
+
+    /// The value for the state::wavelength_min() function.
+    float m_wavelength_min;
+
+    /// The value for the state::wavelength_max() function.
+    float m_wavelength_max;
+
     /// The resource manager if any.
     IResource_manager *m_res_manager;
 
@@ -3018,6 +3275,9 @@ private:
     /// The current string (constant) table.
     String_table m_string_table;
 
+    /// The map from bsdf texture kinds to texture ids.
+    size_t m_bsdf_data_texture_ids[IValue_texture::BDK_LAST_KIND];
+
     /// The jitted code singleton.
     mi::base::Handle<Jitted_code> m_jitted_code;
 
@@ -3036,6 +3296,13 @@ private:
     /// A user-specified LLVM implementation of the state module.
     BinaryOptionData m_user_state_module;
 
+    /// A user-specified LLVM renderer module.
+    BinaryOptionData m_renderer_module;
+
+    /// User specified comma-separated list of names of functions which will be visible in the
+    /// generated code.
+    char const *m_visible_functions;
+
     /// The LLVM function pass manager for the current module.
     std::unique_ptr<llvm::legacy::FunctionPassManager> m_func_pass_manager;
 
@@ -3051,12 +3318,28 @@ private:
     /// If true, reciprocal math transformations are enabled (i.e. a/b = a * 1/b).
     bool m_reciprocal_math;
 
+    /// If true, generated functions should get an AlwaysInline attribute.
+    bool m_always_inline;
+
+    /// If true, ternary operators on the DAG are to be evaluated strictly
+    bool m_eval_dag_ternary_strictly;
+
     /// If true, pass a user defined resource data struct to all resource callbacks.
     bool m_hlsl_use_resource_data;
+
+    /// If true, use a renderer provided function to adapt microfacet roughness,
+    /// otherwise use a function returning roughness unmodified.
+    bool m_use_renderer_adapt_microfacet_roughness;
+
+    /// If true, we generating code for an intrinsic function.
+    bool m_in_intrinsic_generator;
 
 
     /// The runtime creator.
     MDL_runtime_creator *m_runtime;
+
+    /// True, if a resource handler I/F is used.
+    bool m_has_res_handler;
 
     /// Cache for the tex_lookup functions once created.
     mutable llvm::Function *m_tex_lookup_functions[mi::mdl::Type_mapper::THV_LAST];
@@ -3207,6 +3490,15 @@ private:
     /// The list of all values that goes into the RO data segment.
     Value_list m_ro_data_values;
 
+    typedef hash_set<char const *, cstring_hash, cstring_equal_to>::Type String_set;
+
+    /// The set of names for which scene data may be available in the renderer.
+    String_set m_scene_data_names;
+
+    /// If true, all scene data names have to be treated as referencing possibly available
+    /// scene data.
+    bool m_scene_data_all_pos_avail;
+
     /// The option rt_callable_program_from_id(_64) function once created.
     llvm::Function *m_optix_cp_from_id;
 
@@ -3246,6 +3538,51 @@ private:
     /// A helper function to get an bool from the read-only data segment.
     llvm::Function *m_hlsl_func_rodata_as_bool;
 
+    /// The HLSL renderer runtime function for scene::data_lookup_int.
+    llvm::Function *m_hlsl_func_scene_data_lookup_int;
+
+    /// The HLSL renderer runtime function for scene::data_lookup_int2.
+    llvm::Function *m_hlsl_func_scene_data_lookup_int2;
+
+    /// The HLSL renderer runtime function for scene::data_lookup_int3.
+    llvm::Function *m_hlsl_func_scene_data_lookup_int3;
+
+    /// The HLSL renderer runtime function for scene::data_lookup_int4.
+    llvm::Function *m_hlsl_func_scene_data_lookup_int4;
+
+    /// The HLSL renderer runtime function for scene::data_lookup_float.
+    llvm::Function *m_hlsl_func_scene_data_lookup_float;
+
+    /// The HLSL renderer runtime function for scene::data_lookup_float2.
+    llvm::Function *m_hlsl_func_scene_data_lookup_float2;
+
+    /// The HLSL renderer runtime function for scene::data_lookup_float3.
+    llvm::Function *m_hlsl_func_scene_data_lookup_float3;
+
+    /// The HLSL renderer runtime function for scene::data_lookup_float4.
+    llvm::Function *m_hlsl_func_scene_data_lookup_float4;
+
+    /// The HLSL renderer runtime function for scene::data_lookup_color.
+    llvm::Function *m_hlsl_func_scene_data_lookup_color;
+
+    /// The HLSL renderer runtime function for scene::data_lookup_float with derivatives.
+    llvm::Function *m_hlsl_func_scene_data_lookup_deriv_float;
+
+    /// The HLSL renderer runtime function for scene::data_lookup_float2 with derivatives.
+    llvm::Function *m_hlsl_func_scene_data_lookup_deriv_float2;
+
+    /// The HLSL renderer runtime function for scene::data_lookup_float3 with derivatives.
+    llvm::Function *m_hlsl_func_scene_data_lookup_deriv_float3;
+
+    /// The HLSL renderer runtime function for scene::data_lookup_float4 with derivatives.
+    llvm::Function *m_hlsl_func_scene_data_lookup_deriv_float4;
+
+    /// The HLSL renderer runtime function for scene::data_lookup_color with derivatives.
+    llvm::Function *m_hlsl_func_scene_data_lookup_deriv_color;
+
+    /// If set, a resource map for mapping resources to tags.
+    Resource_tag_map const *m_resource_tag_map;
+
     /// Optimization level.
     unsigned m_opt_level;
 
@@ -3264,8 +3601,8 @@ private:
     /// If non-zero, the minimum PTX version required.
     unsigned m_min_ptx_version;
 
-    /// The render state usage for the currently compiled entity.
-    State_usage m_render_state_usage;
+    /// Analysis object storing state usage information per function and updating
+    State_usage_analysis m_state_usage_analysis;
 
     /// The target language.
     Target_language m_target_lang;
@@ -3312,6 +3649,12 @@ private:
     /// If true, the libdevice is linked into PTX output.
     bool m_link_libdevice;
 
+    /// If true, link libmdlrt.
+    bool m_link_libmdlrt;
+
+    /// The selected version of libbsdf that will be linked to the ouput.
+    mdl::Df_handle_slot_mode m_link_libbsdf_df_handle_slot_mode;
+
     /// If true, this code generator will allow incremental compilation.
     bool m_incremental;
 
@@ -3334,11 +3677,29 @@ private:
     /// Current state of generating a distribution function.
     Distribution_function_state m_dist_func_state;
 
-    typedef mi::mdl::ptr_hash_map<ILambda_function const, llvm::Function *>::Type
-        Dist_func_lambda_map;
+    /// Current main function index.
+    size_t m_cur_main_func_index;
 
-    /// Map from ILambda_function objects to LLVM functions used for distribution functions.
-    Dist_func_lambda_map m_dist_func_lambda_map;
+    typedef mi::mdl::ptr_hash_map<DAG_node const, llvm::Function *>::Type Instantiated_dfs;
+
+    /// Map of DAG nodes instantiated to LLVM functions per distribution function state.
+    mi::mdl::vector<Instantiated_dfs>::Type m_instantiated_dfs;
+
+    /// List of all libbsdf template functions which should be removed before optimizing.
+    mi::mdl::vector<llvm::Function *>::Type m_libbsdf_template_funcs;
+
+
+    /// If true, auxiliary functions are generated for DFs.
+    bool m_enable_auxiliary;
+
+    /// List of all compiled lambda functions in the module.
+    mi::mdl::vector<llvm::Function *>::Type m_module_lambda_funcs;
+
+    typedef mi::mdl::ptr_hash_map<ILambda_function const, unsigned int>::Type
+        Module_lambda_index_map;
+
+    /// Map from ILambda_function objects to the index in m_module_lambda_funcs.
+    Module_lambda_index_map m_module_lambda_index_map;
 
     /// A structure type for storing the results of all lambda functions.
     llvm::StructType *m_lambda_results_struct_type;
@@ -3379,6 +3740,12 @@ private:
     /// Return type of the BSDF PDF function.
     llvm::Type *m_type_bsdf_pdf_data;
 
+    /// Function type of the BSDF auxiliary function.
+    llvm::FunctionType *m_type_bsdf_auxiliary_func;
+
+    /// Return type of the BSDF auxiliary function.
+    llvm::Type *m_type_bsdf_auxiliary_data;
+
     /// Function type of the EDF sample function.
     llvm::FunctionType *m_type_edf_sample_func;
 
@@ -3396,6 +3763,12 @@ private:
 
     /// Return type of the EDF PDF function.
     llvm::Type *m_type_edf_pdf_data;
+    
+    /// Function type of the EDF auxiliary function.
+    llvm::FunctionType *m_type_edf_auxiliary_func;
+
+    /// Return type of the EDF PDF function.
+    llvm::Type *m_type_edf_auxiliary_data;
 
 
     /// The LLVM metadata kind ID for the BSDF parameter information attached to allocas.
@@ -3410,7 +3783,7 @@ private:
     /// The internal state::get_texture_results() function, only available for libbsdf.
     Internal_function *m_int_func_state_get_texture_results;
 
-    /// The internal state::get_texture_results() function, only available for libbsdf.
+    /// The internal state::get_arg_block() function, only available for libbsdf.
     Internal_function *m_int_func_state_get_arg_block;
 
     /// The internal state::get_ro_data_segment() function, only available for libbsdf.
@@ -3424,6 +3797,27 @@ private:
 
     /// The internal state::call_lambda_float3(int) function, only available for libbsdf.
     Internal_function *m_int_func_state_call_lambda_float3;
+
+    /// The internal state::call_lambda_uint(int) function, only available for libbsdf.
+    Internal_function *m_int_func_state_call_lambda_uint;
+
+    /// The internal state::get_arg_block_float(int) function, only available for libbsdf.
+    Internal_function *m_int_func_state_get_arg_block_float;
+
+    /// The internal state::get_arg_block_float3(int) function, only available for libbsdf.
+    Internal_function *m_int_func_state_get_arg_block_float3;
+
+    /// The internal state::get_arg_block_uint(int) function, only available for libbsdf.
+    Internal_function *m_int_func_state_get_arg_block_uint;
+
+    /// The internal state::get_arg_block_bool(int) function, only available for libbsdf.
+    Internal_function *m_int_func_state_get_arg_block_bool;
+
+    /// The internal state::get_measured_curve_value() function, only available for libbsdf.
+    Internal_function *m_int_func_state_get_measured_curve_value;
+
+    /// The internal state::adapt_microfacet_roughness(float2) function, only available for libbsdf.
+    Internal_function *m_int_func_state_adapt_microfacet_roughness;
 
     /// The internal df::bsdf_measurement_resolution(int,int) function, only available for libbsdf.
     Internal_function *m_int_func_df_bsdf_measurement_resolution;

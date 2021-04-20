@@ -1,5 +1,5 @@
 /******************************************************************************
- * Copyright (c) 2014-2019, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2014-2020, NVIDIA CORPORATION. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -159,6 +159,12 @@ public:
         return m_repl_file_name.empty() ? NULL : m_repl_file_name.c_str();
     }
 
+    /// Disable all warnings.
+    void disable_all_warnings() { m_all_warnings_are_off = true; }
+
+    /// Return true if all warnings are disabled.
+    bool all_warnings_are_off() const { return m_all_warnings_are_off; }
+
 private:
     /// Constructor.
     ///
@@ -190,6 +196,9 @@ private:
 
     /// Module replacement: file name
     string m_repl_file_name;
+
+    /// If true, disable all warnings.
+    bool m_all_warnings_are_off;
 };
 
 }  // mdl

@@ -1,5 +1,5 @@
 /***************************************************************************************************
- * Copyright (c) 2010-2019, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2010-2020, NVIDIA CORPORATION. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -86,7 +86,7 @@ public:
     mi::base::IInterface* create(
         const char* type_name,
         mi::Uint32 argc = 0,
-        const mi::base::IInterface* argv[] = 0);
+        const mi::base::IInterface* argv[] = nullptr);
 
     using mi::neuraylib::IFactory::create;
 
@@ -257,7 +257,7 @@ private:
         const char* type_name,
         const mi::IData* prototype,
         mi::Uint32 argc = 0,
-        const mi::base::IInterface* argv[] = 0);
+        const mi::base::IInterface* argv[] = nullptr);
 
     /// Convenience wrapper around create() for interfaces that need a transaction.
     ///
@@ -268,7 +268,7 @@ private:
         const char* type_name,
         const mi::IData* prototype,
         mi::Uint32 argc = 0,
-        const mi::base::IInterface* argv[] = 0)
+        const mi::base::IInterface* argv[] = nullptr)
     {
         mi::base::IInterface* ptr_iinterface
             = create_with_transaction( type_name, prototype, argc, argv);

@@ -1,5 +1,5 @@
 /***************************************************************************************************
- * Copyright (c) 2004-2019, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2004-2020, NVIDIA CORPORATION. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -35,7 +35,6 @@
 
 #include <base/lib/log/log.h>
 #include <base/lib/log/i_log_module.h>
-#include <base/lib/path/i_path.h>
 #include <base/system/main/access_module.h>
 #include <base/system/main/i_module_id.h>
 #include <base/system/main/module_registration.h>
@@ -223,11 +222,8 @@ std::pair<std::string, STLEXT::Any> parse(
             return result;
         }
     }
-    if (value.empty()) {
-        mod_log->error(M_CONFIG, Mod_log::C_MISC, 8,
-            "Illegal configuration option \"%s\", no values after '='", opt);
-        return result;
-    }
+
+    ASSERT(M_CONFIG, !value.empty());
 
     // parsing succeeded, store key and values
     ASSERT(M_CONFIG, value.size() == 1);		// currently support for one argument only!

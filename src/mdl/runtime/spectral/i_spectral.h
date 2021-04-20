@@ -1,5 +1,5 @@
 /******************************************************************************
- * Copyright (c) 2012-2019, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2012-2020, NVIDIA CORPORATION. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -103,7 +103,8 @@ void mdl_blackbody(float sRGB[3], float kelvin);
 enum Color_space_id {
     CS_XYZ,     // CIE XYZ
     CS_sRGB,    // (linear) sRGB, aka rec709 (HDTV)
-    CS_ACES,    // Academy Color Encoding System
+    CS_ACES,    // Academy Color Encoding System (ACES2065-1, AP0 primaries)
+    CS_ACEScg, // Academy Color Encoding System (ACEScg, AP1 primaries)
     CS_Rec2020  // U-HDTV
 };
 
@@ -137,7 +138,11 @@ void cs_refl_to_spectrum(
                                 // (sRGB-only, result lacks smoothness)
     bool ignore_scale = false); // don't do scaling such that the result is <= 1
 
-
+// re-construct a emission spectrum from a color emission
+void cs_emission_to_spectrum(
+    float values[SPECTRAL_XYZ_RES],
+    const float color[3],
+    Color_space_id cs);
 
 
 } // namespace spectral

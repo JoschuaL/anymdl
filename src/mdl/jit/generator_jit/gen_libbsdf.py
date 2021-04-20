@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 #*****************************************************************************
-# Copyright (c) 2017-2019, NVIDIA CORPORATION. All rights reserved.
+# Copyright (c) 2017-2020, NVIDIA CORPORATION. All rights reserved.
 #
 # Redistribution and use in source and binary forms, with or without
 # modification, are permitted provided that the following conditions
@@ -34,7 +34,7 @@ import os
 
 copyright_str = """
 /******************************************************************************
- * Copyright (c) 2017-2019, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2017-2020, NVIDIA CORPORATION. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -69,7 +69,9 @@ def xxd(filename, fout):
     i = 0
     fout.write("\t")
     for byte in bytes:
-        fout.write("0x%02x, " % ord(byte))
+        if isinstance(byte, str):
+            byte = ord(byte)
+        fout.write("0x%02x, " % byte)
         if i == 7:
             fout.write("\n\t")
             i = 0
@@ -78,7 +80,7 @@ def xxd(filename, fout):
 
 
 def usage():
-    print "Usage: %s <inputfile> <output directory>" % sys.argv[0]
+    print("Usage: %s <inputfile> <output directory>" % sys.argv[0])
     return 1
 
 
@@ -89,13 +91,13 @@ def main(args):
     bc_name        = args[1]
     IntDir         = args[2]
 
-    out_name = "libbsdf_bitcode.h"
+    suffix = bc_name[bc_name.rfind('_'):-3];
+    out_name = "libbsdf_bitcode" + suffix + ".h"
 
-    print "Generating", out_name, "...\n"
     with open(os.path.join(IntDir, out_name), "w") as f:
         f.write(copyright_str)
-        f.write("\n// Automatically generated from libbsdf.bc\n\n"
-            "static unsigned char const libbsdf_bitcode[] = {\n")
+        f.write("\n// Automatically generated from libbsdf%s.bc\n\n"
+            "static unsigned char const libbsdf_bitcode%s[] = {\n" % (suffix, suffix))
         xxd(bc_name, f)
         f.write("};\n")
 

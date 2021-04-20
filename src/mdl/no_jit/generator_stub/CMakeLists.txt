@@ -1,5 +1,5 @@
 #*****************************************************************************
-# Copyright (c) 2018-2019, NVIDIA CORPORATION. All rights reserved.
+# Copyright (c) 2018-2020, NVIDIA CORPORATION. All rights reserved.
 #
 # Redistribution and use in source and binary forms, with or without
 # modification, are permitted provided that the following conditions
@@ -32,6 +32,7 @@ set(PROJECT_NAME mdl-no_jit-generator_stub)
 # collect sources
 set(PROJECT_SOURCES 
     "generator_stub.cpp"
+    "libbsdf_multiscatter_tables_stub.cpp"
     )
 
 # create target from template

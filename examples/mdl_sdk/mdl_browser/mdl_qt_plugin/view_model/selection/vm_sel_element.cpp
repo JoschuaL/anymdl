@@ -1,5 +1,5 @@
 /******************************************************************************
- * Copyright (c) 2018-2019, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2018-2020, NVIDIA CORPORATION. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -118,9 +118,7 @@ QVariant VM_sel_element::data(int role) const
 
 QString VM_sel_element::get_name() const
 {
-    std::string name = m_cache_element->get_simple_name();
-    const size_t pos_open_parenthesis = name.find_first_of('(');
-    return name.substr(0, pos_open_parenthesis).c_str();
+    return m_cache_element->get_simple_name();
 }
 
 QString VM_sel_element::get_module_name() const

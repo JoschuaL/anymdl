@@ -1,5 +1,5 @@
 /******************************************************************************
- * Copyright (c) 2011-2019, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2011-2020, NVIDIA CORPORATION. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -170,6 +170,15 @@ public:
         int                     start_column = 0,
         int                     end_line = 0,
         int                     end_column = 0) MDL_FINAL;
+
+    /// Create a new namespace alias.
+    IDeclaration_namespace_alias *create_namespace_alias(
+        ISimple_name const    *alias,
+        IQualified_name const *ns,
+        int                   start_line = 0,
+        int                   start_column = 0,
+        int                   end_line = 0,
+        int                   end_column = 0) MDL_FINAL;
 
 public:
     /// Constructor.
@@ -536,7 +545,7 @@ class Type_factory : public IType_factory
                         size_t n_params = size_t(ft->get_parameter_count());
 
                         size_t t = ret_type - (IType const *)0;
-                        t = ((t) >> 3) ^ (t >> 16) ^
+                        t = ((t) >> 3) ^ (t >> 16) ^                     //-V2007
                             size_t(KEY_FUNC_TYPE) ^ n_params;
 
                         for (size_t i = 0; i < n_params; ++i) {
@@ -555,7 +564,7 @@ class Type_factory : public IType_factory
                 case KEY_FUNC_KEY:
                     {
                         size_t t = key.type - (IType const *)0;
-                        t = ((t) >> 3) ^ (t >> 16) ^
+                        t = ((t) >> 3) ^ (t >> 16) ^                     //-V2007
                             size_t(KEY_FUNC_TYPE) ^ key.u.func.n_params;
 
                         IType_factory::Function_parameter const *p = key.u.func.params;
@@ -573,7 +582,7 @@ class Type_factory : public IType_factory
                         return ((t) >> 3) ^ (t >> 16) ^
                             size_t(key.kind) ^
                             ((char *)key.u.alias.sym - (char *)0) ^
-                            key.u.alias.mod;
+                            size_t(key.u.alias.mod);
                     }
                 case KEY_SIZED_ARRAY:
                     {
@@ -1116,17 +1125,27 @@ public:
 
     /// Create a new texture value.
     ///
-    /// \param type         The type of the texture.
-    /// \param value        The string value of the texture, NULL is not allowed.
-    /// \param gamma        The gamma override value of the texture.
-    /// \param tag_value    The tag value of the texture.
-    /// \param tag_version  The version of the tag value.
+    /// \param type            The type of the texture.
+    /// \param value           The string value of the texture, NULL is not allowed.
+    /// \param gamma           The gamma override value of the texture.
+    /// \param tag_value       The tag value of the texture.
+    /// \param tag_version     The version of the tag value.
     IValue_texture const *create_texture(
-        IType_texture const        *type,
-        char const                 *value,
-        IValue_texture::gamma_mode gamma,
-        int                        tag_value,
-        unsigned                   tag_version) MDL_FINAL;
+        IType_texture const            *type,
+        char const                     *value,
+        IValue_texture::gamma_mode     gamma,
+        int                            tag_value,
+        unsigned                       tag_version) MDL_FINAL;
+
+    /// Create a new bsdf_data texture value.
+    ///
+    /// \param bsdf_data_kind  The BSDF data kind.
+    /// \param tag_value       The tag value of the texture.
+    /// \param tag_version     The version of the tag value.
+    IValue_texture const *create_bsdf_data_texture(
+        IValue_texture::Bsdf_data_kind bsdf_data_kind,
+        int                            tag_value,
+        unsigned                       tag_version) MDL_FINAL;
 
     /// Create a new string light profile value.
     ///

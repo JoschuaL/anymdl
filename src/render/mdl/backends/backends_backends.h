@@ -1,5 +1,5 @@
 /***************************************************************************************************
- * Copyright (c) 2015-2019, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2015-2020, NVIDIA CORPORATION. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -35,13 +35,16 @@
 #include <vector>
 #include <map>
 
-#include <base/system/main/neuray_cc_conf.h>
-
 #include <mi/base/handle.h>
 #include <mi/base/interface_implement.h>
 #include <mi/mdl/mdl_code_generators.h>
 #include <mi/mdl/mdl_mdl.h>
-#include <mi/neuraylib/imdl_compiler.h>
+#include <mi/neuraylib/icanvas.h>
+#include <mi/neuraylib/imdl_backend.h>
+#include <mi/neuraylib/imdl_backend_api.h>
+#include <mi/neuraylib/itile.h>
+
+#include <io/scene/dbimage/i_dbimage.h>
 
 namespace mi {
 namespace mdl { class IType_struct; class IType; }
@@ -51,6 +54,8 @@ namespace neuraylib { class ITarget_code; }
 namespace MI {
 
 namespace DB { class Transaction; }
+namespace DBIMAGE { class Image_set; }
+
 namespace MDL {
     class Execution_context;
     class Mdl_compiled_material;
@@ -78,7 +83,7 @@ public:
     /// \param code_cache      If non-NULL, the code cache.
     /// \param string_ids      If True, string arguments are mapped to string identifiers.
     Mdl_llvm_backend(
-        mi::neuraylib::IMdl_compiler::Mdl_backend_kind kind,
+        mi::neuraylib::IMdl_backend_api::Mdl_backend_kind kind,
         mi::mdl::IMDL* compiler,
         mi::mdl::ICode_generator_jit* jit,
         mi::mdl::ICode_cache *code_cache,
@@ -103,24 +108,6 @@ public:
         const char* fname,
         MDL::Execution_context* context);
 
-    const mi::neuraylib::ITarget_code* translate_material_expressions(
-        DB::Transaction* transaction,
-        const MDL::Mdl_compiled_material* material,
-        const char* const paths[],
-        mi::Uint32 path_cnt,
-        const char* fname,
-        mi::Sint32* errors);
-
-    const mi::neuraylib::ITarget_code* translate_material_expression_uniform_state(
-        DB::Transaction* transaction,
-        const MDL::Mdl_compiled_material* material,
-        const char* path,
-        const char* fname,
-        const mi::Float32_4_4_struct& world_to_obj,
-        const mi::Float32_4_4_struct& obj_to_world,
-        mi::Sint32 object_id,
-        mi::Sint32* errors);
-
     const mi::neuraylib::ITarget_code* translate_material_df(
         DB::Transaction* transaction,
         const MDL::Mdl_compiled_material* material,
@@ -139,9 +126,17 @@ public:
         DB::Transaction *transaction,
         const MDL::Mdl_compiled_material* material);
 
+    mi::mdl::ILink_unit *create_link_unit(
+        MDL::Execution_context* context);
+
     mi::neuraylib::ITarget_code const *translate_link_unit(
         Link_unit const *lu,
         MDL::Execution_context* context);
+
+    /// Update the MDL JIT options from the given parameters.
+    void update_jit_options(
+        const char *internal_space,
+        MDL::Execution_context *context);
 
     /// Get the MDL compiler.
     mi::base::Handle<mi::mdl::IMDL> get_compiler() const { return m_compiler; }
@@ -150,7 +145,7 @@ public:
     mi::base::Handle<mi::mdl::ICode_generator_jit> get_jit_be() const { return m_jit; }
 
     /// Get the backend kind.
-    mi::neuraylib::IMdl_compiler::Mdl_backend_kind get_kind() const { return m_kind; }
+    mi::neuraylib::IMdl_backend_api::Mdl_backend_kind get_kind() const { return m_kind; }
 
     /// If true, the LLVM-IR backend uses SIMD instructions.
     bool get_enable_simd() const { return m_enable_simd; }
@@ -178,7 +173,7 @@ public:
 
 private:
     /// The backend kind.
-    mi::neuraylib::IMdl_compiler::Mdl_backend_kind m_kind;
+    mi::neuraylib::IMdl_backend_api::Mdl_backend_kind m_kind;
 
     /// If compiling for PTX, the SM version.
     unsigned m_sm_version;
@@ -231,16 +226,16 @@ public:
     // API methods
 
     /// Returns the target argument block data.
-    const char* get_data() const NEURAY_OVERRIDE;
+    const char* get_data() const override;
 
     /// Returns the target argument block data.
-    char* get_data() NEURAY_OVERRIDE;
+    char* get_data() override;
 
     /// Returns the size of the target argument block data.
-    mi::Size get_size() const NEURAY_OVERRIDE;
+    mi::Size get_size() const override;
 
     /// Clones the target argument block (to make it writeable).
-    ITarget_argument_block *clone() const NEURAY_OVERRIDE;
+    ITarget_argument_block *clone() const override;
 
 private:
     /// Destructor.
@@ -303,7 +298,7 @@ public:
     // API methods
 
     /// Get the size of the target argument block.
-    mi::Size get_size() const NEURAY_OVERRIDE;
+    mi::Size get_size() const override;
 
     /// Get the number of arguments / elements at the given layout state.
     ///
@@ -311,7 +306,7 @@ public:
     ///               argument value block. The default value is used for the top-level.
     mi::Size get_num_elements(
         mi::neuraylib::Target_value_layout_state state =
-            mi::neuraylib::Target_value_layout_state()) const NEURAY_OVERRIDE;
+            mi::neuraylib::Target_value_layout_state()) const override;
 
     /// Get the offset, the size and the kind of the argument / element inside the argument
     /// block at the given layout state.
@@ -326,7 +321,7 @@ public:
         mi::neuraylib::IValue::Kind &kind,
         mi::Size &arg_size,
         mi::neuraylib::Target_value_layout_state state =
-            mi::neuraylib::Target_value_layout_state()) const NEURAY_OVERRIDE;
+            mi::neuraylib::Target_value_layout_state()) const override;
 
     /// Get the layout state for the i'th argument / element inside the argument value block
     /// at the given layout state.
@@ -339,7 +334,7 @@ public:
     mi::neuraylib::Target_value_layout_state get_nested_state(
         mi::Size i,
         mi::neuraylib::Target_value_layout_state state =
-        mi::neuraylib::Target_value_layout_state()) const NEURAY_OVERRIDE;
+        mi::neuraylib::Target_value_layout_state()) const override;
 
     /// Set the value inside the given block at the given layout state.
     ///
@@ -362,7 +357,7 @@ public:
         mi::neuraylib::IValue const *value,
         mi::neuraylib::ITarget_resource_callback *resource_callback,
         mi::neuraylib::Target_value_layout_state state =
-            mi::neuraylib::Target_value_layout_state()) const NEURAY_OVERRIDE;
+            mi::neuraylib::Target_value_layout_state()) const override;
 
     // Non-API methods
 
@@ -389,12 +384,186 @@ public:
         mi::neuraylib::Target_value_layout_state state =
             mi::neuraylib::Target_value_layout_state()) const;
 
+    /// Get the internal IGenerated_code_value_layout
+    mi::mdl::IGenerated_code_value_layout const* get_internal_layout() const
+    {
+        m_layout->retain();
+        return m_layout.get();
+    }
+
+    /// If true, string argument values are mapped to string identifiers.
+    bool strings_mapped_to_ids() const { return m_strings_mapped_to_ids; }
+
 private:
     /// The MDL argument block.
     mi::base::Handle<mi::mdl::IGenerated_code_value_layout const> m_layout;
 
     /// If true, string argument values are mapped to string identifiers.
     bool m_strings_mapped_to_ids;
+};
+
+/// Helper class to store bsdf data textures into the neuray database.
+class Df_data_helper
+{
+public:
+
+    Df_data_helper(
+        DB::Transaction *transaction)
+        : m_transaction(transaction)
+    {
+    }
+
+    /// Creates and stores bsdf data textures in the database.
+    ///
+    /// \return The tag of the texture in the database
+    DB::Tag store_df_data(mi::mdl::IValue_texture::Bsdf_data_kind df_data_kind);
+
+    /// Returns the database name for the given df data kind.
+    static const char* get_texture_db_name(mi::mdl::IValue_texture::Bsdf_data_kind kind);
+
+private:
+
+    class Df_data_tile : public mi::base::Interface_implement<mi::neuraylib::ITile>
+    {
+
+    public:
+
+        /// Constructor
+        Df_data_tile(mi::Uint32 rx, mi::Uint32 ry, const float* data)
+            : m_resolution_x(rx)
+            , m_resolution_y(ry)
+            , m_data(data)
+        {
+        }
+
+        // methods of mi::neuraylib::ITile
+        void get_pixel(
+            mi::Uint32 x_offset,
+            mi::Uint32 y_offset,
+            mi::Float32* floats) const final;
+
+        void set_pixel(
+            mi::Uint32 x_offset,
+            mi::Uint32 y_offset,
+            const  mi::Float32* floats) final;
+
+        const char* get_type() const final;
+
+        mi::Uint32 get_resolution_x() const final;
+
+        mi::Uint32 get_resolution_y() const final;
+
+        const void* get_data() const final;
+
+        void* get_data() final;
+
+    private:
+
+        mi::Uint32 m_resolution_x;      ///< resolution in x
+        mi::Uint32 m_resolution_y;      ///< resolution in y
+
+        const float* m_data;            ///< data
+    };
+
+    class Df_data_canvas : public mi::base::Interface_implement<mi::neuraylib::ICanvas>
+    {
+    public:
+
+        /// Constructor
+        Df_data_canvas(mi::Uint32 rx, mi::Uint32 ry, mi::Uint32 rz, const float *data)
+        {
+            m_tiles.resize(rz);
+            mi::Uint32 offset = rx * ry;
+            for (mi::Size i = 0; i < rz; ++i) {
+                m_tiles[i] = new Df_data_tile(rx, ry, &data[i*offset]);
+            }
+        }
+
+        // methods of mi::neuraylib::ICanvas_base
+
+        mi::Uint32 get_resolution_x() const final;
+
+        mi::Uint32 get_resolution_y() const final;
+
+        const char* get_type() const final;
+
+        mi::Uint32 get_layers_size() const final;
+
+        mi::Float32 get_gamma() const final;
+
+        void set_gamma(mi::Float32) final;
+
+        // methods of mi::neuraylib::ICanvas
+
+        mi::Uint32 get_tile_resolution_x() const final;
+
+        mi::Uint32 get_tile_resolution_y() const final;
+
+        mi::Uint32 get_tiles_size_x() const final;
+
+        mi::Uint32 get_tiles_size_y() const final;
+
+        const mi::neuraylib::ITile* get_tile(
+            mi::Uint32 pixel_x, mi::Uint32 pixel_y, mi::Uint32 layer = 0) const final;
+
+        mi::neuraylib::ITile* get_tile(
+            mi::Uint32 pixel_x, mi::Uint32 pixel_y, mi::Uint32 layer = 0) final;
+
+    private:
+
+        std::vector<mi::base::Handle<Df_data_tile>> m_tiles;
+    };
+
+    class Df_image_set : public DBIMAGE::Image_set
+    {
+    public:
+
+        Df_image_set(mi::neuraylib::ICanvas* canvas)
+            : m_canvas(mi::base::make_handle_dup(canvas)) { }
+
+        // methods from DBIMAGE::Image_set
+        mi::Size get_length() const final;
+
+        bool is_uvtile() const final;
+
+        bool is_mdl_container() const final;
+
+        void get_uv_mapping( mi::Size i, mi::Sint32 &u, mi::Sint32 &v) const final;
+
+        const char* get_original_filename() const final;
+
+        const char* get_container_filename() const final;
+
+        const char* get_mdl_file_path() const final;
+
+        const char* get_resolved_filename( mi::Size i) const final;
+
+        const char* get_container_membername( mi::Size i) const final;
+
+        mi::neuraylib::IReader* open_reader( mi::Size i) const final;
+
+        mi::neuraylib::ICanvas* get_canvas( mi::Size i) const final;
+
+        const char* get_image_format() const final;
+
+    private:
+        mi::base::Handle <mi::neuraylib::ICanvas> m_canvas;
+    };
+
+    DB::Tag store_texture(
+        mi::Uint32 rx,
+        mi::Uint32 ry,
+        mi::Uint32 rz,
+        const float *data,
+        const std::string& tex_name);
+
+private:
+
+    static mi::base::Lock m_lock;
+    using Df_data_map = std::map <mi::mdl::IValue_texture::Bsdf_data_kind,std::string>;
+    static Df_data_map m_df_data_to_name;
+
+    DB::Transaction *m_transaction;
 };
 
 } // namespace BACKENDS

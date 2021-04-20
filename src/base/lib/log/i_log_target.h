@@ -1,5 +1,5 @@
 /***************************************************************************************************
- * Copyright (c) 2010-2019, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2010-2020, NVIDIA CORPORATION. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -68,10 +68,10 @@ public:
     virtual bool message(
         const char* mod,
         ILogger::Category cat,
-        int sev,
+        ILogger::Severity sev,
+        const mi::base::Message_details&,
         const char* pfx,
-        const char* msg,
-        bool handled) = 0;
+        const char* msg) = 0;
 };
 
 } // namespace LOG

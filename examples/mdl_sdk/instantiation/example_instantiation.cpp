@@ -1,5 +1,5 @@
 /******************************************************************************
- * Copyright (c) 2013-2019, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2013-2020, NVIDIA CORPORATION. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -26,14 +26,12 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *****************************************************************************/
 
-// examples/example_instantiation.cpp
+// examples/mdl_sdk/instantiation/example_instantiation.cpp
 //
 // Instantiates a material and a function definition and changes argument values.
 
 #include <iostream>
 #include <string>
-
-#include <mi/mdl_sdk.h>
 
 #include "example_shared.h"
 
@@ -68,8 +66,8 @@ void dump_instance(
 void instantiate_definitions(
     mi::neuraylib::INeuray* neuray, mi::neuraylib::ITransaction* transaction)
 {
-    mi::base::Handle<mi::neuraylib::IMdl_compiler> mdl_compiler(
-        neuray->get_api_component<mi::neuraylib::IMdl_compiler>());
+    mi::base::Handle<mi::neuraylib::IMdl_impexp_api> mdl_impexp_api(
+        neuray->get_api_component<mi::neuraylib::IMdl_impexp_api>());
 
     mi::base::Handle<mi::neuraylib::IMdl_factory> mdl_factory(
         neuray->get_api_component<mi::neuraylib::IMdl_factory>());
@@ -81,8 +79,8 @@ void instantiate_definitions(
     mi::base::Handle<mi::neuraylib::IMdl_execution_context> context(
         mdl_factory->create_execution_context());
 
-    // Load the module "example" and access it from the DB.
-    check_success( mdl_compiler->load_module(
+    // Load the module "tutorials" and access it from the DB.
+    check_success( mdl_impexp_api->load_module(
         transaction, "::nvidia::sdk_examples::tutorials", context.get()) >= 0);
     print_messages( context.get());
 
@@ -208,7 +206,9 @@ void change_arguments( mi::neuraylib::INeuray* neuray, mi::neuraylib::ITransacti
 }
 
 // Iterates over an annotation block and prints annotations and their parameters.
-void print_annotations( const mi::neuraylib::IAnnotation_block* anno_block)
+void print_annotations(
+    const mi::neuraylib::IType_factory* type_factory,
+    const mi::neuraylib::IAnnotation_block* anno_block)
 {
     mi::neuraylib::Annotation_wrapper annotations( anno_block);
     std::cout << "There are " 
@@ -216,28 +216,21 @@ void print_annotations( const mi::neuraylib::IAnnotation_block* anno_block)
 
     for( mi::Size a = 0; a < annotations.get_annotation_count(); ++a)
     {
-        std::string signature( annotations.get_annotation_name( a));
-
-        // strip signature
-        size_t p = signature.find( '(');
-        std::string name;
-        if( p != std::string::npos)
-            name = signature.substr( 0, p);
-
-        p = name.find_last_of( ':');
-        if( p != std::string::npos)
-            name = name.substr( p + 1);
-
-        std::cout << " '" << name << "' with " 
+        mi::base::Handle<const mi::neuraylib::IAnnotation> anno(anno_block->get_annotation(a));
+        mi::base::Handle<const mi::neuraylib::IAnnotation_definition> anno_def(anno->get_definition());
+        std::string name = anno_def->get_mdl_simple_name();
+        std::cout << "    \"" << name << "\" with "
             << annotations.get_annotation_param_count( a) << " parameter(s):\n";
+
         for( mi::Size p = 0; p < annotations.get_annotation_param_count( a); ++p)
         {
             mi::base::Handle<const mi::neuraylib::IType> type_handle(
                 annotations.get_annotation_param_type( a, p));
+            mi::base::Handle<const mi::IString> type_text( type_factory->dump( type_handle.get()));
 
-            std::cout << "  '" << annotations.get_annotation_param_name( a, p)
-                << "' of kind of type '"
-                << type_handle->get_kind() << "' -> ";
+            std::cout << "        \"" << annotations.get_annotation_param_name( a, p)
+                << "\" of type \""
+                << type_text->get_c_str() << "\" = ";
 
             switch( type_handle->get_kind())
             {
@@ -270,21 +263,21 @@ void print_annotations( const mi::neuraylib::IAnnotation_block* anno_block)
 
     // some other convenient helpers
     std::cout << "\n";
-    std::cout << "Index of 'hard_range': " << annotations.get_annotation_index(
+    std::cout << "Index of \"hard_range\": " << annotations.get_annotation_index(
         "::anno::hard_range(float,float)") << "\n";
-    std::cout << "Index of 'foo': " << static_cast<mi::Sint32>( annotations.get_annotation_index(
+    std::cout << "Index of \"foo\": " << static_cast<mi::Sint32>( annotations.get_annotation_index(
         "::anno::foo(int)")) << " (which is not present)\n";
 
     const char* descValue = nullptr;
     mi::Sint32 res = annotations.get_annotation_param_value_by_name<const char*>(
         "::anno::description(string)", 0, descValue);
-    std::cout << "Value of 'description': \"" << ( res == 0 ? descValue : "nullptr") << "\"\n";
+    std::cout << "Value of \"description\": \"" << ( res == 0 ? descValue : "nullptr") << "\"\n";
 
     mi::Sint32 fooValue = 0;
     res = annotations.get_annotation_param_value_by_name<mi::Sint32>(
         "::anno::foo(int)", 0, fooValue);
     if ( res != 0)
-        std::cout << "Value of 'foo' not found (annotation is not present)\n";
+        std::cout << "Value of \"foo\" not found (annotation is not present)\n";
     
     std::cout << std::endl;
 }
@@ -294,6 +287,8 @@ void create_variant( mi::neuraylib::INeuray* neuray, mi::neuraylib::ITransaction
 {
     mi::base::Handle<mi::neuraylib::IMdl_factory> mdl_factory(
         neuray->get_api_component<mi::neuraylib::IMdl_factory>());
+    mi::base::Handle<mi::neuraylib::IType_factory> type_factory(
+        mdl_factory->create_type_factory( transaction));
     mi::base::Handle<mi::neuraylib::IValue_factory> value_factory(
         mdl_factory->create_value_factory( transaction));
     mi::base::Handle<mi::neuraylib::IExpression_factory> expression_factory(
@@ -357,7 +352,7 @@ void create_variant( mi::neuraylib::INeuray* neuray, mi::neuraylib::ITransaction
     check_success( variant->set_value( "annotations", anno_block.get()) == 0);
 
     // print the annotations just to illustrate the convince helper
-    print_annotations( anno_block.get());
+    print_annotations( type_factory.get(), anno_block.get());
 
     // Create the variant.
     check_success( mdl_factory->create_variants(
@@ -376,23 +371,26 @@ void create_variant( mi::neuraylib::INeuray* neuray, mi::neuraylib::ITransaction
     dump_instance( expression_factory.get(), material_instance.get(), std::cout);
 
     // Export the variant.
-    mi::base::Handle<mi::neuraylib::IMdl_compiler> mdl_compiler(
-        neuray->get_api_component<mi::neuraylib::IMdl_compiler>());
-    check_success( mdl_compiler->export_module( transaction, "mdl::variants", "variants.mdl") == 0);
+    mi::base::Handle<mi::neuraylib::IMdl_impexp_api> mdl_impexp_api(
+        neuray->get_api_component<mi::neuraylib::IMdl_impexp_api>());
+    check_success( mdl_impexp_api->export_module( transaction, "mdl::variants", "variants.mdl") == 0);
 }
 
-int main( int /*argc*/, char* /*argv*/[])
+int MAIN_UTF8( int /*argc*/, char* /*argv*/[])
 {
     // Access the MDL SDK
-    mi::base::Handle<mi::neuraylib::INeuray> neuray( load_and_get_ineuray());
-    check_success( neuray.is_valid_interface());
+    mi::base::Handle<mi::neuraylib::INeuray> neuray(mi::examples::mdl::load_and_get_ineuray());
+    if (!neuray.is_valid_interface())
+        exit_failure("Failed to load the SDK.");
 
     // Configure the MDL SDK
-    configure( neuray.get());
+    if (!mi::examples::mdl::configure(neuray.get()))
+        exit_failure("Failed to initialize the SDK.");
 
     // Start the MDL SDK
-    mi::Sint32 result = neuray->start();
-    check_start_success( result);
+    mi::Sint32 ret = neuray->start();
+    if (ret != 0)
+        exit_failure("Failed to initialize the SDK. Result code: %d", ret);
 
     {
         mi::base::Handle<mi::neuraylib::IDatabase> database(
@@ -415,12 +413,16 @@ int main( int /*argc*/, char* /*argv*/[])
     }
 
     // Shut down the MDL SDK
-    check_success( neuray->shutdown() == 0);
-    neuray = 0;
+    if (neuray->shutdown() != 0)
+        exit_failure("Failed to shutdown the SDK.");
 
     // Unload the MDL SDK
-    check_success( unload());
+    neuray = nullptr;
+    if (!mi::examples::mdl::unload())
+        exit_failure("Failed to unload the SDK.");
 
-    keep_console_open();
-    return EXIT_SUCCESS;
+    exit_success();
 }
+
+// Convert command line arguments to UTF8 on Windows
+COMMANDLINE_TO_UTF8

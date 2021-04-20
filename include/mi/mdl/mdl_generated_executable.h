@@ -1,5 +1,5 @@
 /******************************************************************************
- * Copyright (c) 2011-2019, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2011-2020, NVIDIA CORPORATION. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -45,20 +45,22 @@ namespace mdl {
 class IGenerated_code_value_callback
 {
 public:
-    /// Returns the resource index for the given resource value usable by the target code resource
+    /// Returns the resource index for the given resource usable by the target code resource
     /// handler for the corresponding resource type.
     ///
-    /// \param resource  the resource value
+    /// \param res  the resource
     ///
     /// \returns a resource index or 0 if no resource index can be returned
-    virtual unsigned get_resource_index(IValue_resource const *resource) = 0;
+    virtual unsigned get_resource_index(
+        IValue_resource const *res) = 0;
 
     /// Returns a string identifier for the given string value usable by the target code.
     ///
     /// The value 0 is always the "not known string".
     ///
     /// \param s  the string value
-    virtual unsigned get_string_index(IValue_string const *s) = 0;
+    virtual unsigned get_string_index(
+        IValue_string const *s) = 0;
 };
 
 /// Represents the layout of an argument value block with support for nested elements.
@@ -172,6 +174,7 @@ public:
     enum Distribution_kind {
         DK_NONE,
         DK_BSDF,
+        DK_HAIR_BSDF,
         DK_EDF,
         DK_INVALID
     };
@@ -186,7 +189,8 @@ public:
         FK_DF_INIT,
         FK_DF_SAMPLE,
         FK_DF_EVALUATE,
-        FK_DF_PDF
+        FK_DF_PDF,
+        FK_DF_AUXILIARY
     };
 
     /// Language to use for the function prototype.
@@ -296,13 +300,49 @@ public:
     /// \param dist_kind        the kind of distribution to add
     /// \param func_kind        the kind of the function to add
     /// \param arg_block_index  the argument block index for this function or ~0 if not used
+    /// \param state_usage      the state usage of the function to add
     ///
     /// \returns the function index of the added function
     virtual size_t add_function_info(
         char const *name,
         Distribution_kind dist_kind,
         Function_kind func_kind,
-        size_t arg_block_index) = 0;
+        size_t arg_block_index,
+        IGenerated_code_executable::State_usage state_usage) = 0;
+
+    /// Get the number of distribution function handles referenced by a function.
+    ///
+    /// \param func_index   the index of the function
+    ///
+    /// \return The number of distribution function handles referenced or \c 0, if the
+    ///         function is not a distribution function.
+    virtual size_t get_function_df_handle_count(size_t func_index) const = 0;
+
+    /// Get the name of a distribution function handle referenced by a function.
+    ///
+    /// \param func_index     The index of the function.
+    /// \param handle_index   The index of the handle.
+    ///
+    /// \return The name of the distribution function handle or \c NULL, if the
+    ///         function is not a distribution function or \p index is invalid.
+    virtual char const *get_function_df_handle(size_t func_index, size_t handle_index) const = 0;
+
+    /// Add the name of a distribution function handle referenced by a function.
+    ///
+    /// \param func_index     The index of the function.
+    /// \param handle_name    The name of the handle.
+    ///
+    /// \return The index of the added handle, or ~0, if the \p func_index was invalid.
+    virtual size_t add_function_df_handle(
+        size_t func_index,
+        char const *handle_name) = 0;
+
+    /// Get the state properties used by a function.
+    ///
+    /// \param func_index     The index of the function.
+    ///
+    /// \return The state usage or 0, if the \p func_index was invalid.
+    virtual State_usage get_function_state_usage(size_t func_index) const = 0;
 };
 
 /// A handler for MDL runtime exceptions.

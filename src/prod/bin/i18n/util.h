@@ -1,5 +1,5 @@
 /***************************************************************************************************
- * Copyright (c) 2018-2019, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2018-2020, NVIDIA CORPORATION. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -31,13 +31,6 @@
 #include <string>
 #include <vector>
 
-namespace mi
-{
-namespace base
-{
-enum Message_severity;
-}
-}
 namespace i18n
 {
 /// Some utility routines

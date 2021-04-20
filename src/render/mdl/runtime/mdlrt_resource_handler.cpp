@@ -1,5 +1,5 @@
 /***************************************************************************************************
- * Copyright (c) 2008-2019, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2008-2020, NVIDIA CORPORATION. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -88,6 +88,11 @@ void Resource_handler::tex_init(
         new (data) MI::MDLRT::Texture_ptex(
             typed_tag, MI::MDLRT::Texture::Gamma_mode(gamma), (MI::DB::Transaction *)ctx);
         break;
+    case mi::mdl::IType_texture::TS_BSDF_DATA:
+        // handle like 3D texture
+        new (data) MI::MDLRT::Texture_3d(
+            typed_tag, MI::MDLRT::Texture::Gamma_mode(gamma), (MI::DB::Transaction *)ctx);
+        break;
     }
 }
 
@@ -119,6 +124,13 @@ void Resource_handler::tex_term(
         {
             MI::MDLRT::Texture_ptex *o = reinterpret_cast<MI::MDLRT::Texture_ptex *>(data);
             o->~Texture_ptex();
+            break;
+        }
+    case mi::mdl::IType_texture::TS_BSDF_DATA:
+        {
+            // handle like 3D texture
+            MI::MDLRT::Texture_3d *o = reinterpret_cast<MI::MDLRT::Texture_3d *>(data);
+            o->~Texture_3d();
             break;
         }
     }

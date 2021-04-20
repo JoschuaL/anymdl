@@ -1,5 +1,5 @@
 /******************************************************************************
- * Copyright (c) 2012-2019, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2012-2020, NVIDIA CORPORATION. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -118,6 +118,8 @@ char const *get_error_template(
             return "candidates are: $0";
         case CANDIDATES_ARE_NEXT:
             return "                $0";
+        case POSSIBLE_ABSOLUTE_IMPORT:
+            return "did you mean '$0'?";
 
         case SYNTAX_ERROR:
             return "syntax error: $0";
@@ -591,8 +593,23 @@ char const *get_error_template(
         case ANNOS_ON_ANNO_DECL_NOT_SUPPORTED:
             return "Annotations on annotation declarations are forbidden in MDL $0.$1 "
                 "and will be ignored";
+        case CONST_EXPR_ARGUMENT_REQUIRED:
+            return "'$0' requires a const expression as first argument";
+        case USING_ALIAS_REDECLARATION:
+            return "redeclaration of using alias '$0'";
+        case USING_ALIAS_DECL_FORBIDDEN:
+            return "using alias declaration require MDL version 1.6 or later";
+        case PACKAGE_NAME_CONTAINS_FORBIDDEN_CHAR:
+            return "package name contains forbidden character '$0'";
+        case ABSOLUTE_ALIAS_NOT_AT_BEGINNING:
+            return "Alias name '$0' defines an absolute path, but is not at the beginning of a "
+                "qualified name";
+        case INVALID_CHARACTER_IN_RESOURCE:
+            return "Resource file path contains forbidden character '$0'";
 
         // ------------------------------------------------------------- //
+        case EXTERNAL_APPLICATION_ERROR:
+            return "external application error: $.";
         case INTERNAL_COMPILER_ERROR:
             return "internal compiler error: $.";
         }
@@ -744,6 +761,12 @@ char const *get_error_template(
             return "opaque API struct '$0' in user-specified state module may not be redefined";
         case GET_SYMBOL_FAILED:
             return "getting a symbol in the jit compiled code failed: $0";
+        case LINKING_LIBMDLRT_FAILED:
+            return "linking libmdlrt failed: $0";
+        case PARSING_RENDERER_MODULE_FAILED:
+            return "parsing the user-specified renderer module failed: $0";
+        case LINKING_RENDERER_MODULE_FAILED:
+            return "linking the user-specified renderer module failed: $0";
 
         // ------------------------------------------------------------- //
         case INTERNAL_JIT_BACKEND_ERROR:
@@ -801,12 +824,16 @@ char const *get_error_template(
             return "Function '$0' does not exists in $1";
         case FUNCTION_RET_TYPE_DIFFERENT:
             return "Functions '$0' have different return types, $1 != $2";
+        case FUNCTION_PARAM_DELETED:
+            return "Function '$0' has fewer parameters in $1";
         case FUNCTION_PARAM_DEF_ARG_DELETED:
             return "Parameter '$0' of function '$1' has no default argument in $2";
         case FUNCTION_PARAM_DEF_ARG_CHANGED:
             return "Parameter '$0' of function '$1' has a different default argument in $2";
         case ANNOTATION_DOES_NOT_EXISTS:
             return "'$0' does not exists in $1";
+        case ANNOTATION_PARAM_DELETED:
+            return "Annotation '$0' has fewer parameters in $1";
         case ANNOTATION_PARAM_DEF_ARG_DELETED:
             return "Parameter '$0' of '$1' has no default argument in $2";
         case ANNOTATION_PARAM_DEF_ARG_CHANGED:
@@ -1334,6 +1361,26 @@ char const *Error_params::get_dot_string(size_t index) const
     return e.u.string;
 }
 
+// Add a character.
+Error_params &Error_params::add_char(char c)
+{
+    Entry e;
+    e.kind = EK_CHAR;
+    e.u.c = c;
+
+    m_args.push_back(e);
+    return *this;
+}
+
+// Return the character.
+unsigned char Error_params::get_char(size_t index) const
+{
+    Entry const &e = m_args.at(index);
+
+    MDL_ASSERT(e.kind == EK_CHAR);
+    return e.u.c;
+}
+
 // Add a definition kind (is converted into a string).
 Error_params &Error_params::add_entity_kind(IDefinition::Kind kind)
 {
@@ -1380,6 +1427,9 @@ Error_params &Error_params::add_entity_kind(IDefinition::Kind kind)
         break;
     case IDefinition::DK_OPERATOR:
         e.u.string = "operator";
+        break;
+    case IDefinition::DK_NAMESPACE:
+        e.u.string = "namespace";
         break;
     }
 
@@ -1741,8 +1791,21 @@ static void print_error_param(
             case IMDL::MDL_VERSION_1_4: s = "1.4"; break;
             case IMDL::MDL_VERSION_1_5: s = "1.5"; break;
             case IMDL::MDL_VERSION_1_6: s = "1.6"; break;
+            case IMDL::MDL_VERSION_1_7: s = "1.7"; break;
             }
             printer->print(s);
+        }
+        break;
+    case Error_params::EK_CHAR:
+        {
+            // char param
+            unsigned char c = params.get_char(idx);
+            if (c < 32 || c == 127) {
+                printer->print("0x");
+                printer->print(long(c));
+            } else {
+                printer->print(char(c));
+            }
         }
         break;
     default:

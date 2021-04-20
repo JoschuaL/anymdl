@@ -1,5 +1,5 @@
 /******************************************************************************
- * Copyright (c) 2012-2019, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2012-2020, NVIDIA CORPORATION. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -33,9 +33,14 @@
 
 #include <mi/base/handle.h>
 
-namespace mi { namespace base { class IAllocator; } }
+#include <vector>
+#include <base/system/main/access_module.h>
+
+namespace mi { namespace base { class IAllocator; class IPlugin_descriptor; } }
 
 namespace MI {
+
+namespace PLUG { class Plug_module; }
 
 namespace MDLC {
 
@@ -70,39 +75,67 @@ public:
     mi::mdl::ILambda_function *deserialize_lambda_function(
         SERIAL::Deserializer *deserializer);
 
-    void set_used_with_mdl_sdk(bool flag);
-
-    bool get_used_with_mdl_sdk() const;
-
     void client_build_version(const char* build, const char* bridge_protocol) const;
 
     mi::mdl::ICode_cache *get_code_cache() const;
 
     bool utf8_match(char const *file_mask, char const *file_name) const;
 
+    void set_implicit_cast_enabled(bool value);
+
     bool get_implicit_cast_enabled() const;
 
-    void set_implicit_cast_enabled(bool v);
+    void set_expose_names_of_let_expressions(bool value);
+
+    bool get_expose_names_of_let_expressions() const;
+
+    MDL::Mdl_module_wait_queue* get_module_wait_queue() const;
 
 private:
 
+    /// Helper function to detect valid MDL core plugin type names.
+    ///
+    /// Returns \c true if the plugin type is known and supported.
+    /// Prints a suitable warning message for known supported but outdated plugins and an
+    /// error message for
+    ///
+    /// \param type        Type of the plugin, should be MI_MDL_CORE_PLUGIN_TYPE.
+    /// \param name        Name of the plugin, for diagnostics.
+    /// \param filename    Filename of the DSO, for diagnostics.
+    /// \return            \c true if the plugin type is known and supported, \c false otherwise.
+    ///                    Logs a warning for supported but outdated MDL core plugin types, and an
+    ///                    error for unsupported MDL core plugin types.
+    bool is_valid_mdl_core_plugin(
+       const char* type, const char* name, const char* filename);
+    
     /// Pointer to the MDL interface.
     mi::mdl::IMDL *m_mdl;
 
     /// The allocator that wraps new/delete (overloaded in MI::MEM) as IAllocator.
     mi::base::Handle<mi::base::IAllocator> m_allocator;
 
-    /// Flag returned by #get_used_with_mdl_sdk().
-    bool m_used_with_mdl_sdk;
-
-    /// Flag that indicates whether #m_used_with_mdl_sdk was already explicitly set.
-    bool m_used_with_mdl_sdk_set;
-
     /// The code cache used for JIT-generated source code.
     mi::mdl::ICode_cache *m_code_cache;
 
-    /// Flag that indicates weather the integration should insert casts when needed (and possible).
+    /// Flag that indicates whether the integration should insert casts when needed (and possible).
     bool m_implicit_cast_enabled;
+
+    /// Flag that indicates whether the integration should insert casts when needed (and possible).
+    bool m_expose_names_of_let_expressions;
+
+    /// The module wait queue.
+    MDL::Mdl_module_wait_queue *m_module_wait_queue;
+
+    /// Access to the PLUG module
+    SYSTEM::Access_module<PLUG::Plug_module> m_plug_module;
+
+    /// Lock for #m_plugins.
+    mutable mi::base::Lock m_plugins_lock;
+
+    typedef std::vector<mi::base::Handle<mi::base::IPlugin_descriptor> > Plugin_vector;
+
+    /// The registered image plugins. Needs #m_plugins_lock.
+    Plugin_vector m_plugins;
 };
 
 } // namespace MDLC

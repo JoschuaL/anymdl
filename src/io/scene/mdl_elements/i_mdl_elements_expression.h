@@ -1,5 +1,5 @@
 /***************************************************************************************************
- * Copyright (c) 2015-2019, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2015-2020, NVIDIA CORPORATION. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -35,7 +35,9 @@
 #define IO_SCENE_MDL_ELEMENTS_I_MDL_ELEMENTS_EXPRESSION_H
 
 #include <mi/neuraylib/iexpression.h>
+
 #include "i_mdl_elements_value.h"
+#include "i_mdl_elements_module.h"
 
 namespace mi { class IString; }
 
@@ -71,7 +73,7 @@ public:
     {
         mi::base::Handle<const IType> ptr_type( get_type());
         if( !ptr_type)
-            return 0;
+            return nullptr;
         return static_cast<const T*>( ptr_type->get_interface( typename T::IID()));
     }
 
@@ -94,7 +96,7 @@ public:
     {
         mi::base::Handle<const IValue> ptr_value( get_value());
         if( !ptr_value)
-            return 0;
+            return nullptr;
         return static_cast<const T*>( ptr_value->get_interface( typename T::IID()));
     }
 
@@ -105,7 +107,7 @@ public:
     {
         mi::base::Handle<IValue> ptr_value( get_value());
         if( !ptr_value)
-            return 0;
+            return nullptr;
         return static_cast<T*>( ptr_value->get_interface( typename T::IID()));
     }
 
@@ -143,9 +145,15 @@ class IExpression_direct_call : public
 public:
     static const Kind s_kind = EK_DIRECT_CALL;
 
-    virtual DB::Tag get_definition() const = 0;
+    virtual DB::Tag get_definition(DB::Transaction *transaction) const = 0;
 
-    virtual mi::Sint32 set_definition( DB::Tag tag) = 0;
+    virtual DB::Tag get_module() const = 0;
+
+    virtual Mdl_ident get_definition_ident() const = 0;
+
+    virtual const char* get_definition_db_name() const = 0;
+
+    virtual mi::Sint32 set_definition( const Mdl_tag_ident& definition_ident) = 0;
 
     virtual const IExpression_list* get_arguments() const = 0;
 };
@@ -179,7 +187,7 @@ public:
     {
         mi::base::Handle<const IExpression> ptr_expr( get_expression( index));
         if( !ptr_expr)
-            return 0;
+            return nullptr;
         return static_cast<const T*>( ptr_expr->get_interface( typename T::IID()));
     }
 
@@ -190,7 +198,7 @@ public:
     {
         mi::base::Handle<const IExpression> ptr_expr( get_expression( name));
         if( !ptr_expr)
-            return 0;
+            return nullptr;
         return static_cast<const T*>( ptr_expr->get_interface( typename T::IID()));
     }
 
@@ -207,7 +215,17 @@ class IAnnotation_definition : public
     mi::base::Interface_declare<0x6ca3757d,0x995f,0x49e5,0xbc,0x10,0x70,0xec,0xdd,0x82,0x5e,0x1b>
 {
 public:
+    // Returns "const char*" instead of the usual DB::Tag since the API wrapper does not hold a
+    // transaction to do the conversion.
+    virtual const char* get_module() const = 0;
+
     virtual const char* get_name() const = 0;
+
+    virtual const char* get_mdl_module_name() const = 0;
+
+    virtual const char* get_mdl_simple_name() const = 0;
+
+    virtual const char* get_mdl_parameter_type_name( Size index) const = 0;
 
     virtual mi::neuraylib::IAnnotation_definition::Semantics get_semantic() const = 0;
 
@@ -228,6 +246,8 @@ public:
     virtual const IAnnotation* create_annotation(const IExpression_list* arguments) const = 0;
 
     virtual mi::Size get_memory_consumption() const = 0;
+
+    virtual std::string get_mdl_name_without_parameter_types() const = 0;
 };
 
 class IAnnotation : public
@@ -311,12 +331,18 @@ public:
 
     virtual IExpression_constant* create_constant( IValue* value) const = 0;
 
+    virtual const IExpression_constant* create_constant( const IValue* value) const = 0;
+
     virtual IExpression_call* create_call( const IType* type, DB::Tag tag) const = 0;
 
     virtual IExpression_parameter* create_parameter( const IType* type, mi::Size index) const = 0;
 
     virtual IExpression_direct_call* create_direct_call(
-        const IType* type, DB::Tag tag, IExpression_list* arguments) const = 0;
+        const IType* type,
+        DB::Tag module_tag,
+        const Mdl_tag_ident& definition_ident,
+        const std::string& definition_db_name,
+        IExpression_list* arguments) const = 0;
 
     virtual IExpression_temporary* create_temporary( const IType* type, mi::Size index) const = 0;
 
@@ -327,6 +353,9 @@ public:
 
     virtual IAnnotation_definition* create_annotation_definition(
         const char* name,
+        const char* module_name,
+        const char* simple_name,
+        const std::vector<std::string>& parameter_type_names,
         mi::neuraylib::IAnnotation_definition::Semantics sema,
         bool is_exported,
         const IType_list* parameter_types,
@@ -340,7 +369,7 @@ public:
     virtual IAnnotation_definition_list* create_annotation_definition_list() const = 0;
 
     virtual IExpression* clone(
-        const IExpression* expr, 
+        const IExpression* expr,
         DB::Transaction* transaction,
         bool copy_immutable_calls) const = 0;
 
@@ -350,10 +379,10 @@ public:
         DB::Transaction* transaction,
         bool copy_immutable_calls) const
     {
-        mi::base::Handle<IExpression> ptr_expr( 
+        mi::base::Handle<IExpression> ptr_expr(
             clone( static_cast<const IExpression*>( expr), transaction, copy_immutable_calls));
         if( !ptr_expr)
-            return 0;
+            return nullptr;
         return static_cast<T*>( ptr_expr->get_interface( typename T::IID()));
     }
 
@@ -417,7 +446,7 @@ public:
     {
         mi::base::Handle<IExpression> ptr_expr( deserialize( deserializer));
         if( !ptr_expr)
-            return 0;
+            return nullptr;
         return static_cast<T*>( ptr_expr->get_interface( typename T::IID()));
     }
 

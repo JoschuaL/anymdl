@@ -1,5 +1,5 @@
 /***************************************************************************************************
- * Copyright (c) 2004-2019, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2004-2020, NVIDIA CORPORATION. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -215,6 +215,7 @@ public:
     virtual void write(const DB::Tag& value) = 0;
     virtual void write(const char* value) = 0;
     virtual void write(const std::string& value) = 0;
+    virtual void write(const mi::base::Uuid& value) = 0;
     virtual void write(const mi::math::Color& value) = 0;
     virtual void write(const CONT::Bitvector& value) = 0;
     virtual void write(const CONT::Dictionary& value) = 0;
@@ -239,6 +240,9 @@ public:
     template <typename T> void write(const CONT::Array<T*>& array);
     template <typename T, typename A1, typename A2>
     void write(const std::vector< std::vector<T, A1>, A2>& array);
+
+    template <typename T1, typename T2> void write(const std::pair<T1, T2>& pair);
+    template <typename T, typename SWO> void write(const std::set<T, SWO>& set);
 
     /// Write a serializable object to the stream.
     virtual void write(const Serializable& object) = 0;
@@ -283,7 +287,7 @@ public:
     ///
     /// \param marker_status    Type of error encountered.
     /// \param serializable     Pointer to serializable object that failed deserializing.
-    ///                         Only it's class id is known to be defined.
+    ///                         Only its class id is known to be defined.
     virtual void handle(Marker_status status, const T* serializable) = 0;
 };
 
@@ -340,6 +344,7 @@ public:
     virtual void read(DB::Tag* value_pointer) = 0;
     virtual void read(char** value_pointer) = 0; ///< Use release() to free the memory.
     virtual void read(std::string* value_pointer) = 0;
+    virtual void read( mi::base::Uuid* value_pointer) = 0;
     virtual void read(mi::math::Color* value_pointer) = 0;
     virtual void read(CONT::Bitvector* value_type) = 0;
     virtual void read(CONT::Dictionary* value_pointer) = 0;
@@ -366,6 +371,8 @@ public:
     template <typename T> void read(CONT::Array<T*>* array);
     template <typename T, typename A1, typename A2>
     void read(std::vector< std::vector<T, A1>, A2>* array);
+    template <typename T, typename SWO> void read(std::set<T, SWO>* set);
+    template <typename T1, typename T2> void read(std::pair<T1, T2>* pair);
 
     /// Read back a serializable object from the stream.
     virtual void read(Serializable* object) = 0;
@@ -407,6 +414,7 @@ void write(Serializer* serial, const DB::Tag_version& value);
 template <typename T, Size R, Size C> void write(Serializer* serial,const mi::math::Matrix<T,R,C>&);
 void write(Serializer* serial, const char* value);
 void write(Serializer* serial, const std::string& value);
+void write(Serializer* serial, const mi::base::Uuid& value);
 void write(Serializer* serial, const mi::math::Color& value);
 template <typename T, Size DIM> void write(Serializer* serial,const mi::math::Vector<T,DIM>& value);
 void write(Serializer* serial, const CONT::Bitvector& value);
@@ -434,6 +442,7 @@ void read(Deserializer* deser, DB::Tag_version* value_pointer);
 template <typename T, Size R, Size C> void read(Deserializer* deser, mi::math::Matrix<T,R,C>*);
 void read(Deserializer* deser, char** value_pointer);
 void read(Deserializer* deser, std::string* value_pointer);
+void read(Deserializer* deser, const mi::base::Uuid* value_pointer);
 void read(Deserializer* deser, mi::math::Color* value_pointer);
 template <typename T, Size DIM> void read(Deserializer* deser, mi::math::Vector<T,DIM>* value_type);
 void read(Deserializer* deser, CONT::Bitvector* value_type);
@@ -460,6 +469,13 @@ void read(Deserializer* deser, Serializable* object);
 template <class Iterator>
 inline void read_range(Deserializer& deserializer, Iterator begin, Iterator end);
 
+/// A small helper function for de-serializing arrays of values.
+///
+/// \param deserializer   de-serializer to read from
+/// \param arr            the array to deserialize
+template <typename T, size_t N>
+inline void read_range(Deserializer& deserializer, T (&arr)[N]);
+
 /// A small helper function for serializing ranges of values. write_range() can serialize ranges of
 /// any serializable type from any given container.
 ///
@@ -468,6 +484,13 @@ inline void read_range(Deserializer& deserializer, Iterator begin, Iterator end)
 /// \param end            one past the last spot of the range
 template <class Iterator>
 inline void write_range(Serializer& serializer, Iterator begin, Iterator end);
+
+/// A small helper function for serializing ranges of values. write_range() can serialize arrays.
+///
+/// \param serializer     serializer to write to
+/// \param arr            the array to serialize
+template <typename T, size_t N>
+inline void write_range(Serializer& serializer, const T (&arr)[N]);
 
 /// Serialize a vector.
 template <typename T>
@@ -529,6 +552,11 @@ void write(Serializer* serializer, const std::multimap<K,V,C,A>&);
 template<class K, class V, class C, class A>
 void read(Deserializer* deserializer, std::multimap<K,V,C,A>*);
 
+template <typename Enum_type>
+void write_enum(Serializer* serializer, Enum_type enum_value );
+
+template <typename Enum_type>
+void read_enum(Deserializer* deserializer, Enum_type* enum_value );
 
 } /// namespace SERIAL
 

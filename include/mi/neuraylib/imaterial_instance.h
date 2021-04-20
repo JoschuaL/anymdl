@@ -1,5 +1,5 @@
 /***************************************************************************************************
- * Copyright (c) 2015-2019, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2015-2020, NVIDIA CORPORATION. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -33,6 +33,7 @@
 
 #include <mi/neuraylib/iexpression.h>
 #include <mi/neuraylib/iscene_element.h>
+#include <mi/neuraylib/imdl_factory.h>
 
 namespace mi {
 
@@ -177,90 +178,58 @@ public:
 
     /// Creates a compiled material.
     ///
-    /// \param flags                       A bitmask of flags of type #Compilation_options.
-    /// \param mdl_meters_per_scene_unit   The conversion ratio between meters and scene units for
-    ///                                    this material.
-    /// \param mdl_wavelength_min          The smallest supported wavelength. Typical value: 380.
-    /// \param mdl_wavelength_max          The largest supported wavelength. Typical value: 780.
-    /// \param[out] errors                 An optional pointer to an #mi::Sint32 to which an error
-    ///                                    code will be written. The error codes have the following
-    ///                                    meaning:
-    ///                                    -  0: Success.
-    ///                                    - -1: Type mismatch, call of an unsuitable DB element, or
-    ///                                          call cycle in the graph of this material instance.
-    ///                                    - -2: The thin-walled material instance has different
-    ///                                          transmission for surface and backface.
-    ///                                    - -3: An argument type of the graph of this material
-    ///                                          instance is varying but the corresponding parameter
-    ///                                          type is uniform.
-    /// \return                            The corresponding compiled material, or \c NULL in case
-    ///                                    of failure.
-    virtual ICompiled_material* deprecated_create_compiled_material(
-        Uint32 flags,
-        Float32 mdl_meters_per_scene_unit,
-        Float32 mdl_wavelength_min,
-        Float32 mdl_wavelength_max,
-        Sint32* errors = 0) const = 0;
+    /// \param flags          A bitmask of flags of type #Compilation_options.
 
-#ifdef MI_NEURAYLIB_DEPRECATED_9_1
-    /// Creates a compiled material.
-    ///
-    /// \param flags                       A bitmask of flags of type #Compilation_options.
-    /// \param mdl_meters_per_scene_unit   The conversion ratio between meters and scene units for
-    ///                                    this material.
-    /// \param mdl_wavelength_min          The smallest supported wavelength. Typical value: 380.
-    /// \param mdl_wavelength_max          The largest supported wavelength. Typical value: 780.
-    /// \param[out] errors                 An optional pointer to an #mi::Sint32 to which an error
-    ///                                    code will be written. The error codes have the following
-    ///                                    meaning:
-    ///                                    -  0: Success.
-    ///                                    - -1: Type mismatch, call of an unsuitable DB element, or
-    ///                                          call cycle in the graph of this material instance.
-    ///                                    - -2: The thin-walled material instance has different
-    ///                                          transmission for surface and backface.
-    ///                                    - -3: An argument type of the graph of this material
-    ///                                          instance is varying but the corresponding parameter
-    ///                                          type is uniform.
-    /// \return                            The corresponding compiled material, or \c NULL in case
-    ///                                    of failure.
-    ICompiled_material* create_compiled_material(
-        Uint32 flags,
-        Float32 mdl_meters_per_scene_unit,
-        Float32 mdl_wavelength_min,
-        Float32 mdl_wavelength_max,
-        Sint32* errors = 0) const
-    {
-        return deprecated_create_compiled_material(
-            flags,
-            mdl_meters_per_scene_unit,
-            mdl_wavelength_min,
-            mdl_wavelength_max,
-            errors);
-    }
-#endif
-
-    /// Creates a compiled material.
-    ///
-    /// \param flags                       A bitmask of flags of type #Compilation_options.
-    /// \param[inout] context              An optional pointer to an
-    ///                                    #mi::neuraylib::IMdl_execution_context which can be used
-    ///                                    to pass compilation options to the MDL compiler. The
-    ///                                    following options are supported for this operation:
-    ///                                    - Float32 "meters_per_scene_unit": The conversion
-    ///                                      ratio between meters and scene units for this
-    ///                                      material. Default: 1.0f.
-    ///                                    - Float32 "wavelength_min": The smallest
-    ///                                      supported wavelength. Default: 380.0f.
-    ///                                    - Float32 "wavelength_max": The largest supported
-    ///                                      wavelength. Default: 780.0f.
-    ///                                    - bool "fold_ternary_on_df": Fold all ternary operators
-    ///                                      of *df types, even in class compilation mode.
-    ///                                      Default: false.
-    ///                                    During material compilation, messages like errors and
-    ///                                    warnings will be passed to the context for
-    ///                                    later evaluation by the caller.
-    /// \return                            The corresponding compiled material, or \c NULL in case
-    ///                                    of failure.
+    /// \param[inout] context An optional pointer to an execution context which can be used to pass
+    ///                       compilation options to the MDL compiler. The following options are
+    ///                       supported for this operation:
+    ///                       - #mi::Float32 "meters_per_scene_unit": The conversion ratio between
+    ///                         meters and scene units for this material. Default: 1.0f.
+    ///                       - #mi::Float32 "wavelength_min": The smallest supported wavelength.
+    ///                         Default: 380.0f.
+    ///                       - #mi::Float32 "wavelength_max": The largest supported wavelength.
+    ///                         Default: 780.0f.
+    ///                       .
+    ///                       The following options are supported in class compilation mode:
+    ///                       - \c bool "fold_ternary_on_df": Fold all ternary operators of *df
+    ///                         types. Default: \c false.
+    ///                       - \c bool "fold_all_bool_parameters": Fold all bool parameters.
+    ///                         Default: \c false.
+    ///                       - \c bool "fold_all_enum_parameters": Fold all enum parameters.
+    ///                         Default: \c false.
+    ///                       - #mi::base::IInterface *"fold_parameters": A static or dynamic array
+    ///                         of strings of the parameters to fold. The names of the parameters
+    ///                         are those that would otherwise be reported in
+    ///                         #mi::neuraylib::ICompiled_material::get_parameter_name().
+    ///                         Default: \c NULL
+    ///                       - \c bool "fold_trivial_cutout_opacity": Fold the expression for
+    ///                         geometry.cutout_opacity if it evaluates to a constant with value
+    ///                         0.0f or 1.0f. Default: \c false.
+    ///                       - \c bool "fold_transparent_layers": Calls to the functions
+    ///                         \c df::weighted_layer(), \c df::fresnel_layer(),
+    ///                         \c df::custom_curve_layer(), \c df::measured_curve_layer(), and
+    ///                         their equivalents with color weights, are replaced by their
+    ///                         \c base argument, if the \c weight argument evaluates to a constant
+    ///                         with value 0.0f, and the \c layer argument is one of
+    ///                         \c df::diffuse_transmission_bsdf(), \c df::specular_bsdf(),
+    ///                         \c df::simple_glossy_bsdf(), or \c df::microfacet_*_bsdf(), and
+    ///                         the \c scatter_mode argument (if present) is either
+    ///                         \c df::scatter_transmit or \c df::scatter_reflect_transmit.
+    ///                         In addition, the \c layer argument might be a combination of such
+    ///                         BSDFs using the ternary operator.
+    ///                       .
+    ///                       During material compilation, messages like errors and warnings will
+    ///                       be passed to the context for later evaluation by the caller. Possible
+    ///                       error conditions:
+    ///                       - Type mismatch, call of an unsuitable DB element, or call cycle in
+    ///                         the graph of this material instance.
+    ///                       - The thin-walled material instance has different transmission for
+    ///                         surface and backface.
+    ///                       - An argument type of the graph of this material instance is varying
+    ///                         but the corresponding parameter type is uniform.
+    ///                       - An element in the array for the context option
+    ///                         "fold_parameters" does not have the type #mi::IString.
+    /// \return               The corresponding compiled material, or \c NULL in case of failure.
     virtual ICompiled_material* create_compiled_material(
         Uint32 flags,
         IMdl_execution_context* context = 0) const = 0;
@@ -273,6 +242,32 @@ public:
     ///
     /// \return true, if this material instance is a default, false otherwise.
     virtual bool is_default() const = 0;
+
+    /// Returns \c true if this material instance and all its arguments point to valid
+    /// material and function definitions, \c false otherwise.
+    ///
+    /// Material and function definitions can become invalid due to a module reload.
+    ///
+    /// \see #mi::neuraylib::IModule::reload(), #mi::neuraylib::IMaterial_instance::repair()
+    ///
+    /// \param context  Execution context that can be queried for error messages
+    ///                 after the operation has finished. Can be \c NULL.
+    /// \return
+    ///      - \c true:  The instance is valid.
+    ///      - \c false: The instance is invalid.
+    virtual bool is_valid(IMdl_execution_context* context) const = 0;
+
+    /// Attempts to repair an invalid material instance.
+    ///
+    /// \param flags    Repair options, see #mi::neuraylib::Mdl_repair_options.
+    /// \param context  Execution context that can be queried for error messages
+    ///                 after the operation has finished. Can be \c NULL.
+    /// \return
+    ///     -   0:   Success.
+    ///     -  -1:   Repair failed. Check the \c context for details.
+    virtual Sint32 repair(
+        Uint32 flags,
+        IMdl_execution_context* context) = 0;
 };
 
 /*@}*/ // end group mi_neuray_mdl_elements

@@ -22,6 +22,10 @@ if(POLICY CMP0068)
   set(CMAKE_BUILD_WITH_INSTALL_NAME_DIR ON)
 endif()
 
+if(POLICY CMP0075)
+  cmake_policy(SET CMP0075 NEW)
+endif()
+
 if(NOT DEFINED LLVM_VERSION_MAJOR)
   set(LLVM_VERSION_MAJOR 7)
 endif()
@@ -313,7 +317,9 @@ set(LLVM_ALL_TARGETS
   )
 
 # List of targets with JIT support:
-set(LLVM_TARGETS_WITH_JIT X86)
+set(LLVM_TARGETS_WITH_JIT
+  X86
+  )
 
 set(LLVM_TARGETS_TO_BUILD "all"
     CACHE STRING "Semicolon-separated list of targets to build, or \"all\".")

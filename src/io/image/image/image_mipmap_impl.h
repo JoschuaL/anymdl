@@ -1,5 +1,5 @@
 /***************************************************************************************************
- * Copyright (c) 2011-2019, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2011-2020, NVIDIA CORPORATION. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -65,6 +65,11 @@ class Mipmap_impl
     public boost::noncopyable
 {
 public:
+    /// Default constructor.
+    ///
+    /// Creates a dummy mipmap (1x1 pink pixel)
+    Mipmap_impl();
+
     /// Constructor.
     ///
     /// Creates a memory-based mipmap with given pixel type, width, height, and layers of the
@@ -144,6 +149,7 @@ public:
     ///                           - -4: No image plugin found to handle the data.
     ///                           - -5: The image plugin failed to import the data.
     Mipmap_impl(
+        Container_based,
         mi::neuraylib::IReader* reader,
         const std::string& archive_filename,
         const std::string& member_filename,
@@ -159,6 +165,8 @@ public:
     /// \param reader             The reader to be used to obtain the mipmap. Needs to support
     ///                           absolute access.
     /// \param image_format       The image format of the buffer.
+    /// \param mdl_file_path      The resolved MDL file path (to be used for log messages only),
+    ///                           or \c NULL in other contexts.
     /// \param tile_width         The desired tile width. The special value 0 currently implies the
     ///                           width of the base level (but this might change without further
     ///                           notice).
@@ -175,8 +183,10 @@ public:
     ///                           - -4: No image plugin found to handle the data.
     ///                           - -5: The image plugin failed to import the data.
     Mipmap_impl(
+        Memory_based,
         mi::neuraylib::IReader* reader,
         const char* image_format,
+        const char* mdl_file_path,
         mi::Uint32 tile_width,
         mi::Uint32 tile_height,
         bool only_first_level,

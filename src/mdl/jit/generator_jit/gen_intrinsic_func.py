@@ -1,6 +1,6 @@
 #!/bin/env python
 #*****************************************************************************
-# Copyright (c) 2013-2019, NVIDIA CORPORATION. All rights reserved.
+# Copyright (c) 2013-2020, NVIDIA CORPORATION. All rights reserved.
 #
 # Redistribution and use in source and binary forms, with or without
 # modification, are permitted provided that the following conditions
@@ -281,10 +281,11 @@ class SignatureParser:
 	def get_texture_shape(self, type_code):
 		"""If type_code is a texture type, return its shape, else None."""
 		cases = {
-			"texture_2d"   : "mi::mdl::IType_texture::TS_2D",
-			"texture_3d"   : "mi::mdl::IType_texture::TS_3D",
-			"texture_cube" : "mi::mdl::IType_texture::TS_CUBE",
-			"texture_ptex" : "mi::mdl::IType_texture::TS_PTEX",
+			"texture_2d"        : "mi::mdl::IType_texture::TS_2D",
+			"texture_3d"        : "mi::mdl::IType_texture::TS_3D",
+			"texture_cube"      : "mi::mdl::IType_texture::TS_CUBE",
+			"texture_ptex"      : "mi::mdl::IType_texture::TS_PTEX",
+			"texture_bsdf_data" : "mi::mdl::IType_texture::TS_BSDF_DATA",
 		}
 		return cases.get(self.m_inv_types[type_code], None)
 
@@ -360,6 +361,11 @@ class SignatureParser:
 		o = self.parse_file(f)
 		f.close()
 
+	def parse_builtins(self, buffer):
+		"""Parse a mdl module given as buffer."""
+		self.curr_module = ""
+		o = self.parse_buffer(buffer)
+
 	def as_intrinsic_function(self, decl):
 		"""Check if the given declaration is an intrinsic function declaration."""
 		if decl[:5] == "const":
@@ -393,7 +399,7 @@ class SignatureParser:
 		"""get the type code"""
 		try:
 			return self.m_types[s]
-		except KeyError, e:
+		except KeyError:
 			error("Unsupported type '" + s + "' found")
 			sys.exit(1)
 
@@ -401,7 +407,7 @@ class SignatureParser:
 		"""get the type suffix"""
 		try:
 			return self.m_type_suffixes[s]
-		except KeyError, e:
+		except KeyError:
 			error("Unsupported type '" + s + "' found")
 			sys.exit(1)
 
@@ -495,8 +501,16 @@ class SignatureParser:
 		elif name == "transform_scale":
 			self.intrinsic_modes[name + signature] = "state::transform_scale"
 			return True
-		elif (name == "meters_per_scene_unit" or name == "scene_units_per_meter" or
-				name == "object_id" or name == "wavelength_min" or name == "wavelength_max"):
+		elif name == "meters_per_scene_unit":
+			self.intrinsic_modes[name + signature] = "state::meters_per_scene_unit"
+			return True
+		elif name == "scene_units_per_meter":
+			self.intrinsic_modes[name + signature] = "state::scene_units_per_meter"
+			return True
+		elif name == "wavelength_min" or name == "wavelength_max":
+			self.intrinsic_modes[name + signature] = "state::wavelength_min_max"
+			return True
+		elif name == "object_id":
 			# these should be handled by the code generator directly and never be
 			# called here
 			self.intrinsic_modes[name + signature] = "state::zero_return"
@@ -544,7 +558,8 @@ class SignatureParser:
 				name == "color_measured_curve_layer" or
 				name == "fresnel_factor" or
 				name == "measured_factor" or
-				name == "chiang_hair_bsdf"):
+				name == "chiang_hair_bsdf" or
+				name == "sheen_bsdf"):
 			self.unsupported_intrinsics[name] = "unsupported"
 			return True;
 		if (name == "light_profile_power" or name == "light_profile_maximum" or
@@ -605,6 +620,39 @@ class SignatureParser:
 			if (params[0] == "T2" and len(params) == 3):
 				# support texel_float2|3|4|color(texture_2d) with uv_tile parameter
 				self.intrinsic_modes[name + signature] = "tex::texel_floatX_uvtile"
+				return True
+		return False
+
+	def is_scene_supported(self, name, signature):
+		"""Checks if the given scene intrinsic is supported."""
+		ret_type, params = self.split_signature(signature)
+
+		if re.match("data_lookup_(float|int)$", name):
+			self.intrinsic_modes[name + signature] = "scene::data_lookup_atomic"
+			return True
+		elif re.match("data_lookup_uniform_(float|int)$", name):
+			self.intrinsic_modes[name + signature] = "scene::data_lookup_uniform_atomic"
+			return True
+		elif re.match("data_lookup_(float2|float3|float4|color|int2|int3|int4)$", name):
+			self.intrinsic_modes[name + signature] = "scene::data_lookup_vector"
+			return True
+		elif re.match("data_lookup_uniform_(float2|float3|float4|color|int2|int3|int4)$", name):
+			self.intrinsic_modes[name + signature] = "scene::data_lookup_uniform_vector"
+			return True
+		elif name == "data_isvalid":
+			self.intrinsic_modes[name + signature] = "scene::data_isvalid"
+			return True
+
+		return False
+
+	def is_builtin_supported(self, name, signature):
+		"""Checks if the given builtin intrinsic is supported."""
+		ret_type, params = self.split_signature(signature)
+
+		if name == "color":
+			if len(params) == 2:
+				# support color(float[<N>], float[N])
+				self.intrinsic_modes[name + signature] = "spectrum_constructor"
 				return True
 		return False
 
@@ -669,8 +717,8 @@ class SignatureParser:
 				self.intrinsic_modes[name + signature] = "math::distance"
 				return True
 			elif name == "emission_color":
-				# unsupported emission_color(float[<N>], float[N]), emission_color(color)
-				self.unsupported_intrinsics[name] = "unsupported"
+				# support emission_color(float[<N>], float[N])
+				self.intrinsic_modes[name + signature] = "math::emission_color"
 				return True
 			elif name == "eval_at_wavelength":
 				# support eval_at_wavelength(color,float)
@@ -711,6 +759,10 @@ class SignatureParser:
 			elif name == "blackbody":
 				# support blackbody with 1 argument
 				self.intrinsic_modes[name + signature] = "math::blackbody"
+				return True
+			elif name == "emission_color":
+				# supported emission_color(color)
+				self.intrinsic_modes[name + signature] = "math::first_arg"
 				return True
 			elif name == "length":
 				# support length(floatX)
@@ -795,8 +847,12 @@ class SignatureParser:
 			return self.is_df_supported(name, signature)
 		elif modname == "tex":
 			return self.is_tex_supported(name, signature)
+		elif modname == "scene":
+			return self.is_scene_supported(name, signature)
 		elif modname == "debug":
 			return self.is_debug_supported(name, signature)
+		elif modname == "":
+			return self.is_builtin_supported(name, signature)
 		return False
 
 	def skip_until(self, token_set, tokens):
@@ -874,7 +930,7 @@ class SignatureParser:
 		signature = self.create_signature(ret_type, args)
 
 		if self.debug:
-			print decl, signature
+			print("%s %s" % (decl, signature))
 
 		if self.is_supported(self.curr_module, name, signature):
 			# insert the new signature for the given name
@@ -887,12 +943,12 @@ class SignatureParser:
 		else:
 			warning("Cannot generate code for %s" % decl)
 
-	def parse_file(self, f):
-		"""Parse a file and retrieve intrinsic function definitions."""
+	def parse_lines(self, lines):
+		"""Parse lines and retrieve intrinsic function definitions."""
 
 		start = False
 		curr_line = ""
-		for line in f.readlines():
+		for line in lines:
 			l = line.strip();
 
 			# strip line comments
@@ -913,8 +969,16 @@ class SignatureParser:
 					if not decl:
 						continue
 					if self.debug:
-						print decl
+						print(decl)
 					self.get_signature(decl)
+
+	def parse_file(self, f):
+		"""Parse a file and retrieve intrinsic function definitions."""
+		self.parse_lines(f.readlines())
+
+	def parse_buffer(self, buffer):
+		"""Parse a string and retrieve intrinsic function definitions."""
+		self.parse_lines(buffer.splitlines())
 
 	def gen_condition(self, f, params, as_assert, pre_if = ""):
 		"""Generate the condition for the parameter type check."""
@@ -1041,23 +1105,29 @@ class SignatureParser:
 
 		mode = self.intrinsic_modes.get(intrinsic + signature)
 		if mode == None:
-			print "error: ", intrinsic + signature
+			error("%s%s" % (intrinsic, signature))
 
-		self.write(f, 'Function_instance inst(m_code_gen.get_allocator(), func_def, return_derivs);\n')
-		self.write(f, 'LLVM_context_data *ctx_data = m_code_gen.get_or_create_context_data(NULL, inst, "::%s");\n' % self.m_intrinsic_mods[intrinsic])
-		self.write(f, "llvm::Function    *func     = ctx_data->get_function();\n")
+		params = { "mode" : "::" + self.m_intrinsic_mods[intrinsic] }
+		if params["mode"] == "::":
+			params["mode"] = "::<builtins>"
+		code = """
+		Function_instance inst(m_code_gen.get_allocator(), func_def, return_derivs);
+		LLVM_context_data *ctx_data = m_code_gen.get_or_create_context_data(NULL, inst, "%(mode)s");
+		llvm::Function    *func     = ctx_data->get_function();
+		unsigned          flags     = ctx_data->get_function_flags();
 
-		self.write(f, "unsigned          flags     = ctx_data->get_function_flags();\n\n")
+		Function_context ctx(m_alloc, m_code_gen, inst, func, flags);
+		llvm::Value *res;
 
-		self.write(f, "Function_context ctx(m_alloc, m_code_gen, inst, func, flags);\n")
-		self.write(f, "llvm::Value *res;\n")
-
-		# all intrinsics have internal linkage
-		self.write(f, "func->setLinkage(llvm::GlobalValue::InternalLinkage);\n")
+		func->setLinkage(llvm::GlobalValue::InternalLinkage);
+		if (m_code_gen.is_always_inline_enabled())
+			func->addFnAttr(llvm::Attribute::AlwaysInline);
+		"""
+		self.format_code(f, code % params)
 
 		ret_type, params = self.split_signature(signature)
 
-		need_res_data = mode[0:5] == "tex::" or mode == "df::attr_lookup"
+		need_res_data = mode[0:5] == "tex::" or mode == "df::attr_lookup" or mode[0:7] == "scene::"
 
 		if need_res_data or params != []:
 			self.write(f, "llvm::Function::arg_iterator arg_it = ctx.get_first_parameter();\n")
@@ -1968,7 +2038,7 @@ class SignatureParser:
 					if (tmp->getType() != res_tp) {
 						// convert bool type
 						res = llvm::UndefValue::get(res_tp);
-						for (int i = 1; i < %(size)d; ++i) {
+						for (int i = 0; i < %(size)d; ++i) {
 							llvm::Value *idx  = ctx.get_constant(i);
 							llvm::Value *elem = ctx->CreateExtractElement(tmp, idx);
 							// map the i1 vector result to the bool type representation
@@ -1990,20 +2060,29 @@ class SignatureParser:
 
 		elif mode == "math::transpose":
 			type_code = params[0]
-			rows = int(type_code[-1])
-			cols = int(type_code[-2])
+			src_rows = int(type_code[-1])
+			src_cols = int(type_code[-2])
+			tgt_rows = src_cols
+			tgt_cols = src_rows
 
-			params = { "rows" : rows, "cols" : cols }
+			#        0 3
+			#   a = (1 4) = [0, 1, 2, 3, 4, 5]
+			#        2 5
+			#
+			# res = (0 1 2) = [0, 3, 1, 4, 2, 5]
+			#        3 4 5
+
+			params = { "rows" : src_rows, "cols" : src_cols }
 
 			# the shuffle indexes for big_vector mode
 			code = "";
 
-			for col in range(cols):
-				for row in range(rows):
-					src_idx = row * cols + col
+			for col in range(tgt_cols):
+				for row in range(tgt_rows):
+					src_idx = row * tgt_cols + col
 					code = code + (" %d," % src_idx)
 
-			params["shuffle_idxes"] = code[0:-1]
+			params["shuffle_idxes"] = code[0:-1] # remove last ','
 
 			code = """
 				llvm::Type *ret_tp = ctx.get_non_deriv_return_type();
@@ -2012,31 +2091,91 @@ class SignatureParser:
 					llvm::Type      *e_tp = a_tp->getElementType();
 					if (e_tp->isVectorTy()) {
 						// small vector mode
-						llvm::Value *column[%(cols)d];
-
 						res = llvm::UndefValue::get(ret_tp);
-						for (unsigned col = 0; col < %(cols)d; ++col) {
-							column[col] = ctx->CreateExtractValue(a, { col });
-						}
-						for (unsigned row = 0; row < %(rows)d; ++row) {
-							llvm::Value *tmp = llvm::UndefValue::get(e_tp);
+
+						if (m_code_gen.m_type_mapper.is_deriv_type(a->getType())) {
+							llvm::Value *column_val[%(cols)d];
+							llvm::Value *column_dx[%(cols)d];
+							llvm::Value *column_dy[%(cols)d];
+
+							llvm::Value *a_val = ctx.get_dual_val(a);
+							llvm::Value *a_dx  = ctx.get_dual_dx(a);
+							llvm::Value *a_dy  = ctx.get_dual_dy(a);
+
+							llvm::Value *res_val = res, *res_dx = res, *res_dy = res;
+
 							for (unsigned col = 0; col < %(cols)d; ++col) {
-								llvm::Value *elem = ctx->CreateExtractElement(column[col], ctx.get_constant(int(row)));
-								tmp  = ctx->CreateInsertElement(tmp, elem, ctx.get_constant(int(col)));
+								column_val[col] = ctx->CreateExtractValue(a_val, { col });
+								column_dx [col] = ctx->CreateExtractValue(a_dx , { col });
+								column_dy [col] = ctx->CreateExtractValue(a_dy , { col });
 							}
-							res = ctx->CreateInsertValue(res, tmp, { row });
+							for (unsigned row = 0; row < %(rows)d; ++row) {
+								llvm::Value *tmp_val = llvm::UndefValue::get(e_tp);
+								llvm::Value *tmp_dx  = llvm::UndefValue::get(e_tp);
+								llvm::Value *tmp_dy  = llvm::UndefValue::get(e_tp);
+
+								for (unsigned col = 0; col < %(cols)d; ++col) {
+									llvm::Value *elem_val = ctx->CreateExtractElement(column_val[col], ctx.get_constant(int(row)));
+									llvm::Value *elem_dx  = ctx->CreateExtractElement(column_dx[col],  ctx.get_constant(int(row)));
+									llvm::Value *elem_dy  = ctx->CreateExtractElement(column_dy[col],  ctx.get_constant(int(row)));
+
+									tmp_val  = ctx->CreateInsertElement(tmp_val, elem_val, ctx.get_constant(int(col)));
+									tmp_dx   = ctx->CreateInsertElement(tmp_dx , elem_dx , ctx.get_constant(int(col)));
+									tmp_dy   = ctx->CreateInsertElement(tmp_dy , elem_dy , ctx.get_constant(int(col)));
+								}
+								res_val = ctx->CreateInsertValue(res_val, tmp_val, { row });
+								res_dx  = ctx->CreateInsertValue(res_dx,  tmp_dx,  { row });
+								res_dy  = ctx->CreateInsertValue(res_dy,  tmp_dy,  { row });
+							}
+							res = ctx.get_dual(res_val, res_dx, res_dy);
+						} else {
+							llvm::Value *column[%(cols)d];
+
+							for (unsigned col = 0; col < %(cols)d; ++col) {
+								column[col] = ctx->CreateExtractValue(a, { col });
+							}
+							for (unsigned row = 0; row < %(rows)d; ++row) {
+								llvm::Value *tmp = llvm::UndefValue::get(e_tp);
+								for (unsigned col = 0; col < %(cols)d; ++col) {
+									llvm::Value *elem = ctx->CreateExtractElement(column[col], ctx.get_constant(int(row)));
+									tmp  = ctx->CreateInsertElement(tmp, elem, ctx.get_constant(int(col)));
+								}
+								res = ctx->CreateInsertValue(res, tmp, { row });
+							}
 						}
 					} else {
 						// all scalar mode
 						res = llvm::UndefValue::get(ret_tp);
 						llvm::Value *tmp;
 
-						for (unsigned col = 0; col < %(cols)d; ++col) {
-							for (unsigned row = 0; row < %(rows)d; ++row) {
-								unsigned tgt_idxes[1] = { col * %(rows)d + row };
-								unsigned src_idxes[1] = { row * %(cols)d + col };
-								tmp = ctx->CreateExtractValue(a, src_idxes);
-								res = ctx->CreateInsertValue(res, tmp, tgt_idxes);
+						if (m_code_gen.m_type_mapper.is_deriv_type(a->getType())) {
+							llvm::Value *a_val = ctx.get_dual_val(a);
+							llvm::Value *a_dx  = ctx.get_dual_dx(a);
+							llvm::Value *a_dy  = ctx.get_dual_dy(a);
+
+							llvm::Value *res_val = res, *res_dx = res, *res_dy = res;
+
+							for (unsigned col = 0; col < %(cols)d; ++col) {
+								for (unsigned row = 0; row < %(rows)d; ++row) {
+									unsigned tgt_idxes[1] = { col * %(rows)d + row };
+									unsigned src_idxes[1] = { row * %(cols)d + col };
+									tmp = ctx->CreateExtractValue(a_val, src_idxes);
+									res_val = ctx->CreateInsertValue(res_val, tmp, tgt_idxes);
+									tmp = ctx->CreateExtractValue(a_dx, src_idxes);
+									res_dx = ctx->CreateInsertValue(res_dx, tmp, tgt_idxes);
+									tmp = ctx->CreateExtractValue(a_dy, src_idxes);
+									res_dy = ctx->CreateInsertValue(res_dy, tmp, tgt_idxes);
+								}
+							}
+							res = ctx.get_dual(res_val, res_dx, res_dy);
+						} else {
+							for (unsigned col = 0; col < %(cols)d; ++col) {
+								for (unsigned row = 0; row < %(rows)d; ++row) {
+									unsigned tgt_idxes[1] = { col * %(rows)d + row };
+									unsigned src_idxes[1] = { row * %(cols)d + col };
+									tmp = ctx->CreateExtractValue(a, src_idxes);
+									res = ctx->CreateInsertValue(res, tmp, tgt_idxes);
+								}
 							}
 						}
 					}
@@ -2044,10 +2183,19 @@ class SignatureParser:
 					// big vector mode
 					static const int idxes[] = { %(shuffle_idxes)s };
 					llvm::Value *shuffle = ctx.get_shuffle(idxes);
-					res = ctx->CreateShuffleVector(a, a, shuffle);
-				}
-				if (inst.get_return_derivs()) { // expand to dual (actually should not happen)
-					res = ctx.get_dual(res);
+
+					if (m_code_gen.m_type_mapper.is_deriv_type(a->getType())) {
+						llvm::Value *a_val = ctx.get_dual_val(a);
+						llvm::Value *a_dx  = ctx.get_dual_dx(a);
+						llvm::Value *a_dy  = ctx.get_dual_dy(a);
+
+						res = ctx.get_dual(
+							ctx->CreateShuffleVector(a_val, a_val, shuffle),
+							ctx->CreateShuffleVector(a_dx , a_dx , shuffle),
+							ctx->CreateShuffleVector(a_dy , a_dy , shuffle));
+					} else {
+						res = ctx->CreateShuffleVector(a, a, shuffle);
+					}
 				}
 			"""
 			self.format_code(f, code % params)
@@ -2055,7 +2203,6 @@ class SignatureParser:
 		elif mode == "math::sincos":
 			# we know that the return type is an array, so get the element type here
 			code = """
-				unsigned    idxes[1];
 				llvm::Value *res_0, *res_1;
 				llvm::Value *a_val = ctx.get_dual_val(a);
 
@@ -2084,8 +2231,7 @@ class SignatureParser:
 				if atom_code == "FF":
 					is_float = True
 					code += """
-						llvm::Function *sincos_func =
-							m_has_sincosf ? get_runtime_func(RT_SINCOSF) : NULL;
+						llvm::Function *sincos_func = m_has_sincosf ? get_runtime_func(RT_SINCOSF) : NULL;
 					"""
 
 				code += """
@@ -2095,93 +2241,51 @@ class SignatureParser:
 					res_1 = llvm::ConstantAggregateZero::get(elm_tp);
 				""" % code_params
 
-				code += """
-					if (elm_tp->isArrayTy()) {
-						llvm::Value *tmp;
-				"""
-
-				for i in range(n_elems):
-					code += """
-						idxes[0] = %du;
-						tmp   = ctx->CreateExtractValue(a_val, idxes);
-					""" % i
-
-					if is_float:
-						code += """
-							if (m_has_sincosf) {
-								llvm::Value *access0[] = {
-									ctx.get_constant(int(0)),
-									ctx.get_constant(int(%d))
-								};
-								llvm::Value *sinp = ctx->CreateInBoundsGEP(res, access0);
-								llvm::Value *access1[] = {
-									ctx.get_constant(int(1)),
-									ctx.get_constant(int(%d))
-								};
-								llvm::Value *cosp = ctx->CreateInBoundsGEP(res, access1);
-								ctx->CreateCall(sincos_func, { a_val, sinp, cosp });
-							} else {
-						""" % (i, i)
-
-					code += """
-						res_0 = ctx->CreateInsertValue(res_0, ctx->CreateCall(sin_func, tmp), idxes);
-						res_1 = ctx->CreateInsertValue(res_1, ctx->CreateCall(cos_func, tmp), idxes);
-					"""
-					if is_float:
-						code += """
-							}
-						"""
-
-				code += """
-					} else {
-						llvm::Value *tmp, *idx;
-				"""
-
 				if is_float:
 					code += """
-							if (m_has_sincosf) {
-								llvm::Value *sc_tmp = ctx->CreateAlloca(elm_tp);
-								llvm::Value *s_tmp  = ctx.create_simple_gep_in_bounds(
-									sc_tmp, ctx.get_constant(int(0)));
-								llvm::Value *c_tmp  = ctx.create_simple_gep_in_bounds(
-									sc_tmp, ctx.get_constant(int(1)));
-					"""
-
-					for i in range(n_elems):
-						code += """
-								idx = ctx.get_constant(%d);
-
-								tmp   = ctx->CreateExtractElement(a_val, idx);
-								ctx->CreateCall(sincos_func, { tmp, s_tmp, c_tmp });
-								res_0 = ctx->CreateInsertElement(res_0, ctx->CreateLoad(s_tmp), idx);
-								res_1 = ctx->CreateInsertElement(res_1, ctx->CreateLoad(c_tmp), idx);
-						""" % i
-
-					code += """
-							} else {
-					"""
-
-				for i in range(n_elems):
-					code += """
-							idx = ctx.get_constant(%d);
-
-							tmp   = ctx->CreateExtractElement(a_val, idx);
-							res_0 = ctx->CreateInsertElement(res_0, ctx->CreateCall(sin_func, tmp), idx);
-							res_1 = ctx->CreateInsertElement(res_1, ctx->CreateCall(cos_func, tmp), idx);
-					""" % i
-
-				if is_float:
-					code += """
+						llvm::Value *sc_tmp = nullptr;
+						llvm::Value *s_tmp  = nullptr;
+						llvm::Value *c_tmp  = nullptr;
+						if (m_has_sincosf) {
+							sc_tmp = ctx->CreateAlloca(elm_tp);
+							s_tmp  = ctx.create_simple_gep_in_bounds(sc_tmp, 0u);
+							c_tmp  = ctx.create_simple_gep_in_bounds(sc_tmp, 1u);
 						}
 					"""
 
 				code += """
-					}
+					for (unsigned i = 0; i < %d; ++i) {
+						llvm::Value *tmp = ctx.create_extract(a_val, i);
+					""" % n_elems
 
-					idxes[0] = 0;
-					res = ctx->CreateInsertValue(res, res_0, idxes);
-					idxes[0] = 1;
-					res = ctx->CreateInsertValue(res, res_1, idxes);
+				if is_float:
+					code += """
+						llvm::Value *s_val;
+						llvm::Value *c_val;
+						if (m_has_sincosf) {
+							ctx->CreateCall(sincos_func, { tmp, s_tmp, c_tmp });
+							s_val = ctx->CreateLoad(s_tmp);
+							c_val = ctx->CreateLoad(c_tmp);
+						} else {
+							s_val = ctx->CreateCall(sin_func, tmp);
+							c_val = ctx->CreateCall(cos_func, tmp);
+						}
+					"""
+				else:
+					code += """
+						llvm::Value *s_val = ctx->CreateCall(sin_func, tmp);
+						llvm::Value *c_val = ctx->CreateCall(cos_func, tmp);
+					"""
+
+				code += """
+						res_0 = ctx.create_insert(res_0, s_val, i);
+						res_1 = ctx.create_insert(res_1, c_val, i);
+					}
+					"""
+
+				code += """
+					res = ctx.create_insert(res, res_0, 0);
+					res = ctx.create_insert(res, res_1, 1);
 				"""
 				self.format_code(f, code)
 			else:
@@ -2197,10 +2301,8 @@ class SignatureParser:
 						if (m_has_sincosf) {
 							llvm::Function *sincos_func = get_runtime_func(RT_SINCOSF);
 							res = ctx->CreateAlloca(ret_tp);
-							llvm::Value *sinp = ctx.create_simple_gep_in_bounds(
-								res, ctx.get_constant(int(0)));
-							llvm::Value *cosp = ctx.create_simple_gep_in_bounds(
-								res, ctx.get_constant(int(1)));
+							llvm::Value *sinp = ctx.create_simple_gep_in_bounds(res, 0u);
+							llvm::Value *cosp = ctx.create_simple_gep_in_bounds(res, 1u);
 							ctx->CreateCall(sincos_func, { a_val, sinp, cosp });
 							res = ctx->CreateLoad(res);
 						} else {
@@ -2209,10 +2311,8 @@ class SignatureParser:
 							res_0 = ctx->CreateCall(sin_func, a_val);
 							res_1 = ctx->CreateCall(cos_func, a_val);
 
-							idxes[0] = 0;
-							res = ctx->CreateInsertValue(res, res_0, idxes);
-							idxes[0] = 1;
-							res = ctx->CreateInsertValue(res, res_1, idxes);
+							res = ctx.create_insert(res, res_0, 0);
+							res = ctx.create_insert(res, res_1, 1);
 						}
 					""" % code_params
 					self.format_code(f, code)
@@ -2224,10 +2324,8 @@ class SignatureParser:
 						res_0 = ctx->CreateCall(sin_func, a_val);
 						res_1 = ctx->CreateCall(cos_func, a_val);
 
-						idxes[0] = 0;
-						res = ctx->CreateInsertValue(res, res_0, idxes);
-						idxes[0] = 1;
-						res = ctx->CreateInsertValue(res, res_1, idxes);
+						res = ctx.create_insert(res, res_0, 0);
+						res = ctx.create_insert(res, res_1, 1);
 					""" % code_params
 					self.format_code(f, code)
 
@@ -2240,26 +2338,14 @@ class SignatureParser:
 				llvm::Value *cos_a = ctx.create_extract(res, 1);
 				llvm::Type *base_type = a_val->getType();
 
-				llvm::Value *res_dx_0 = ctx.create_mul(
-					base_type,
-					ctx.get_dual_dx(a),
-					cos_a);
-				llvm::Value *res_dx_1 = ctx.create_mul(
-					base_type,
-					ctx.get_dual_dx(a),
-					neg_sin_a);
+				llvm::Value *res_dx_0 = ctx.create_mul(base_type, ctx.get_dual_dx(a), cos_a);
+				llvm::Value *res_dx_1 = ctx.create_mul(base_type, ctx.get_dual_dx(a), neg_sin_a);
 				llvm::Value *res_dx = llvm::ConstantAggregateZero::get(ret_tp);
 				res_dx = ctx.create_insert(res_dx, res_dx_0, 0);
 				res_dx = ctx.create_insert(res_dx, res_dx_1, 1);
 
-				llvm::Value *res_dy_0 = ctx.create_mul(
-					base_type,
-					ctx.get_dual_dy(a),
-					cos_a);
-				llvm::Value *res_dy_1 = ctx.create_mul(
-					base_type,
-					ctx.get_dual_dy(a),
-					neg_sin_a);
+				llvm::Value *res_dy_0 = ctx.create_mul(base_type, ctx.get_dual_dy(a), cos_a);
+				llvm::Value *res_dy_1 = ctx.create_mul(base_type, ctx.get_dual_dy(a), neg_sin_a);
 				llvm::Value *res_dy = llvm::ConstantAggregateZero::get(ret_tp);
 				res_dy = ctx.create_insert(res_dy, res_dy_0, 0);
 				res_dy = ctx.create_insert(res_dy, res_dy_1, 1);
@@ -2390,9 +2476,14 @@ class SignatureParser:
 						llvm::Value *a_elem = ctx.create_extract_allow_deriv(a, i);
 						tmp = ctx.create_deriv_add(base_type, tmp, ctx.create_deriv_mul(base_type, a_elem, a_elem));
 					}
-					llvm::Value *tmp_var = ctx.create_local(tmp->getType(), "tmp");
-					ctx->CreateStore(tmp, tmp_var);
-					res = ctx->CreateCall(sqrt_deriv_func, tmp_var);
+					llvm::Value *sqrt_arg;
+					if (m_code_gen.m_type_mapper.target_supports_pointers()) {
+						sqrt_arg = ctx.create_local(tmp->getType(), "tmp");
+						ctx->CreateStore(tmp, sqrt_arg);
+					} else {
+						sqrt_arg = tmp;
+					}
+					res = ctx->CreateCall(sqrt_deriv_func, sqrt_arg);
 				} else {
 					llvm::Function *sqrt_func = get_runtime_func(%(sqrt_name)s);
 
@@ -2416,9 +2507,14 @@ class SignatureParser:
 						"::math", "abs(%(type)s)");
 					llvm::Function *abs_deriv_func = get_intrinsic_function(abs_def, /*return_derivs=*/ true);
 
-					llvm::Value *tmp_var = ctx.create_local(a->getType(), "tmp");
-					ctx->CreateStore(a, tmp_var);
-					res = ctx->CreateCall(abs_deriv_func, tmp_var);
+					llvm::Value *abs_arg;
+					if (m_code_gen.m_type_mapper.target_supports_pointers()) {
+						abs_arg = ctx.create_local(a->getType(), "tmp");
+						ctx->CreateStore(a, abs_arg);
+					} else {
+						abs_arg = a;
+					}
+					res = ctx->CreateCall(abs_deriv_func, abs_arg);
 				} else {
 					llvm::Function *abs_func = get_runtime_func(%(abs_name)s);
 					res = ctx->CreateCall(abs_func, a);
@@ -2520,9 +2616,15 @@ class SignatureParser:
 						"::math", "length(%(type)s)");
 					llvm::Function *length_deriv_func = get_intrinsic_function(length_def, /*return_derivs=*/ true);
 
-					llvm::Value *tmp_var = ctx.create_local(diff->getType(), "tmp");
-					ctx->CreateStore(diff, tmp_var);
-					res = ctx->CreateCall(length_deriv_func, tmp_var);
+					llvm::Value *length_arg;
+					if (m_code_gen.m_type_mapper.target_supports_pointers()) {
+						length_arg = ctx.create_local(diff->getType(), "tmp");
+						ctx->CreateStore(diff, length_arg);
+					} else {
+						length_arg = diff;
+					}
+
+					res = ctx->CreateCall(length_deriv_func, length_arg);
 				} else {
 					llvm::Function *sqrt_func = get_runtime_func(%(sqrt_name)s);
 
@@ -2551,9 +2653,14 @@ class SignatureParser:
 						"::math", "abs(%(type)s)");
 					llvm::Function *abs_deriv_func = get_intrinsic_function(abs_def, /*return_derivs=*/ true);
 
-					llvm::Value *tmp_var = ctx.create_local(diff->getType(), "tmp");
-					ctx->CreateStore(diff, tmp_var);
-					res = ctx->CreateCall(abs_deriv_func, tmp_var);
+					llvm::Value *abs_arg;
+					if (m_code_gen.m_type_mapper.target_supports_pointers()) {
+						abs_arg = ctx.create_local(diff->getType(), "tmp");
+						ctx->CreateStore(diff, abs_arg);
+					} else {
+						abs_arg = diff;
+					}
+					res = ctx->CreateCall(abs_deriv_func, abs_arg);
 				} else {
 					llvm::Function *abs_func = get_runtime_func(%(abs_name)s);
 					res = ctx->CreateFSub(a, b);
@@ -2606,7 +2713,7 @@ class SignatureParser:
 					"::math", "%(intrinsic)s(%(param_types)s)");
 				llvm::Function *a_func = get_intrinsic_function(a_def, /*return_derivs=*/ true);
 				llvm::Value *a_args[%(len_params)d];
-				llvm::Value *a_arg_vars[%(len_params)d];
+				llvm::Value *a_arg_vars[%(len_params)d] = { 0 };
 				llvm::Value *a_res[%(n_elems)d];
 				llvm::Value *tmp;
 			""" % {
@@ -2637,20 +2744,28 @@ class SignatureParser:
 
 						if i == 0:
 							self.format_code(f,
-							"""a_arg_vars[%(idx)d] = ctx.create_local(tmp->getType(), "%(p_name)s");
-							a_args[%(idx)d] = a_arg_vars[%(idx)d];
+							"""if (m_code_gen.m_type_mapper.target_supports_pointers()) {
+								a_arg_vars[%(idx)d] = ctx.create_local(tmp->getType(), "%(p_name)s");
+								a_args[%(idx)d] = a_arg_vars[%(idx)d];
+								ctx->CreateStore(tmp, a_arg_vars[%(idx)d]);
+							} else {
+								a_args[%(idx)d] = tmp;
+							}
 							""" % {
 								"p_name": p_name,
 								"idx": idx
 							})
-
-						self.format_code(f,
-						"""ctx->CreateStore(tmp, a_arg_vars[%(idx)d]);
-						""" % {
-							"p_name": p_name,
-							"elem": i,
-							"idx": idx
-						})
+						else:
+							self.format_code(f,
+							"""if (m_code_gen.m_type_mapper.target_supports_pointers()) {
+								ctx->CreateStore(tmp, a_arg_vars[%(idx)d]);
+							} else {
+								a_args[%(idx)d] = tmp;
+							}
+							""" % {
+								"p_name": p_name,
+								"idx": idx
+							})
 					self.write(f, "++arg_it;\n")
 
 				self.write(f, "a_res[%d] = ctx->CreateCall(a_func, a_args);\n" % i)
@@ -2706,27 +2821,27 @@ class SignatureParser:
 
 		elif mode == "math::blackbody":
 			code = """
-			llvm::Type *ret_tp = ctx.get_non_deriv_return_type();
-			if (m_has_res_handler) {
-				llvm::Function  *bb_func = get_runtime_func(RT_MDL_BLACKBODY);
-				llvm::ArrayType *arr_tp  = m_code_gen.m_type_mapper.get_arr_float_3_type();
-				llvm::Value     *tmp     = ctx.create_local(arr_tp, "tmp");
-				ctx->CreateCall(bb_func, { tmp, ctx.get_dual_val(a) });
+			llvm::Type      *ret_tp  = ctx.get_non_deriv_return_type();
+			llvm::Function  *bb_func = get_runtime_func(RT_MDL_BLACKBODY);
+			llvm::ArrayType *arr_tp  = m_code_gen.m_type_mapper.get_arr_float_3_type();
+			llvm::Value     *tmp     = ctx.create_local(arr_tp, "tmp");
+			ctx->CreateCall(bb_func, { tmp, ctx.get_dual_val(a) });
 
-				if (ret_tp->isArrayTy()) {
-					res = ctx->CreateLoad(tmp);
-				} else {
-					llvm::Value *arr = ctx->CreateLoad(tmp);
-					res = llvm::ConstantAggregateZero::get(ret_tp);
-					for (unsigned i = 0; i < 3; ++i) {
-						unsigned idxes[1] = { i };
-						tmp = ctx->CreateExtractValue(arr, idxes);
-						llvm::Value *idx = ctx.get_constant(int(i));
-						res = ctx->CreateInsertElement(res, tmp, idx);
-					}
-				}
+			if (ret_tp->isArrayTy()) {
+				res = ctx->CreateLoad(tmp);
 			} else {
-				res = llvm::Constant::getNullValue(ret_tp);
+				llvm::Value *arr = ctx->CreateLoad(tmp);
+				res = llvm::ConstantAggregateZero::get(ret_tp);
+				for (unsigned i = 0; i < 3; ++i) {
+					unsigned idxes[1] = { i };
+					tmp = ctx->CreateExtractValue(arr, idxes);
+					llvm::Value *idx = ctx.get_constant(int(i));
+					res = ctx->CreateInsertElement(res, tmp, idx);
+				}
+			}
+			if (!m_has_res_handler) {
+				// need libmdlrt
+				m_code_gen.m_link_libmdlrt = true;
 			}
 			if (inst.get_return_derivs()) { // expand to dual
 				res = ctx.get_dual(res);
@@ -2734,9 +2849,92 @@ class SignatureParser:
 			"""
 			self.format_code(f, code)
 
-		elif mode == "state::core_set":
+		elif mode == "math::first_arg":
+			code = ""
+			first = True
+			for param in params:
+				if first:
+					first = False
+				else:
+					code += """
+						(void)%s;""" % chr(ord('a') + idx)
+				idx = idx + 1
+			code += """
+			res = a;
+			"""
+			self.format_code(f, code)
+
+		elif mode == "math::emission_color" or mode == "spectrum_constructor":
+			params = {}
+			if mode == "math::emission_color":
+				params["intrinsic"] = "RT_MDL_EMISSION_COLOR"
+			else:
+				params["intrinsic"] = "RT_MDL_REFLECTION_COLOR"
+
 			code = """
-			llvm::Type *ret_tp = ctx.get_non_deriv_return_type();
+			llvm::Type      *ret_tp  = ctx.get_non_deriv_return_type();
+			llvm::Function  *bb_func = get_runtime_func(%(intrinsic)s);
+			llvm::ArrayType *arr_tp  = m_code_gen.m_type_mapper.get_arr_float_3_type();
+			llvm::Value     *tmp     = ctx.create_local(arr_tp, "tmp");
+			llvm::Value     *a_desc  = ctx.get_dual_val(a);
+			llvm::Value     *b_desc  = ctx.get_dual_val(b);
+
+			// this is a runtime function, and as such it is not instantiated, so the arrays are
+			// passed by array descriptors
+
+			if (m_target_lang == LLVM_code_generator::TL_HLSL) {
+				// passed by value
+
+				// we must always inline this for HLSL to avoid pointer type arguments
+				func->addFnAttr(llvm::Attribute::AlwaysInline);
+
+				llvm::Value *args[] = {
+					ctx->CreateBitCast(tmp, m_code_gen.m_type_mapper.get_float_ptr_type()),
+					ctx.get_deferred_base(a_desc),
+					ctx.get_deferred_base(b_desc),
+					ctx->CreateTrunc(
+						ctx.get_deferred_size(a_desc),
+						m_code_gen.m_type_mapper.get_int_type())
+				};
+				ctx->CreateCall(bb_func, args);
+			} else {
+				// passed by pointer
+				llvm::Value *args[] = {
+					ctx->CreateBitCast(tmp, m_code_gen.m_type_mapper.get_float_ptr_type()),
+					ctx.get_deferred_base_from_ptr(a_desc),
+					ctx.get_deferred_base_from_ptr(b_desc),
+					ctx->CreateTrunc(
+						ctx.get_deferred_size_from_ptr(a_desc),
+						m_code_gen.m_type_mapper.get_int_type())
+				};
+				ctx->CreateCall(bb_func, args);
+			}
+
+			if (ret_tp->isArrayTy()) {
+				res = ctx->CreateLoad(tmp);
+			} else {
+				llvm::Value *arr = ctx->CreateLoad(tmp);
+				res = llvm::ConstantAggregateZero::get(ret_tp);
+				for (unsigned i = 0; i < 3; ++i) {
+					unsigned idxes[1] = { i };
+					tmp = ctx->CreateExtractValue(arr, idxes);
+					llvm::Value *idx = ctx.get_constant(int(i));
+					res = ctx->CreateInsertElement(res, tmp, idx);
+				}
+			}
+			// need libmdlrt
+			m_code_gen.m_link_libmdlrt = true;
+
+			if (inst.get_return_derivs()) { // expand to dual
+				res = ctx.get_dual(res);
+			}
+			"""
+			self.format_code(f, code % params)
+
+		elif mode == "state::core_set":
+			self.format_code(f,
+			"""
+			llvm::Type *ret_tp = %s;
 			if (m_code_gen.m_state_mode & Type_mapper::SSM_CORE) {
 				llvm::Value *state = ctx.get_state_parameter();
 				llvm::Value *adr   = ctx.create_simple_gep_in_bounds(
@@ -2746,11 +2944,84 @@ class SignatureParser:
 				// zero in all other contexts
 				res = llvm::Constant::getNullValue(ret_tp);
 			}
+			""" % (
+				"ctx.get_return_type()" if intrinsic == "position" else "ctx.get_non_deriv_return_type()",
+				intrinsic.upper()
+			))
+
+			if intrinsic == "position":
+				self.format_code(f,
+				"""
+				// no derivatives requested? -> get value component
+				if (!inst.get_return_derivs() && m_code_gen.m_type_mapper.use_derivatives()) {
+					res = ctx.get_dual_val(res);
+				}
+				""")
+			else:
+				self.format_code(f,
+				"""
+				if (inst.get_return_derivs()) { // expand to dual
+					res = ctx.get_dual(res);
+				}
+				""")
+
+		elif mode == "state::meters_per_scene_unit":
+			self.format_code(f,
+			"""
+			if (m_code_gen.m_fold_meters_per_scene_unit) {
+				res = ctx.get_constant(m_code_gen.m_meters_per_scene_unit);
+			} else {
+				llvm::Type *ret_tp = %s;
+				if (m_code_gen.m_state_mode & Type_mapper::SSM_CORE) {
+					llvm::Value *state = ctx.get_state_parameter();
+					llvm::Value *adr = ctx.create_simple_gep_in_bounds(
+						state, ctx.get_constant(m_code_gen.m_type_mapper.get_state_index(Type_mapper::STATE_CORE_METERS_PER_SCENE_UNIT)));
+					res = ctx.load_and_convert(ret_tp, adr);
+				} else {
+					// zero in all other contexts, as currently not available in state
+					res = llvm::Constant::getNullValue(ret_tp);
+				}
+			}
 			if (inst.get_return_derivs()) { // expand to dual
 				res = ctx.get_dual(res);
 			}
+			""" % (
+				"ctx.get_non_deriv_return_type()",
+			))
+
+		elif mode == "state::scene_units_per_meter":
+			self.format_code(f,
 			"""
-			self.format_code(f, code % intrinsic.upper())
+			if (m_code_gen.m_fold_meters_per_scene_unit) {
+				res = ctx.get_constant(1.f / m_code_gen.m_meters_per_scene_unit);
+			} else {
+				llvm::Type *ret_tp = %s;
+				if (m_code_gen.m_state_mode & Type_mapper::SSM_CORE) {
+					llvm::Value *state = ctx.get_state_parameter();
+					llvm::Value *adr = ctx.create_simple_gep_in_bounds(
+						state, ctx.get_constant(m_code_gen.m_type_mapper.get_state_index(Type_mapper::STATE_CORE_METERS_PER_SCENE_UNIT)));
+					res = ctx.load_and_convert(ret_tp, adr);
+					res = ctx->CreateFDiv(ctx.get_constant(1.f), res);
+				} else {
+					// zero in all other contexts, as currently not available in state
+					res = llvm::Constant::getNullValue(ret_tp);
+				}
+			}
+			if (inst.get_return_derivs()) { // expand to dual
+				res = ctx.get_dual(res);
+			}
+			""" % (
+				"ctx.get_non_deriv_return_type()",
+			))
+
+		elif mode == "state::wavelength_min_max":
+			self.format_code(f,
+			"""
+			res = ctx.get_constant(m_code_gen.m_%s);
+			if (inst.get_return_derivs()) { // expand to dual
+				res = ctx.get_dual(res);
+			}
+			""" % intrinsic)
 
 		elif mode == "state::rounded_corner_normal":
 			code = """
@@ -3455,7 +3726,7 @@ class SignatureParser:
 					// calc average
 					llvm::Value *factor = ctx->CreateFAdd(v_x, v_y);
 					factor = ctx->CreateFAdd(factor, v_z);
-					factor = ctx->CreateFMul(factor, ctx.get_constant(1.0f/3.0f));
+					factor = ctx->CreateFMul(factor, ctx.get_constant((float)(1.0/3.0)));
 					non_id_res = ctx->CreateFMul(factor, ctx.get_dual_val(scale));
 
 					if (inst.get_return_derivs()) {
@@ -3648,11 +3919,16 @@ class SignatureParser:
 					}
 
 					llvm::Type  *f2_type = m_code_gen.m_type_mapper.get_arr_float_2_type();
-					llvm::Value *coord   = ctx.create_local(coord_type, "coord");
+					llvm::Value *coord;
+				    if (m_code_gen.m_type_mapper.target_supports_pointers()) {
+						coord = ctx.create_local(coord_type, "coord");
+						ctx.convert_and_store(b, coord);
+					} else {
+						coord = b;
+					}
 					llvm::Value *crop_u  = ctx.create_local(f2_type, "crop_u");
 					llvm::Value *crop_v  = ctx.create_local(f2_type, "crop_v");
 
-					ctx.convert_and_store(b, coord);
 					ctx.convert_and_store(e, crop_u);
 					ctx.convert_and_store(f, crop_v);
 					llvm::Value *args[] = { res_data, a, coord, c, d, crop_u, crop_v };
@@ -3677,11 +3953,16 @@ class SignatureParser:
 					llvm::Type  *res_type  = m_code_gen.m_type_mapper.get_arr_float_3_type();
 					llvm::Type  *crop_type = m_code_gen.m_type_mapper.get_arr_float_2_type();
 					llvm::Value *tmp       = ctx.create_local(res_type, "tmp");
-					llvm::Value *coord     = ctx.create_local(coord_type, "coord");
+					llvm::Value *coord;
+				    if (m_code_gen.m_type_mapper.target_supports_pointers()) {
+						coord = ctx.create_local(coord_type, "coord");
+						ctx.convert_and_store(b, coord);
+					} else {
+						coord = b;
+					}
 					llvm::Value *crop_u    = ctx.create_local(crop_type,  "crop_u");
 					llvm::Value *crop_v    = ctx.create_local(crop_type,  "crop_v");
 
-					ctx.convert_and_store(b, coord);
 					ctx.convert_and_store(e, crop_u);
 					ctx.convert_and_store(f, crop_v);
 					llvm::Value *args[] = { tmp, self, a, coord, c, d, crop_u, crop_v };
@@ -3701,12 +3982,17 @@ class SignatureParser:
 
 					llvm::Type  *f2_type = m_code_gen.m_type_mapper.get_arr_float_2_type();
 					llvm::Type  *f3_type = m_code_gen.m_type_mapper.get_arr_float_3_type();
-					llvm::Value *coord   = ctx.create_local(f3_type, "coord");
+					llvm::Value *coord;
+					if (m_code_gen.m_type_mapper.target_supports_pointers()) {
+						coord   = ctx.create_local(f3_type, "coord");
+						ctx.convert_and_store(b, coord);
+					} else {
+						coord = b;
+					}
 					llvm::Value *crop_u  = ctx.create_local(f2_type, "crop_u");
 					llvm::Value *crop_v  = ctx.create_local(f2_type, "crop_v");
 					llvm::Value *crop_w  = ctx.create_local(f2_type, "crop_w");
 
-					ctx.convert_and_store(b, coord);
 					ctx.convert_and_store(f, crop_u);
 					ctx.convert_and_store(g, crop_v);
 					ctx.convert_and_store(h, crop_w);
@@ -3726,12 +4012,17 @@ class SignatureParser:
 					llvm::Type  *coord_type = m_code_gen.m_type_mapper.get_arr_float_3_type();
 					llvm::Type  *crop_type  = m_code_gen.m_type_mapper.get_arr_float_2_type();
 					llvm::Value *tmp        = ctx.create_local(res_type, "tmp");
-					llvm::Value *coord      = ctx.create_local(coord_type, "coord");
+					llvm::Value *coord;
+					if (m_code_gen.m_type_mapper.target_supports_pointers()) {
+						coord   = ctx.create_local(coord_type, "coord");
+						ctx.convert_and_store(b, coord);
+					} else {
+						coord = b;
+					}
 					llvm::Value *crop_u     = ctx.create_local(crop_type,  "crop_u");
 					llvm::Value *crop_v     = ctx.create_local(crop_type,  "crop_v");
 					llvm::Value *crop_w     = ctx.create_local(crop_type,  "crop_w");
 
-					ctx.convert_and_store(b, coord);
 					ctx.convert_and_store(f, crop_u);
 					ctx.convert_and_store(g, crop_v);
 					ctx.convert_and_store(h, crop_w);
@@ -3751,9 +4042,13 @@ class SignatureParser:
 					llvm::Function *lookup_func = get_runtime_func(RT_MDL_TEX_LOOKUP_FLOAT_CUBE);
 
 					llvm::Type  *f3_type = m_code_gen.m_type_mapper.get_arr_float_3_type();
-					llvm::Value *coord   = ctx.create_local(f3_type, "coord");
-
-					ctx.convert_and_store(b, coord);
+					llvm::Value *coord;
+					if (m_code_gen.m_type_mapper.target_supports_pointers()) {
+						coord   = ctx.create_local(f3_type, "coord");
+						ctx.convert_and_store(b, coord);
+					} else {
+						coord = b;
+					}
 					llvm::Value *args[] = { res_data, a, coord };
 					res = ctx->CreateCall(lookup_func, args);
 				} else {
@@ -3769,9 +4064,14 @@ class SignatureParser:
 					llvm::Type  *res_type   = m_code_gen.m_type_mapper.get_arr_float_3_type();
 					llvm::Type  *coord_type = m_code_gen.m_type_mapper.get_arr_float_3_type();
 					llvm::Value *tmp        = ctx.create_local(res_type, "tmp");
-					llvm::Value *coord      = ctx.create_local(coord_type, "coord");
+					llvm::Value *coord;
+					if (m_code_gen.m_type_mapper.target_supports_pointers()) {
+						coord   = ctx.create_local(coord_type, "coord");
+						ctx.convert_and_store(b, coord);
+					} else {
+						coord = b;
+					}
 
-					ctx.convert_and_store(b, coord);
 					llvm::Value *args[] = { tmp, self, a, coord };
 					llvm::CallInst *call = ctx->CreateCall(lookup_func, args);
 					call->setDoesNotThrow();
@@ -3848,11 +4148,16 @@ class SignatureParser:
 					llvm::Type  *res_type   = m_code_gen.m_type_mapper.get_arr_float_%(size)s_type();
 					llvm::Type  *crop_type  = m_code_gen.m_type_mapper.get_arr_float_2_type();
 					llvm::Value *tmp        = ctx.create_local(res_type, "tmp");
-					llvm::Value *coord      = ctx.create_local(coord_type, "coord");
+					llvm::Value *coord;
+					if (m_code_gen.m_type_mapper.target_supports_pointers()) {
+						coord   = ctx.create_local(coord_type, "coord");
+						ctx.convert_and_store(b, coord);
+					} else {
+						coord = b;
+					}
 					llvm::Value *crop_u     = ctx.create_local(crop_type,  "crop_u");
 					llvm::Value *crop_v     = ctx.create_local(crop_type,  "crop_v");
 
-					ctx.convert_and_store(b, coord);
 					ctx.convert_and_store(e, crop_u);
 					ctx.convert_and_store(f, crop_v);
 					llvm::Value *args[] = { tmp, res_data, a, coord, c, d, crop_u, crop_v };
@@ -3879,11 +4184,16 @@ class SignatureParser:
 					llvm::Type  *res_type  = m_code_gen.m_type_mapper.get_arr_float_%(vt_size)s_type();
 					llvm::Type  *crop_type = m_code_gen.m_type_mapper.get_arr_float_2_type();
 					llvm::Value *tmp       = ctx.create_local(res_type, "tmp");
-					llvm::Value *coord     = ctx.create_local(coord_type, "coord");
+					llvm::Value *coord;
+					if (m_code_gen.m_type_mapper.target_supports_pointers()) {
+						coord   = ctx.create_local(coord_type, "coord");
+						ctx.convert_and_store(b, coord);
+					} else {
+						coord = b;
+					}
 					llvm::Value *crop_u    = ctx.create_local(crop_type,  "crop_u");
 					llvm::Value *crop_v    = ctx.create_local(crop_type,  "crop_v");
 
-					ctx.convert_and_store(b, coord);
 					ctx.convert_and_store(e, crop_u);
 					ctx.convert_and_store(f, crop_v);
 					llvm::Value *args[] = { tmp, self, a, coord, c, d, crop_u, crop_v };
@@ -3902,12 +4212,17 @@ class SignatureParser:
 					llvm::Type  *coord_type = m_code_gen.m_type_mapper.get_arr_float_3_type();
 					llvm::Type  *crop_type  = m_code_gen.m_type_mapper.get_arr_float_2_type();
 					llvm::Value *tmp        = ctx.create_local(res_type, "tmp");
-					llvm::Value *coord      = ctx.create_local(coord_type, "coord");
+					llvm::Value *coord;
+					if (m_code_gen.m_type_mapper.target_supports_pointers()) {
+						coord   = ctx.create_local(coord_type, "coord");
+						ctx.convert_and_store(b, coord);
+					} else {
+						coord = b;
+					}
 					llvm::Value *crop_u     = ctx.create_local(crop_type, "crop_u");
 					llvm::Value *crop_v     = ctx.create_local(crop_type, "crop_v");
 					llvm::Value *crop_w     = ctx.create_local(crop_type, "crop_w");
 
-					ctx.convert_and_store(b, coord);
 					ctx.convert_and_store(f, crop_u);
 					ctx.convert_and_store(g, crop_v);
 					ctx.convert_and_store(h, crop_w);
@@ -3929,12 +4244,17 @@ class SignatureParser:
 					llvm::Type  *coord_type = m_code_gen.m_type_mapper.get_arr_float_3_type();
 					llvm::Type  *crop_type  = m_code_gen.m_type_mapper.get_arr_float_2_type();
 					llvm::Value *tmp        = ctx.create_local(res_type, "tmp");
-					llvm::Value *coord      = ctx.create_local(coord_type, "coord");
+					llvm::Value *coord;
+					if (m_code_gen.m_type_mapper.target_supports_pointers()) {
+						coord   = ctx.create_local(coord_type, "coord");
+						ctx.convert_and_store(b, coord);
+					} else {
+						coord = b;
+					}
 					llvm::Value *crop_u     = ctx.create_local(crop_type,  "crop_u");
 					llvm::Value *crop_v     = ctx.create_local(crop_type,  "crop_v");
 					llvm::Value *crop_w     = ctx.create_local(crop_type,  "crop_w");
 
-					ctx.convert_and_store(b, coord);
 					ctx.convert_and_store(f, crop_u);
 					ctx.convert_and_store(g, crop_v);
 					ctx.convert_and_store(h, crop_w);
@@ -3953,9 +4273,14 @@ class SignatureParser:
 					llvm::Type  *res_type   = m_code_gen.m_type_mapper.get_arr_float_%(size)s_type();
 					llvm::Type  *coord_type = m_code_gen.m_type_mapper.get_arr_float_3_type();
 					llvm::Value *tmp        = ctx.create_local(res_type, "tmp");
-					llvm::Value *coord      = ctx.create_local(coord_type, "coord");
+					llvm::Value *coord;
+					if (m_code_gen.m_type_mapper.target_supports_pointers()) {
+						coord   = ctx.create_local(coord_type, "coord");
+						ctx.convert_and_store(b, coord);
+					} else {
+						coord = b;
+					}
 
-					ctx.convert_and_store(b, coord);
 					llvm::Value *args[] = { tmp, res_data, a, coord };
 					ctx->CreateCall(lookup_func, args);
 
@@ -3973,9 +4298,14 @@ class SignatureParser:
 					llvm::Type  *res_type   = m_code_gen.m_type_mapper.get_arr_float_%(vt_size)s_type();
 					llvm::Type  *coord_type = m_code_gen.m_type_mapper.get_arr_float_3_type();
 					llvm::Value *tmp        = ctx.create_local(res_type, "tmp");
-					llvm::Value *coord      = ctx.create_local(coord_type, "coord");
+					llvm::Value *coord;
+					if (m_code_gen.m_type_mapper.target_supports_pointers()) {
+						coord   = ctx.create_local(coord_type, "coord");
+						ctx.convert_and_store(b, coord);
+					} else {
+						coord = b;
+					}
 
-					ctx.convert_and_store(b, coord);
 					llvm::Value *args[] = { tmp, self, a, coord };
 					llvm::CallInst *call = ctx->CreateCall(lookup_func, args);
 					call->setDoesNotThrow();
@@ -4221,6 +4551,181 @@ class SignatureParser:
 				res = ctx.get_dual(res);
 			}
 			""")
+
+		elif mode == "scene::data_isvalid":
+			code = """
+			if (m_has_res_handler) {
+				MDL_ASSERT(!"not implemented yet");
+				res = nullptr;
+			} else {
+				llvm::Value *self_adr = ctx.create_simple_gep_in_bounds(
+					res_data, ctx.get_constant(Type_mapper::RDP_THREAD_DATA));
+				llvm::Value *self     = ctx->CreateBitCast(
+					ctx->CreateLoad(self_adr),
+					m_code_gen.m_type_mapper.get_core_tex_handler_ptr_type());
+
+				llvm::Value *runtime_func = ctx.get_tex_lookup_func(
+					self, Type_mapper::THV_scene_data_isvalid);
+
+				llvm::Value *args[] = { self, ctx.get_state_parameter(), a };
+				llvm::CallInst *call = ctx->CreateCall(runtime_func, args);
+				call->setDoesNotThrow();
+				res = call;
+			}
+			"""
+			self.format_code(f, code)
+
+		elif mode == "scene::data_lookup_atomic" or mode == "scene::data_lookup_uniform_atomic":
+			runtime_func_enum_name = "THV_scene_" + intrinsic.replace("uniform_", "")
+			runtime_func_enum_deriv_name = runtime_func_enum_name.replace("lookup", "lookup_deriv")
+			if "_int" in intrinsic:
+				code = """
+				if (m_has_res_handler) {
+					MDL_ASSERT(!"not implemented yet");
+					res = nullptr;
+				} else {
+					llvm::Value *self_adr = ctx.create_simple_gep_in_bounds(
+						res_data, ctx.get_constant(Type_mapper::RDP_THREAD_DATA));
+					llvm::Value *self     = ctx->CreateBitCast(
+						ctx->CreateLoad(self_adr),
+						m_code_gen.m_type_mapper.get_core_tex_handler_ptr_type());
+
+					llvm::Value *runtime_func = ctx.get_tex_lookup_func(
+						self, Type_mapper::%(runtime_func_enum_name)s);
+					llvm::Value *args[] = {
+						self, ctx.get_state_parameter(), a, b, ctx.get_constant(%(is_uniform)s) };
+					llvm::CallInst *call = ctx->CreateCall(runtime_func, args);
+					call->setDoesNotThrow();
+					res = call;
+				}
+				""" % {
+					"runtime_func_enum_name": runtime_func_enum_name,
+					"is_uniform": "true" if "uniform" in intrinsic else "false"
+				}
+			else:
+				code = """
+				if (m_has_res_handler) {
+					MDL_ASSERT(!"not implemented yet");
+					res = nullptr;
+				} else {
+					llvm::Value *self_adr = ctx.create_simple_gep_in_bounds(
+						res_data, ctx.get_constant(Type_mapper::RDP_THREAD_DATA));
+					llvm::Value *self     = ctx->CreateBitCast(
+						ctx->CreateLoad(self_adr),
+						m_code_gen.m_type_mapper.get_core_tex_handler_ptr_type());
+
+					if (inst.get_return_derivs()) {
+						llvm::Value *runtime_func = ctx.get_tex_lookup_func(
+							self, Type_mapper::%(runtime_func_enum_deriv_name)s);
+
+						llvm::Value *tmp       = ctx.create_local(ctx.get_return_type(), "tmp");
+						llvm::Value *def_value = ctx.create_local(ctx.get_return_type(), "def_value");
+
+						ctx.convert_and_store(b, def_value);
+
+						llvm::Value *args[] = {
+							tmp, self, ctx.get_state_parameter(), a, def_value, ctx.get_constant(%(is_uniform)s) };
+						llvm::CallInst *call = ctx->CreateCall(runtime_func, args);
+						call->setDoesNotThrow();
+
+						res = ctx->CreateLoad(tmp);
+					} else {
+						llvm::Value *runtime_func = ctx.get_tex_lookup_func(
+							self, Type_mapper::%(runtime_func_enum_name)s);
+						llvm::Value *args[] = {
+							self, ctx.get_state_parameter(), a, b, ctx.get_constant(%(is_uniform)s) };
+						llvm::CallInst *call = ctx->CreateCall(runtime_func, args);
+						call->setDoesNotThrow();
+						res = call;
+					}
+				}
+				""" % {
+					"runtime_func_enum_name": runtime_func_enum_name,
+					"runtime_func_enum_deriv_name": runtime_func_enum_deriv_name,
+					"elem_type": "float",
+					"is_uniform": "true" if "uniform" in intrinsic else "false"
+				}
+			self.format_code(f, code)
+
+		elif mode == "scene::data_lookup_vector" or mode == "scene::data_lookup_uniform_vector":
+			runtime_func_enum_name = "THV_scene_" + intrinsic.replace("uniform_", "")
+			runtime_func_enum_deriv_name = runtime_func_enum_name.replace("lookup", "lookup_deriv")
+			if "_int" in intrinsic:
+				code = """
+				if (m_has_res_handler) {
+					MDL_ASSERT(!"not implemented yet");
+					res = nullptr;
+				} else {
+					llvm::Value *self_adr = ctx.create_simple_gep_in_bounds(
+						res_data, ctx.get_constant(Type_mapper::RDP_THREAD_DATA));
+					llvm::Value *self     = ctx->CreateBitCast(
+						ctx->CreateLoad(self_adr),
+						m_code_gen.m_type_mapper.get_core_tex_handler_ptr_type());
+
+					llvm::Value *runtime_func = ctx.get_tex_lookup_func(
+						self, Type_mapper::%(runtime_func_enum_name)s);
+
+					llvm::Type  *res_type   = m_code_gen.m_type_mapper.get_arr_%(elem_type)s_%(vector_dim)s_type();
+					llvm::Value *tmp        = ctx.create_local(res_type, "tmp");
+					llvm::Value *def_value  = ctx.create_local(res_type, "def_value");
+
+					ctx.convert_and_store(b, def_value);
+					llvm::Value *args[] = {
+						tmp, self, ctx.get_state_parameter(), a, def_value, ctx.get_constant(%(is_uniform)s) };
+					llvm::CallInst *call = ctx->CreateCall(runtime_func, args);
+					call->setDoesNotThrow();
+
+					res = ctx.load_and_convert(ctx.get_return_type(), tmp);
+				}
+				""" % {
+					"runtime_func_enum_name": runtime_func_enum_name,
+					"vector_dim": "3" if "color" in intrinsic else intrinsic[-1],  # last character of name is dim if not color
+					"elem_type": "int",
+					"is_uniform": "true" if "uniform" in intrinsic else "false"
+				}
+			else:
+				code = """
+				if (m_has_res_handler) {
+					MDL_ASSERT(!"not implemented yet");
+					res = nullptr;
+				} else {
+					llvm::Value *self_adr = ctx.create_simple_gep_in_bounds(
+						res_data, ctx.get_constant(Type_mapper::RDP_THREAD_DATA));
+					llvm::Value *self     = ctx->CreateBitCast(
+						ctx->CreateLoad(self_adr),
+						m_code_gen.m_type_mapper.get_core_tex_handler_ptr_type());
+
+					llvm::Value *runtime_func;
+					llvm::Type *res_type;
+					if (inst.get_return_derivs()) {
+						runtime_func = ctx.get_tex_lookup_func(
+							self, Type_mapper::%(runtime_func_enum_deriv_name)s);
+						res_type = m_code_gen.m_type_mapper.get_deriv_arr_%(elem_type)s_%(vector_dim)s_type();
+					} else {
+						runtime_func = ctx.get_tex_lookup_func(
+							self, Type_mapper::%(runtime_func_enum_name)s);
+						res_type = m_code_gen.m_type_mapper.get_arr_%(elem_type)s_%(vector_dim)s_type();
+					}
+
+					llvm::Value *tmp        = ctx.create_local(res_type, "tmp");
+					llvm::Value *def_value  = ctx.create_local(res_type, "def_value");
+
+					ctx.convert_and_store(b, def_value);
+					llvm::Value *args[] = {
+						tmp, self, ctx.get_state_parameter(), a, def_value, ctx.get_constant(%(is_uniform)s) };
+					llvm::CallInst *call = ctx->CreateCall(runtime_func, args);
+					call->setDoesNotThrow();
+
+					res = ctx.load_and_convert(ctx.get_return_type(), tmp);
+				}
+				""" % {
+					"runtime_func_enum_name": runtime_func_enum_name,
+					"runtime_func_enum_deriv_name": runtime_func_enum_deriv_name,
+					"vector_dim": "3" if "color" in intrinsic else intrinsic[-1],  # last character of name is dim if not color
+					"elem_type": "float",
+					"is_uniform": "true" if "uniform" in intrinsic else "false"
+				}
+			self.format_code(f, code)
 
 		elif mode == "debug::breakpoint":
 			code = """
@@ -4735,9 +5240,10 @@ class SignatureParser:
 
 			l.setdefault(n_params, []).append(sig)
 
-		if len(l.keys()) == 1:
+		keys = list(l.keys())
+		if len(keys) == 1:
 			# typical case: all signatures have the same length
-			n_param = l.keys()[0]
+			n_param = keys[0]
 			if self.strict:
 				self.write(f, "if (n_params == %d) {\n" % n_param)
 				self.indent += 1
@@ -4745,7 +5251,7 @@ class SignatureParser:
 				# create just an assertion
 				self.write(f, "MDL_ASSERT(n_params == %d);\n" % n_param)
 
-			for n_param in l.keys():
+			for n_param in keys:
 				self.handle_signatures(f, intrinsic, l[n_param])
 
 			if self.strict:
@@ -4754,7 +5260,7 @@ class SignatureParser:
 		else:
 			# overloads with different signature length
 			self.write(f, "switch (n_params) {\n")
-			n_params = l.keys()
+			n_params = list(l.keys())
 			n_params.sort()
 			for n_param in n_params:
 				self.write(f, "case %d:\n" % n_param)
@@ -4778,7 +5284,7 @@ class SignatureParser:
 		for param in params:
 			try:
 				type_name = self.m_inv_types[param]
-			except KeyError, e:
+			except KeyError:
 				error("Unknown type_code '%s' found" % param)
 				sys.exit(1)
 			res.append(type_name)
@@ -4791,91 +5297,132 @@ class SignatureParser:
 		self.write(f, "f_type->get_parameter(%s, p_type, p_sym);\n" % idx)
 		self.write(f, "p_type = p_type->skip_type_alias();\n")
 		if atomic_chk:
-			self.write(f, "if (p_type->get_kind() != %s)\n" % (atomic_chk))
-			self.indent += 1
-			self.write(f, "return false;\n")
-			self.indent -= 1
+			code = """
+			if (p_type->get_kind() != %s) {
+				return false;
+			}
+			""" % atomic_chk
+			self.format_code(f, code)
 		elif type_code[0] == 'E':
 			# check for enum type only, should be enough, we do not expect overloads with different
 			# enum types
-			self.write(f, "if (p_type->get_kind() != mi::mdl::IType::TK_ENUM)\n")
-			self.indent += 1
-			self.write(f, "return false;\n")
-			self.indent -= 1
+			code = """
+				if (p_type->get_kind() != mi::mdl::IType::TK_ENUM) {
+					return false;
+				}
+			"""
+			self.format_code(f, code)
+		elif type_code[0] == 'U':
+			# unsupported types
+			code = ""
+		elif type_code[1] == 'A':
+			# handle arrays
+			code = "{\n";
+			code += """
+			if (p_type->get_kind() != mi::mdl::IType::TK_ARRAY) {
+				return false;
+			}
+			mi::mdl::IType_array const *a_type = mi::mdl::cast<mi::mdl::IType_array>(p_type);
+			(void)a_type;
+			"""
+			if type_code[2] == 'N' or type_code[2] == 'n':
+				# deferred size array
+				code += """
+				if (a_type->is_immediate_sized()) {
+					return false;
+				}
+				"""
+				if type_code[0] == 'F':
+					code += """
+					mi::mdl::IType const *e_type = a_type->get_element_type();
+					if (e_type->get_kind() != mi::mdl::IType::TK_FLOAT) {
+						return false;
+					}
+					"""
+				else:
+					code += """
+					// Unsupported
+					return false;
+					"""
+					error("Unsupported type code " + type_code)
+			else:
+				code += """
+				// Unsupported
+				return false;
+				"""
+				error("Unsupported type code " + type_code)
+			code += "\n}\n"
+			self.format_code(f, code)
 		else:
 			vector_chk = self.get_vector_type_kind(type_code)
 			matrix_chk = self.get_matrix_type_kind(type_code)
 			text_shape = self.get_texture_shape(type_code)
 			if vector_chk:
-				self.write(f, "if (mi::mdl::IType_vector const *v_type = as<mi::mdl::IType_vector>(p_type)) {\n")
-				self.indent += 1
+				params = {
+					"size"   : type_code[-1],
+					"e_kind" : vector_chk
+				}
+				code = """
+				if (mi::mdl::IType_vector const *v_type = as<mi::mdl::IType_vector>(p_type)) {
+					if (v_type->get_size() != %(size)s) {
+						return false;
+					}
 
-				self.write(f, "if (v_type->get_size() != %s)\n" % type_code[-1])
-				self.indent += 1
-				self.write(f, "return false;\n")
-				self.indent -= 1
-
-				self.write(f, "mi::mdl::IType_atomic const *e_type = v_type->get_element_type();\n")
-				self.write(f, "if (e_type->get_kind() != %s)\n" % vector_chk)
-				self.indent += 1
-				self.write(f, "return false;\n")
-				self.indent -= 1
-
-				self.indent -= 1
-
-				self.write(f, "} else {\n")
-
-				self.indent += 1
-				self.write(f, "return false;\n")
-				self.indent -= 1
-
-				self.write(f, "}\n")
+					mi::mdl::IType_atomic const *e_type = v_type->get_element_type();
+					if (e_type->get_kind() != %(e_kind)s) {
+						return false;
+					}
+				} else {
+					return false;
+				}
+				"""
+				self.format_code(f, code % params)
 			elif matrix_chk:
-				self.write(f, "if (mi::mdl::IType_matrix const *m_type = as<mi::mdl::IType_matrix>(p_type)) {\n")
-				self.indent += 1
+				params = {
+					"columns" : type_code[-2],
+					"size"    : type_code[-1],
+					"e_kind"  : matrix_chk
+				}
+				code = """
+				if (mi::mdl::IType_matrix const *m_type = as<mi::mdl::IType_matrix>(p_type)) {
+					if (m_type->get_columns() != %(columns)s) {
+						return false;
+					}
 
-				self.write(f, "if (m_type->get_columns() != %s)\n" % type_code[-2])
-				self.indent += 1
-				self.write(f, "return false;\n")
-				self.indent -= 1
+					mi::mdl::IType_vector const *v_type = m_type->get_element_type();
+					if (v_type->get_size() != %(size)s) {
+						return false;
+					}
 
-				self.write(f, "mi::mdl::IType_vector const *v_type = m_type->get_element_type();\n")
-				self.write(f, "if (v_type->get_size() != %s)\n" % type_code[-1])
-				self.indent += 1
-				self.write(f, "return false;\n")
-				self.indent -= 1
-
-				self.write(f, "mi::mdl::IType_atomic const *e_type = v_type->get_element_type();\n")
-				self.write(f, "if (e_type->get_kind() != %s)\n" % matrix_chk)
-				self.indent += 1
-				self.write(f, "return false;\n")
-				self.indent -= 1
-
-				self.indent -= 1
-
-				self.write(f, "} else {\n")
-
-				self.indent += 1
-				self.write(f, "return false;\n")
-				self.indent -= 1
-
-				self.write(f, "}\n")
+					mi::mdl::IType_atomic const *e_type = v_type->get_element_type();
+					if (e_type->get_kind() != %(e_kind)s) {
+						return false;
+					}
+				} else {
+					return false;
+				}
+				"""
+				self.format_code(f, code % params)
 			elif text_shape:
-				self.write(f, "if (mi::mdl::IType_texture const *t_type = as<mi::mdl::IType_texture>(p_type)) {\n")
-				self.indent += 1
-				self.write(f, "if (t_type->get_shape() != %s)\n" % text_shape)
-				self.indent += 1
-				self.write(f, "return false;\n")
-				self.indent -= 1
-				self.indent -= 1
-				self.write(f, "}\n")
+				code = """
+				if (mi::mdl::IType_texture const *t_type = as<mi::mdl::IType_texture>(p_type)) {
+					if (t_type->get_shape() != %s) {
+						return false;
+					}
+				}
+				"""
+				self.format_code(f, code % text_shape)
 			else:
-				self.write(f, "// Unsupported\n");
-				self.write(f, "return false;\n")
+				code = """
+				// Unsupported
+				return false;
+				"""
+				error("Unsupported type code " + type_code)
+				self.format_code(f, code)
 
 	def create_signature_checker(self, f):
 		"""Create all signature checker functions."""
-		signatures = self.m_signatures.keys()
+		signatures = list(self.m_signatures.keys())
 		signatures.sort()
 		for sig in signatures:
 			if sig == '':
@@ -5137,7 +5684,10 @@ class SignatureParser:
 		self.register_mdl_runtime_func("mdl_sign",        "DD_DD")
 		self.register_mdl_runtime_func("mdl_smoothstepf", "FF_FFFFFF")
 		self.register_mdl_runtime_func("mdl_smoothstep",  "DD_DDDDDD")
-		self.register_mdl_runtime_func("mdl_blackbody",   "FA3_FF")
+		# from libmdlrt
+		self.register_mdl_runtime_func("mdl_blackbody",        "FA3_FF")
+		self.register_mdl_runtime_func("mdl_emission_color",   "vv_ffffffII")
+		self.register_mdl_runtime_func("mdl_reflection_color", "vv_ffffffII")
 		# extra used by other functions
 		self.register_mdl_runtime_func("mdl_mini",        "II_IIII")
 		self.register_mdl_runtime_func("mdl_minf",        "FF_FFFF")
@@ -5242,7 +5792,7 @@ class SignatureParser:
 		last = None
 		self.write(f, "RT_C_FIRST,\n")
 		init = " = RT_C_FIRST"
-		keys = self.m_c_runtime_functions.keys()
+		keys = list(self.m_c_runtime_functions.keys())
 		keys.sort()
 		for func in keys:
 			enum_value = "RT_" + func
@@ -5254,7 +5804,7 @@ class SignatureParser:
 
 		self.write(f, "RT_MDL_FIRST,\n")
 		init = " = RT_MDL_FIRST"
-		keys = self.m_mdl_runtime_functions.keys()
+		keys = list(self.m_mdl_runtime_functions.keys())
 		keys.sort()
 		for func in keys:
 			enum_value = "RT_" + func
@@ -5284,7 +5834,7 @@ class SignatureParser:
 
 		self.write(f, "switch (code) {\n")
 
-		for name, signature in self.m_c_runtime_functions.iteritems():
+		for name, signature in self.m_c_runtime_functions.items():
 			enum_value = "RT_" + name
 			enum_value = enum_value.upper()
 			self.write(f, "case %s:\n" % enum_value)
@@ -5293,7 +5843,7 @@ class SignatureParser:
 			self.write(f, "break;\n")
 			self.indent -= 1
 
-		for name, signature in self.m_mdl_runtime_functions.iteritems():
+		for name, signature in self.m_mdl_runtime_functions.items():
 			enum_value = "RT_" + name
 			enum_value = enum_value.upper()
 			self.write(f, "case %s:\n" % enum_value)
@@ -5451,7 +6001,7 @@ class SignatureParser:
 
 				l.setdefault(n_params, []).append(sig)
 
-			n_params = l.keys()
+			n_params = list(l.keys())
 			n_params.sort()
 			for n_param in n_params:
 				signatures = l[n_param]
@@ -5641,16 +6191,24 @@ class SignatureParser:
 		self.create_constructor(f)
 
 		# write prototypes of internal function creation functions
-		self.write(f, "/// Generate LLVM IR for state::set_normal(float3)\n")
+		self.write(f, "/// Generate LLVM IR for state::set_normal()\n")
 		self.write(f, "llvm::Function *create_state_set_normal(Internal_function const *int_func);\n\n")
 		self.write(f, "/// Generate LLVM IR for state::get_texture_results()\n")
 		self.write(f, "llvm::Function *create_state_get_texture_results(Internal_function const *int_func);\n\n")
 		self.write(f, "/// Generate LLVM IR for state::get_arg_block()\n")
 		self.write(f, "llvm::Function *create_state_get_arg_block(Internal_function const *int_func);\n\n")
+		self.write(f, "/// Generate LLVM IR for state::get_arg_block_float/float3/uint/bool()\n")
+		self.write(f, "llvm::Function *create_state_get_arg_block_value(Internal_function const *int_func);\n\n")
 		self.write(f, "/// Generate LLVM IR for state::get_ro_data_segment()\n")
 		self.write(f, "llvm::Function *create_state_get_ro_data_segment(Internal_function const *int_func);\n\n")
 		self.write(f, "/// Generate LLVM IR for state::object_id()\n")
 		self.write(f, "llvm::Function *create_state_object_id(Internal_function const *int_func);\n")
+		self.write(f, "/// Generate LLVM IR for state::get_material_ior()\n")
+		self.write(f, "llvm::Function *create_state_get_material_ior(Internal_function const *int_func);\n")
+		self.write(f, "/// Generate LLVM IR for state::get_thin_walled()\n")
+		self.write(f, "llvm::Function *create_state_get_thin_walled(Internal_function const *int_func);\n")
+		self.write(f, "/// Generate LLVM IR for state::adapt_microfacet_roughness()\n")
+		self.write(f, "llvm::Function *create_state_adapt_microfacet_roughness(Internal_function const *int_func);\n\n")
 		self.write(f, "/// Generate LLVM IR for df::bsdf_measurement_resolution()\n")
 		self.write(f, "llvm::Function *create_df_bsdf_measurement_resolution(Internal_function const *int_func);\n")
 		self.write(f, "/// Generate LLVM IR for df::bsdf_measurement_evaluate()\n")
@@ -5708,7 +6266,10 @@ class SignatureParser:
 
 		for intrinsic in intrinsics:
 			mod_name = self.m_intrinsic_mods[intrinsic]
-			self.write(f, "case mi::mdl::IDefinition::DS_INTRINSIC_%s_%s:\n" % (mod_name.upper(), intrinsic.upper()))
+			if mod_name == "" and intrinsic == "color":
+				self.write(f, "case mi::mdl::IDefinition::DS_COLOR_SPECTRUM_CONSTRUCTOR:\n")
+			else:
+				self.write(f, "case mi::mdl::IDefinition::DS_INTRINSIC_%s_%s:\n" % (mod_name.upper(), intrinsic.upper()))
 			self.indent += 1
 
 			self.handle_intrinsic(f, intrinsic)
@@ -5718,7 +6279,10 @@ class SignatureParser:
 
 		for intrinsic in unsupported:
 			mod_name = self.m_intrinsic_mods[intrinsic]
-			self.write(f, "case mi::mdl::IDefinition::DS_INTRINSIC_%s_%s:\n" % (mod_name.upper(), intrinsic.upper()))
+			if mod_name == "" and intrinsic == "color":
+				self.write(f, "case mi::mdl::IDefinition::DS_COLOR_SPECTRUM_CONSTRUCTOR:\n")
+			else:
+				self.write(f, "case mi::mdl::IDefinition::DS_INTRINSIC_%s_%s:\n" % (mod_name.upper(), intrinsic.upper()))
 
 		if len(unsupported) > 0:
 			self.indent += 1
@@ -5761,7 +6325,7 @@ class SignatureParser:
 
 				l.setdefault(n_params, []).append(sig)
 
-			n_params = l.keys()
+			n_params = list(l.keys())
 			n_params.sort()
 			for n_param in n_params:
 				sigs_same_len = l[n_param]
@@ -5778,7 +6342,7 @@ class SignatureParser:
 
 def usage(args):
 	"""print usage info and exit"""
-	print "Usage: %s stdlib_directory outputfile" % args[0]
+	print("Usage: %s stdlib_directory outputfile" % args[0])
 	return 1
 
 def main(args):
@@ -5796,10 +6360,17 @@ def main(args):
 		parser.parse("state")
 		parser.parse("df")
 		parser.parse("tex")
+		parser.parse("scene")
 		parser.parse("debug")
+		parser.parse_builtins(
+			"""
+			// spectrum constructor
+			export color color(float[<N>] wavelenghts, float[N] amplitudes) uniform [[ intrinsic() ]];
+
+			""")
 		parser.finalize()
 
-	except IOError, e:
+	except IOError as e:
 		error(str(e))
 		return 1
 	return 0

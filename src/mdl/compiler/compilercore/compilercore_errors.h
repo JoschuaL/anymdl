@@ -1,5 +1,5 @@
 /******************************************************************************
- * Copyright (c) 2012-2019, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2012-2020, NVIDIA CORPORATION. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -77,6 +77,7 @@ enum Compilation_error {
     POSSIBLE_MATCH,
     CANDIDATES_ARE,
     CANDIDATES_ARE_NEXT,
+    POSSIBLE_ABSOLUTE_IMPORT,
 
     SYNTAX_ERROR = 100,
     ILLEGAL_BOM_IGNORED,
@@ -309,8 +310,15 @@ enum Compilation_error {
     CAST_ARRAY_DIFFERENT_LENGTH,
     FORBIDDEN_ANNOTATION_PARAMETER_TYPE,
     ANNOS_ON_ANNO_DECL_NOT_SUPPORTED,
+    CONST_EXPR_ARGUMENT_REQUIRED,
+    USING_ALIAS_REDECLARATION,
+    USING_ALIAS_DECL_FORBIDDEN,
+    PACKAGE_NAME_CONTAINS_FORBIDDEN_CHAR,
+    ABSOLUTE_ALIAS_NOT_AT_BEGINNING,
+    INVALID_CHARACTER_IN_RESOURCE,
 
-    MAX_ERROR_NUM = ANNOS_ON_ANNO_DECL_NOT_SUPPORTED,
+    MAX_ERROR_NUM = INVALID_CHARACTER_IN_RESOURCE,
+    EXTERNAL_APPLICATION_ERROR = 998,
     INTERNAL_COMPILER_ERROR = 999,
 };
 
@@ -393,6 +401,9 @@ enum Jit_backend_error {
     WRONG_RETURN_TYPE_FOR_STATE_MODULE_FUNCTION,
     API_STRUCT_TYPE_MUST_BE_OPAQUE,
     GET_SYMBOL_FAILED,
+    LINKING_LIBMDLRT_FAILED,
+    PARSING_RENDERER_MODULE_FAILED,
+    LINKING_RENDERER_MODULE_FAILED,
 
     INTERNAL_JIT_BACKEND_ERROR = 999,
 };
@@ -418,9 +429,11 @@ enum Comparator_error {
     CONSTANT_OF_DIFFERENT_VALUE,
     FUNCTION_DOES_NOT_EXISTS,
     FUNCTION_RET_TYPE_DIFFERENT,
+    FUNCTION_PARAM_DELETED,
     FUNCTION_PARAM_DEF_ARG_DELETED,
     FUNCTION_PARAM_DEF_ARG_CHANGED,
     ANNOTATION_DOES_NOT_EXISTS,
+    ANNOTATION_PARAM_DELETED,
     ANNOTATION_PARAM_DEF_ARG_DELETED,
     ANNOTATION_PARAM_DEF_ARG_CHANGED,
     SEMA_VERSION_IS_HIGHER,
@@ -476,7 +489,8 @@ public:
         EK_PATH_KIND,
         EK_ENTITY_KIND,
         EK_MODULE_ORIGIN,
-        EK_MDL_VERSION
+        EK_MDL_VERSION,
+        EK_CHAR
     };
 
     /// File path prefix.
@@ -530,6 +544,7 @@ private:
             Entity_kind             entity_kind;
             ISemantic_version const *sem_ver;
             IMDL::MDL_version       mdl_version;
+            unsigned char           c;
         } u;
     };
 
@@ -781,6 +796,14 @@ public:
     ///
     /// \param index  the argument index
     char const *get_dot_string(size_t index) const;
+
+    /// Add a character.
+    Error_params &add_char(char c);
+
+    /// Return the character.
+    ///
+    /// \param index  the argument index
+    unsigned char get_char(size_t index) const;
 
     /// Add a definition kind (is converted into a string).
     Error_params &add_entity_kind(IDefinition::Kind kind);

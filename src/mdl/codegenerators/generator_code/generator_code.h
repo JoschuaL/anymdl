@@ -1,5 +1,5 @@
 /******************************************************************************
- * Copyright (c) 2012-2019, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2012-2020, NVIDIA CORPORATION. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -70,6 +70,29 @@ protected:
             MDL_CG_OPTION_INTERNAL_SPACE,
             "coordinate_world",
             "The internal space for which we compile");
+
+        m_options.add_option(
+            MDL_CG_OPTION_FOLD_METERS_PER_SCENE_UNIT,
+            "true",
+            "Whether occurrences of state::meters_per_scene_unit() and "
+            "state::scene_units_per_meter() should be folded using the value of the "
+            "meters_per_scene_unit option");
+
+        m_options.add_option(
+            MDL_CG_OPTION_METERS_PER_SCENE_UNIT,
+            "1",
+            "The value used for folding state::meters_per_scene_unit() and "
+            "state::scene_units_per_meter() if enabled");
+
+        m_options.add_option(
+            MDL_CG_OPTION_WAVELENGTH_MIN,
+            "380",
+            "The smallest supported wavelength");
+
+        m_options.add_option(
+            MDL_CG_OPTION_WAVELENGTH_MAX,
+            "780",
+            "The largest supported wavelength");
     }
 
 protected:
@@ -90,6 +113,25 @@ bool equal_coordinate_space(
     IValue const *a,
     IValue const *b,
     char const   *internal_space);
+
+/// Convert a IValue_texture::Bsdf_data_kind to a Resource_tag_tuple kind.
+///
+/// \param kind   the value's bsdf data kind
+/// \param gamma  the value's gamma mode
+Resource_tag_tuple::Kind kind_from_bsdf_data_kind(
+    IValue_texture::Bsdf_data_kind kind,
+    IValue_texture::gamma_mode     gamma);
+
+/// Convert a Resource_tag_tuple to a IValue_texture::Bsdf_data_kind.
+///
+/// \param kind   the value's resource tag tuple kind
+IValue_texture::Bsdf_data_kind bsdf_data_kind_from_kind(
+    Resource_tag_tuple::Kind kind);
+
+/// Convert a value to a Resource_tag_tuple kind.
+///
+/// \param val  the value
+Resource_tag_tuple::Kind kind_from_value(IValue const *val);
 
 }  // mdl
 }  // mi

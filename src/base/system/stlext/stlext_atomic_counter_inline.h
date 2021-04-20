@@ -1,5 +1,5 @@
 /******************************************************************************
- * Copyright (c) 2006-2019, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2006-2020, NVIDIA CORPORATION. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -252,7 +252,7 @@ MI_FORCE_INLINE Uint32 atomic_post_sub(Native_atomic_counter& counter, Uint32 i)
 
 #elif defined(__GNUG__)
 
-#if !defined(__ia64__) && !defined(__APPLE__) && !defined(__PPC64__)
+#if !defined(__ia64__) && !defined(__APPLE__) && !defined(__PPC64__) && !defined(__PPC64__) && !defined(__aarch64__)
 #  warning "No native atomic counting implementation available."
 #  warning "Using GCC library code as a fallback."
 #endif

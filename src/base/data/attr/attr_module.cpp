@@ -1,5 +1,5 @@
 /***************************************************************************************************
- * Copyright (c) 2009-2019, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2009-2020, NVIDIA CORPORATION. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -181,6 +181,74 @@ void Attr_module_impl::build_name_to_code_map()
     // - TYPE_MATRIX4X4 is an alias for TYPE_MATRIX.
     m_map_name_to_code["rgba_fp"] = ATTR::TYPE_RGBA_FP;
     m_map_name_to_code["matrix4x4"] = ATTR::TYPE_MATRIX4X4;
+}
+
+const Attr_module_impl::Custom_attr_filters& Attr_module_impl::get_custom_attr_filters() const
+{
+    return m_custom_attr_filters;
+}
+
+static bool build_regex(const std::string& regex_str, std::wregex& out_regex)
+{
+    try {
+        std::wstring m_custom_attr_filter_wstr = STRING::utf8_to_wchar(
+            regex_str.c_str());
+        out_regex.assign(m_custom_attr_filter_wstr, std::wregex::extended);
+    }
+    catch (const std::regex_error&) {
+        return false;
+    }
+    return true;
+}
+
+bool Attr_module_impl::add_custom_attr_filter(const std::string& filter)
+{
+    auto p = std::find(m_custom_attr_filters.begin(), m_custom_attr_filters.end(), filter);
+    if (p != m_custom_attr_filters.end()) {
+        return false;
+    }
+    const std::string filter_expr = (m_custom_attr_filters.size() == 0 ? "(" : " | (")  + filter + ")";
+    if (!build_regex(
+        m_custom_attr_filter + filter_expr, m_custom_attr_regex)) {
+        return false;
+    }
+    m_custom_attr_filters.push_back(filter);
+    m_custom_attr_filter += filter_expr;
+    return true;
+}
+
+bool Attr_module_impl::remove_custom_attr_filter(const std::string& filter)
+{
+    auto p = std::find(m_custom_attr_filters.begin(), m_custom_attr_filters.end(), filter);
+    if (p != m_custom_attr_filters.end()) {
+        m_custom_attr_filters.erase(p);
+
+        // update regex
+        m_custom_attr_filter.clear();
+        m_custom_attr_regex = std::wregex();
+
+        if (!m_custom_attr_filters.empty()) {
+            m_custom_attr_filter += "(" + m_custom_attr_filters[0] + ")";
+            for (size_t i = 1; i < m_custom_attr_filters.size(); ++i) {
+                m_custom_attr_filter += "| (" + m_custom_attr_filters[i] + ")";
+            }
+            build_regex(m_custom_attr_filter, m_custom_attr_regex);
+        }
+        return true;
+    }
+    return false;
+}
+
+void Attr_module_impl::clear_custom_attr_filters()
+{
+    m_custom_attr_filters.clear();
+    m_custom_attr_filter.clear();
+    m_custom_attr_regex = std::wregex();
+}
+
+const std::wregex& Attr_module_impl::get_custom_attr_filter() const
+{
+    return m_custom_attr_regex;
 }
 
 // Fully initialize the module such that its members can register themselves.

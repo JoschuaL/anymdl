@@ -1,5 +1,5 @@
 /******************************************************************************
- * Copyright (c) 2019, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2019-2020, NVIDIA CORPORATION. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -26,28 +26,30 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *****************************************************************************/
 
-// examples/example_mdle.cpp
+// examples/mdl_sdk/mdle/example_mdle.cpp
 //
 // Access the MDLE API and create MDLE files from existing mdl materials or functions.
 
-#include <mi/mdl_sdk.h>
 #include <iostream>
 
 // Include code shared by all examples.
 #include "example_shared.h"
 
-int main( int /*argc*/, char* /*argv*/[])
+int MAIN_UTF8( int /*argc*/, char* /*argv*/[])
 {
     // Access the MDL SDK
-    mi::base::Handle<mi::neuraylib::INeuray> neuray(load_and_get_ineuray());
-    check_success(neuray.is_valid_interface());
+    mi::base::Handle<mi::neuraylib::INeuray> neuray(mi::examples::mdl::load_and_get_ineuray());
+    if (!neuray.is_valid_interface())
+        exit_failure("Failed to load the SDK.");
 
     // Configure the MDL SDK
-    configure(neuray.get());
+    if (!mi::examples::mdl::configure(neuray.get()))
+        exit_failure("Failed to initialize the SDK.");
 
     // Start the MDL SDK
-    mi::Sint32 result = neuray->start();
-    check_start_success(result);
+    mi::Sint32 ret = neuray->start();
+    if (ret != 0)
+        exit_failure("Failed to initialize the SDK. Result code: %d", ret);
 
     // Access the database and create a transaction.
     {
@@ -56,8 +58,8 @@ int main( int /*argc*/, char* /*argv*/[])
         mi::base::Handle<mi::neuraylib::IScope> scope(database->get_global_scope());
         mi::base::Handle<mi::neuraylib::ITransaction> transaction(scope->create_transaction());
 
-        mi::base::Handle<mi::neuraylib::IMdl_compiler> mdl_compiler(
-            neuray->get_api_component<mi::neuraylib::IMdl_compiler>());
+        mi::base::Handle<mi::neuraylib::IMdl_impexp_api> mdl_impexp_api(
+            neuray->get_api_component<mi::neuraylib::IMdl_impexp_api>());
 
         mi::base::Handle<mi::neuraylib::IMdl_factory> mdl_factory(
             neuray->get_api_component<mi::neuraylib::IMdl_factory>());
@@ -74,10 +76,10 @@ int main( int /*argc*/, char* /*argv*/[])
         mi::base::Handle<mi::neuraylib::IExpression_factory> expression_factory(
             mdl_factory->create_expression_factory(transaction.get()));
 
-        // Load the module "tutorials". 
+        // Load the module "tutorials".
         // There is no need to configure any module search paths since
         // the mdl example folder is by default in the search path.
-        check_success(mdl_compiler->load_module(
+        check_success(mdl_impexp_api->load_module(
             transaction.get(), "::nvidia::sdk_examples::tutorials", context.get()) >= 0);
         print_messages(context.get());
 
@@ -93,7 +95,7 @@ int main( int /*argc*/, char* /*argv*/[])
             mi::base::Handle<mi::IString> prototype(data->get_value<mi::IString>("prototype_name"));
             prototype->set_c_str("mdl::nvidia::sdk_examples::tutorials::example_mod_rough");
         }
-        
+
         {
             // change a default values
 
@@ -125,8 +127,8 @@ int main( int /*argc*/, char* /*argv*/[])
 
         {
             // set thumbnail (files in the search paths or absolute file paths allowed as fall back)
-            std::string thumbnail_path = get_samples_mdl_root()
-                + "/nvidia/sdk_examples/resources/example_thumbnail.png";
+            std::string thumbnail_path = mi::examples::mdl::get_examples_root()
+                + "/mdl/nvidia/sdk_examples/resources/example_thumbnail.png";
 
             mi::base::Handle<mi::IString> thumbnail(data->get_value<mi::IString>("thumbnail_path"));
             thumbnail->set_c_str(thumbnail_path.c_str());
@@ -140,8 +142,8 @@ int main( int /*argc*/, char* /*argv*/[])
                 transaction->create<mi::IStructure>("Mdle_user_file"));
 
             // ... is defined by a source path ...
-            std::string readme_path = get_samples_mdl_root()
-                + "/nvidia/sdk_examples/resources/example_readme.txt";
+            std::string readme_path = mi::examples::mdl::get_examples_root()
+                + "/mdl/nvidia/sdk_examples/resources/example_readme.txt";
 
             mi::base::Handle<mi::IString> source_path(
                 user_file->get_value<mi::IString>("source_path"));
@@ -166,23 +168,27 @@ int main( int /*argc*/, char* /*argv*/[])
 
         {
             // check and load an MDLE
-            std::string mdle_path = get_working_directory() + "/" + mdle_file_name;
+            std::string mdle_path =
+                mi::examples::io::get_working_directory() + "/" + mdle_file_name;
 
             // optional: check integrity of a (the created) MDLE file.
             mdle_api->validate_mdle(mdle_path.c_str(), context.get());
             check_success(print_messages(context.get()));
-        
+
             // load the MDLE module
-            mdl_compiler->load_module(transaction.get(), mdle_path.c_str(), context.get());
+            mdl_impexp_api->load_module(transaction.get(), mdle_path.c_str(), context.get());
             check_success(print_messages(context.get()));
 
-            // the database name begins with 'mdle::'
-            // followed by the full path of the mdle file (using forward slashes) with a leading '/'
-            // there is only one material/function to load, which is 'main'
-            // the database name uses forward slashes
-            // so, this results in:  mdle::<normalized_path>::main
-            std::string main_db_name = mdle_to_db_name(mdle_path);
-            std::cerr << "main_db_name: " << main_db_name.c_str() << std::endl;
+            // get database name of MDLE module
+            mi::base::Handle<const mi::IString> mdle_db_name(
+                mdl_factory->get_db_module_name(mdle_path.c_str()));
+            std::cerr << "MDLE DB name: " << mdle_db_name->get_c_str() << std::endl;
+
+            // the main material of an MDLE module is always called "main"
+            std::string main_db_name(mdle_db_name->get_c_str());
+            main_db_name += "::main";
+
+            std::cerr << "MDLE main DB name: " << main_db_name << std::endl;
 
             // get the main material
             mi::base::Handle<const mi::neuraylib::IMaterial_definition> material_definition(
@@ -190,7 +196,7 @@ int main( int /*argc*/, char* /*argv*/[])
             check_success(material_definition);
 
             // use the material ...
-            std::cerr << "Successfully created and loaded " << mdle_file_name << std::endl 
+            std::cerr << "Successfully created and loaded " << mdle_file_name << std::endl
                       << std::endl;
 
             // access the user file
@@ -203,17 +209,17 @@ int main( int /*argc*/, char* /*argv*/[])
             char* content = new char[file_size + 1];
             content[file_size] = '\0';
             reader->read(content, file_size);
-            std::cerr << "content of the readme.txt:" << std::endl << content << std::endl 
+            std::cerr << "content of the readme.txt:" << std::endl << content << std::endl
                       << std::endl;
         }
 
         // ----------------------------------------------------------------------------------------
 
-        // export a function to a second mdle
+        // export a function to a second MDLE
         const char* mdle_file_name2 = "example_function.mdle";
-       
+
         {
-            // setup the export to mdle
+            // setup the export to MDLE
             mi::base::Handle<mi::IStructure> data(transaction->create<mi::IStructure>("Mdle_data"));
 
             // specify the material/function that will become the "main" of the MDLE
@@ -257,20 +263,39 @@ int main( int /*argc*/, char* /*argv*/[])
 
         {
             // check and load the function again
-            std::string mdle_path = get_working_directory() + "/" + mdle_file_name2;
+            std::string mdle_path =
+                mi::examples::io::get_working_directory() + "/" + mdle_file_name2;
 
             // optional: check integrity of a (the created) MDLE file.
             mdle_api->validate_mdle(mdle_path.c_str(), context.get());
             check_success(print_messages(context.get()));
 
             // load the MDLE module
-            mdl_compiler->load_module(transaction.get(), mdle_path.c_str(), context.get());
+            mdl_impexp_api->load_module(transaction.get(), mdle_path.c_str(), context.get());
             check_success(print_messages(context.get()));
 
-            // the database name of functions contains the parameter list
-            // therefore, the module has to be loaded first, to then get the main function name
-            std::string main_db_name = mdle_to_db_name_with_signature(transaction.get(), mdle_path);
-            std::cerr << "main_db_name: " << main_db_name.c_str() << std::endl;
+            // get database name of MDLE module
+            mi::base::Handle<const mi::IString> mdle_db_name(
+                mdl_factory->get_db_module_name(mdle_path.c_str()));
+            std::cerr << "MDLE DB name: " << mdle_db_name->get_c_str() << std::endl;
+
+            // get database name of main function
+            mi::base::Handle<const mi::neuraylib::IModule> mdle_module(
+                transaction->access<mi::neuraylib::IModule>(mdle_db_name->get_c_str()));
+            check_success(mdle_module.is_valid_interface());
+
+            std::string main_db_name = mdle_db_name->get_c_str() + std::string("::main");
+            mi::base::Handle<const mi::IArray> functions(
+                mdle_module->get_function_overloads(main_db_name.c_str()));
+
+            check_success(functions.is_valid_interface());
+            check_success(functions->get_length() == 1);
+
+            mi::base::Handle<const mi::IString> main_db_name_str(
+                functions->get_element<const mi::IString>(0));
+
+            main_db_name = main_db_name_str->get_c_str();
+            std::cerr << "MDLE main DB name: " << main_db_name << std::endl;
 
             // get the main function
             mi::base::Handle<const mi::neuraylib::IFunction_definition> function_definition(
@@ -278,15 +303,17 @@ int main( int /*argc*/, char* /*argv*/[])
             check_success(function_definition);
 
             // use the function ...
-            std::cerr << "Successfully created and loaded " << mdle_file_name2 << std::endl 
+            std::cerr << "Successfully created and loaded " << mdle_file_name2 << std::endl
                       << std::endl;
         }
 
         {
             // since the same MDLE can be stored at various different places with different name
             // it could be valuable to check if the content of two MDLE is equal
-            std::string mdle_path_a = get_working_directory() + "/" + mdle_file_name;
-            std::string mdle_path_b = get_working_directory() + "/" + mdle_file_name2;
+            std::string mdle_path_a =
+                mi::examples::io::get_working_directory() + "/" + mdle_file_name;
+            std::string mdle_path_b =
+                mi::examples::io::get_working_directory() + "/" + mdle_file_name2;
 
             // comparing an MDLE with itself should work
             mi::Sint32 res = mdle_api->compare_mdle(mdle_path_a.c_str(), mdle_path_a.c_str(), NULL);
@@ -306,12 +333,16 @@ int main( int /*argc*/, char* /*argv*/[])
     }
 
     // Shut down the MDL SDK
-    check_success(neuray->shutdown() == 0);
-    neuray = 0;
+    if (neuray->shutdown() != 0)
+        exit_failure("Failed to shutdown the SDK.");
 
     // Unload the MDL SDK
-    check_success(unload());
+    neuray = nullptr;
+    if (!mi::examples::mdl::unload())
+        exit_failure("Failed to unload the SDK.");
 
-    keep_console_open();
-    return EXIT_SUCCESS;
+    exit_success();
 }
+
+// Convert command line arguments to UTF8 on Windows
+COMMANDLINE_TO_UTF8

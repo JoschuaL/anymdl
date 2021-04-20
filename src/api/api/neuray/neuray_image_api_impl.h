@@ -1,5 +1,5 @@
 /***************************************************************************************************
- * Copyright (c) 2009-2019, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2009-2020, NVIDIA CORPORATION. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -72,6 +72,14 @@ public:
         mi::Uint32 tile_height,
         mi::Uint32 layers,
         bool is_cubemap,
+        mi::Float32 gamma) const;
+
+    mi::neuraylib::ICanvas_cuda* create_canvas_cuda(
+        mi::Sint32 cuda_device_id,
+        const char* pixel_type,
+        mi::Uint32 width,
+        mi::Uint32 height,
+        mi::Uint32 layers,
         mi::Float32 gamma) const;
 
     mi::neuraylib::ITile* create_tile(

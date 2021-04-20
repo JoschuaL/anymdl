@@ -1,5 +1,5 @@
 /******************************************************************************
- * Copyright (c) 2014-2019, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2014-2020, NVIDIA CORPORATION. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -63,16 +63,18 @@ Bsdf_measurement::Bsdf_measurement(Tag_type const  &bm_t, DB::Transaction *trans
     : Bsdf_measurement()
 {
     m_bsdf_measurement = DB::Access<BSDFM::Bsdf_measurement>(bm_t, trans);
+    m_bsdf_measurement_impl
+        = DB::Access<BSDFM::Bsdf_measurement_impl>(m_bsdf_measurement->get_impl_tag(), trans);
 
     // handle reflection
     mi::base::Handle<const mi::neuraylib::IBsdf_isotropic_data> dataset(
-        m_bsdf_measurement->get_reflection<const mi::neuraylib::IBsdf_isotropic_data>());
+        m_bsdf_measurement_impl->get_reflection<const mi::neuraylib::IBsdf_isotropic_data>());
     if(dataset)
         prepare_mbsdfs_part(mi::mdl::stdlib::mbsdf_data_reflection, dataset.get());
 
     // handle transmission
     dataset = mi::base::Handle<const mi::neuraylib::IBsdf_isotropic_data>(
-        m_bsdf_measurement->get_transmission<const mi::neuraylib::IBsdf_isotropic_data>());
+        m_bsdf_measurement_impl->get_transmission<const mi::neuraylib::IBsdf_isotropic_data>());
     if (dataset)
         prepare_mbsdfs_part(mi::mdl::stdlib::mbsdf_data_reflection, dataset.get());
 }

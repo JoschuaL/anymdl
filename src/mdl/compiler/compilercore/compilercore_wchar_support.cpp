@@ -1,5 +1,5 @@
 /******************************************************************************
- * Copyright (c) 2011-2019, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2011-2020, NVIDIA CORPORATION. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -197,6 +197,20 @@ wchar_t const *utf8_to_utf16(wstring &res, char const *src)
             res.append(wchar_t((unicode_char >> 10) + 0xD800));
             res.append(wchar_t((unicode_char & 0x3FF) + 0xDC00));
         }
+    }
+    return res.c_str();
+}
+
+// Converts a utf8 encoded string into a utf32 encoded string.
+unsigned const *utf8_to_utf32(u32string &res, char const *src)
+{
+    res.clear();
+
+    while (*src != '\0') {
+        unsigned unicode_char;
+
+        src = utf8_to_unicode_char(src, unicode_char);
+        res.append(unicode_char);
     }
     return res.c_str();
 }

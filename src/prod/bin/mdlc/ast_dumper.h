@@ -16,7 +16,7 @@ public:
 
 private:
   const char *unary_operator_to_string(const IExpression_unary::Operator op);
-  
+
   const char *binary_operator_to_string(const IExpression_binary::Operator op);
 
   const char *value_to_string(const IValue *l);

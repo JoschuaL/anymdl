@@ -1,5 +1,5 @@
 /***************************************************************************************************
- * Copyright (c) 2010-2019, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2010-2020, NVIDIA CORPORATION. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -46,9 +46,9 @@ DB::Element_base* Attribute_container_impl::create_db_element(
     const mi::base::IInterface* argv[])
 {
     if( !transaction)
-        return 0;
+        return nullptr;
     if( argc != 0)
-        return 0;
+        return nullptr;
     return new Attribute_container;
 }
 
@@ -58,9 +58,9 @@ mi::base::IInterface* Attribute_container_impl::create_api_class(
     const mi::base::IInterface* argv[])
 {
     if( !transaction)
-        return 0;
+        return nullptr;
     if( argc != 0)
-        return 0;
+        return nullptr;
     return (new Attribute_container_impl())->cast_to_major();
 }
 

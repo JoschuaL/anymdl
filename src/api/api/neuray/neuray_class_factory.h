@@ -1,5 +1,5 @@
 /***************************************************************************************************
- * Copyright (c) 2010-2019, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2010-2020, NVIDIA CORPORATION. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -193,6 +193,12 @@ public:
         const mi::base::Uuid& uuid,
         mi::neuraylib::IUser_class_factory* factory);
 
+    /// Checks whether a DB class has been registered.
+    ///
+    /// \param class_id             The class ID to  check.
+    /// \return                     \c true if the class ID is registered.
+    bool is_class_registered( SERIAL::Class_id class_id) const;
+
     /// Checks whether a user-defined class has been registered.
     ///
     /// \param serializable         The serializable to check.
@@ -201,8 +207,8 @@ public:
 
     /// Checks whether a user-defined class has been registered.
     ///
-    /// \param uuid                 The class ID check.
-    /// \return                     \c true if the class ID is registered.
+    /// \param uuid                 The UUID to check.
+    /// \return                     \c true if the UUID is registered.
     bool is_class_registered( const mi::base::Uuid& uuid) const;
 
     /// Registers a structure declaration with the \neurayApiName.
@@ -326,7 +332,7 @@ public:
         Transaction_impl* transaction,
         const char* type_name,
         mi::Uint32 argc = 0,
-        const mi::base::IInterface* argv[] = 0) const;
+        const mi::base::IInterface* argv[] = nullptr) const;
 
     /// Creates an instance of a type (not (yet) connected with DB).
     ///
@@ -350,7 +356,7 @@ public:
         Transaction_impl* transaction,
         const char* type_name,
         mi::Uint32 argc = 0,
-        const mi::base::IInterface* argv[] = 0) const
+        const mi::base::IInterface* argv[] = nullptr) const
     {
         mi::base::IInterface* ptr_iinterface = create_type_instance(
             transaction, type_name, argc, argv);
@@ -417,7 +423,7 @@ private:
         Transaction_impl* transaction,
         const char* class_name,
         mi::Uint32 argc = 0,
-        const mi::base::IInterface* argv[] = 0) const;
+        const mi::base::IInterface* argv[] = nullptr) const;
 
     /// Creates an instance of a class (not (yet) connected with DB).
     ///
@@ -442,7 +448,7 @@ private:
         Transaction_impl* transaction,
         const char* class_name,
         mi::Uint32 argc = 0,
-        const mi::base::IInterface* argv[] = 0) const
+        const mi::base::IInterface* argv[] = nullptr) const
     {
         mi::base::IInterface* ptr_iinterface
             = create_class_instance( transaction, class_name, argc, argv);

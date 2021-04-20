@@ -1,5 +1,5 @@
 /***************************************************************************************************
- * Copyright (c) 2018-2019, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2018-2020, NVIDIA CORPORATION. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -664,8 +664,8 @@ bool Util::is_valid_mdl_identifier(const std::string & identifier)
 }
 
 //-----------------------------------------------------------------------------
-// Following code comes from:
-// svn+ssh://svnserver.mi.nvidia.com/neuray/trunk/research/mdl_rix/mdl_util.h
+//
+//
 
 #ifdef _WIN32
 #include <Shlobj.h>
@@ -759,7 +759,7 @@ std::string get_mdl_system_directory()
 std::string get_module_name(const std::string& qualified_material_name)
 {
     std::string stripped_mdl_name;
-    size_t p = qualified_material_name.find("(");
+    size_t p = qualified_material_name.find('(');
     if (p == std::string::npos)
         stripped_mdl_name = qualified_material_name;
     else // strip function signature

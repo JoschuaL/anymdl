@@ -1,5 +1,5 @@
 /******************************************************************************
- * Copyright (c) 2018-2019, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2018-2020, NVIDIA CORPORATION. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -26,9 +26,10 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *****************************************************************************/
 
-// examples/compiled_material_traverser_print.cpp
+// examples/mdl_sdk/traversal/compiled_material_traverser_print.cpp
 
 #include "compiled_material_traverser_print.h"
+
 #include <iostream>
 #include <algorithm> 
 #include <utility>
@@ -48,11 +49,10 @@ static bool is_ternary_operator(mi::neuraylib::IFunction_definition::Semantics s
 static bool is_selector_operator(mi::neuraylib::IFunction_definition::Semantics semantic);
 static bool is_call_like_operator(mi::neuraylib::IFunction_definition::Semantics semantic);
 
-Compiled_material_traverser_print::Context::Context(mi::neuraylib::ITransaction* transaction, 
-                                                    mi::neuraylib::IMdl_compiler* compiler, 
-                                                    bool keep_structure)
+Compiled_material_traverser_print::Context::Context(
+    mi::neuraylib::ITransaction* transaction, 
+    bool keep_structure)
     : m_transaction(transaction)
-    , m_compiler(compiler)
     , m_keep_compiled_material_structure(keep_structure)
 {
     reset();
@@ -83,7 +83,7 @@ std::string Compiled_material_traverser_print::print_mdl(
     const mi::neuraylib::ICompiled_material* material,
     Context& context,
     const std::string& original_module_name,
-    const std::string& output_material_name) const
+    const std::string& output_material_name)
 {
     // reset in case of reuse
     context.reset();
@@ -93,7 +93,7 @@ std::string Compiled_material_traverser_print::print_mdl(
 
     // version string
     std::stringstream output;
-    output << "mdl 1.5;\n\n";
+    output << "mdl 1.6;\n\n";
 
     // add required includes
     size_t last_sep_pos = std::string::npos;
@@ -133,7 +133,7 @@ std::string Compiled_material_traverser_print::print_mdl(
 //--------------------------------------------------------------------------------------------------
 
 void Compiled_material_traverser_print::stage_begin(
-    const mi::neuraylib::ICompiled_material* material, Traveral_stage stage, void* context) const
+    const mi::neuraylib::ICompiled_material* material, Traveral_stage stage, void* context)
 {
     Context* ctx = static_cast<Compiled_material_traverser_print::Context*>(context);
     ctx->m_stage = stage;
@@ -159,7 +159,7 @@ void Compiled_material_traverser_print::stage_begin(
 }
 
 void Compiled_material_traverser_print::stage_end(const mi::neuraylib::ICompiled_material* material,
-                                                  Traveral_stage stage, void* context) const
+                                                  Traveral_stage stage, void* context)
 {
     Context* ctx = static_cast<Compiled_material_traverser_print::Context*>(context);
 
@@ -196,7 +196,7 @@ void Compiled_material_traverser_print::stage_end(const mi::neuraylib::ICompiled
 
 void Compiled_material_traverser_print::visit_begin(
     const mi::neuraylib::ICompiled_material* material,
-    const Traversal_element& element, void* context) const
+    const Traversal_element& element, void* context)
 {
     Context* ctx = static_cast<Compiled_material_traverser_print::Context*>(context);
     ctx->m_indent++;
@@ -253,12 +253,18 @@ void Compiled_material_traverser_print::visit_begin(
                 const mi::neuraylib::IFunction_definition::Semantics semantic = func_def->
                     get_semantic();
 
-                std::string function_name = func_def->get_mdl_name();
-                function_name = function_name.substr(0, function_name.find('('));
+                std::string module_name = func_def->get_mdl_module_name();
+                bool is_builtins = module_name.substr(0, 12) == "::<builtins>";
+
+                std::string function_name;
+                if (is_builtins)
+                    function_name = func_def->get_mdl_simple_name();
+                else
+                    function_name = module_name + "::" +  func_def->get_mdl_simple_name();
 
                 // keep track of used modules and/or imports
                 const std::string m = func_def->get_module();
-                if (m != "mdl::<builtins>")
+                if (!is_builtins)
                 {
                     // type conversion using constructors can lead to invalid mdl code
                     // as these conversion constructors are created in the local module space
@@ -309,9 +315,7 @@ void Compiled_material_traverser_print::visit_begin(
                         if (drop_qualification)
                         {
                             // strip qualification part of the name
-                            const size_t pos = function_name.rfind("::");
-                            if (pos != std::string::npos)
-                                function_name = function_name.substr(pos + 2);
+                            function_name = func_def->get_mdl_simple_name();
                         }
                         else
                         {
@@ -697,7 +701,7 @@ void Compiled_material_traverser_print::visit_begin(
 void Compiled_material_traverser_print::visit_child(
     const mi::neuraylib::ICompiled_material* /*material*/,
     const Traversal_element& element, mi::Size /*children_count*/,
-    mi::Size child_index, void* context) const
+    mi::Size child_index, void* context)
 {
     Context* ctx = static_cast<Compiled_material_traverser_print::Context*>(context);
 
@@ -718,8 +722,7 @@ void Compiled_material_traverser_print::visit_child(
                         expr_dcall->get_definition()));
                 const mi::neuraylib::IFunction_definition::Semantics semantic = func_def->
                     get_semantic();
-                std::string function_name = func_def->get_mdl_name();
-                function_name = function_name.substr(0, function_name.find('('));
+                std::string function_name = func_def->get_mdl_simple_name();
 
                 // check for special cases based on the semantic
 
@@ -730,6 +733,13 @@ void Compiled_material_traverser_print::visit_child(
                 {
                     std::string op = function_name.substr(8);
                     ctx->m_print << op;
+                    return;
+                }
+
+                if (is_array_index_operator(semantic))
+                {
+                    if (child_index == 1)
+                        ctx->m_print << "[";
                     return;
                 }
 
@@ -752,12 +762,6 @@ void Compiled_material_traverser_print::visit_child(
                     return;
                 }
 
-                if (is_array_index_operator(semantic))
-                {
-                    if (child_index == 1)
-                        ctx->m_print << "[";
-                    return;
-                }
 
                 // argument lists without line breaks
                 if (is_type_converter(semantic))
@@ -784,7 +788,7 @@ void Compiled_material_traverser_print::visit_child(
                 
                 // error case (should not happen):
                 std::cerr << "[Compiled_material_traverser_print] ran into unhandled semantic: '"
-                          << function_name << "' Semantic:" << semantic << "\n";
+                          << func_def->get_mdl_name() << "' Semantic:" << semantic << "\n";
                 return;
             }
 
@@ -823,7 +827,7 @@ void Compiled_material_traverser_print::visit_child(
 void Compiled_material_traverser_print::visit_end(
     const mi::neuraylib::ICompiled_material* material,
     const Traversal_element& element,
-    void* context) const
+    void* context)
 {
     Context* ctx = static_cast<Compiled_material_traverser_print::Context*>(context);
 
@@ -859,10 +863,9 @@ void Compiled_material_traverser_print::visit_end(
 
                 if (is_selector_operator(semantic))
                 {
-                    std::string selctor = func_def->get_mdl_name();
-                    selctor = selctor.substr(0, selctor.find('('));
-                    selctor = selctor.substr(selctor.rfind('.'));
-                    ctx->m_print << selctor;
+                    std::string selector = func_def->get_mdl_simple_name();
+                    selector = selector.substr(selector.rfind('.'));
+                    ctx->m_print << selector;
                     break;
                 }
 
@@ -1264,7 +1267,7 @@ inline bool is_array_constructor(mi::neuraylib::IFunction_definition::Semantics 
 
 inline bool is_array_index_operator(mi::neuraylib::IFunction_definition::Semantics semantic)
 {
-    return semantic == mi::neuraylib::IFunction_definition::DS_INTRINSIC_DAG_INDEX_ACCESS;
+    return semantic == mi::neuraylib::IFunction_definition::DS_ARRAY_INDEX;
 }
 
 inline bool is_unary_operator(mi::neuraylib::IFunction_definition::Semantics semantic)

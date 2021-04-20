@@ -1,5 +1,5 @@
 /***************************************************************************************************
- * Copyright (c) 2011-2019, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2011-2020, NVIDIA CORPORATION. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -53,21 +53,21 @@ Zip_file::~Zip_file()
 bool Zip_file::open(const std::string& path, IFile::Mode mode)
 {
     if (mode != IFile::M_READ)
-	return false;
+        return false;
 
     // Briefly open the file to get the size of the file and store it.
     File* file = new File();
     if (!file->open(path, mode))
     {
-	delete file;
-	return false;
+        delete file;
+        return false;
     }
     m_file_size = file->filesize();
     delete file;
 
     m_file = gzopen(path.c_str(), get_mode_string(mode));
     if (m_file == NULL)
-	return false;
+        return false;
     m_path = path;
     return true;
 }
@@ -84,7 +84,7 @@ bool Zip_file::open(const char* path, IFile::Mode mode)
 bool Zip_file::close()
 {
     if (m_file != NULL)
-	gzclose(m_file);
+        gzclose(m_file);
 
     m_file = NULL;
     return true;

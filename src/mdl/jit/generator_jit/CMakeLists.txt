@@ -1,5 +1,5 @@
 #*****************************************************************************
-# Copyright (c) 2018-2019, NVIDIA CORPORATION. All rights reserved.
+# Copyright (c) 2018-2020, NVIDIA CORPORATION. All rights reserved.
 #
 # Redistribution and use in source and binary forms, with or without
 # modification, are permitted provided that the following conditions
@@ -32,15 +32,26 @@ set(PROJECT_NAME mdl-jit-generator_jit)
 # Files to generate
 set(_GENERATED_DIR ${CMAKE_CURRENT_BINARY_DIR}/generated)
 set(_GENERATED_SOURCES 
-    ${_GENERATED_DIR}/libbsdf_bitcode.h
+    ${_GENERATED_DIR}/libmdlrt_bitcode.h
     ${_GENERATED_DIR}/glue_libdevice.h
     ${_GENERATED_DIR}/generator_jit_intrinsic_func.i
+    ${_GENERATED_DIR}/libbsdf_multiscatter_tables.cpp
     )
+
+set(DF_HANDLE_SLOT_MODES "hsmp" "hsmn" "hsm1" "hsm2" "hsm4" "hsm8")
+foreach(HS ${DF_HANDLE_SLOT_MODES})
+    list(APPEND _GENERATED_SOURCES
+        ${_GENERATED_DIR}/libbsdf_bitcode_${HS}.h
+    )
+endforeach()
 
 # scripts/files used to generate the sources above
 set(_GENERATOR_FILES
     ${CMAKE_CURRENT_SOURCE_DIR}/gen_intrinsic_func.py
+    ${CMAKE_CURRENT_SOURCE_DIR}/gen_libbsdf.py
+    ${CMAKE_CURRENT_SOURCE_DIR}/gen_libbsdf_multiscatter_tables.py
     ${CMAKE_CURRENT_SOURCE_DIR}/gen_libdevice.py
+    ${CMAKE_CURRENT_SOURCE_DIR}/gen_libmdlrt.py
     )
 
 # -------------------------------------------------------------------------------------------------
@@ -55,11 +66,13 @@ set(PROJECT_HEADERS
     "generator_jit_code_printer.h"
     "generator_jit_context.h"
     "generator_jit_generated_code.h"
+    "generator_jit_generated_code_value_layout.h"
     "generator_jit_hlsl_depgraph.h"
     "generator_jit_hlsl_function.h"
     "generator_jit_hlsl_writer.h"
     "generator_jit_llvm.h"
     "generator_jit_llvm_passes.h"
+    "generator_jit_libbsdf_data.h"
     "generator_jit_opt_pass_gate.h"
     "generator_jit_res_manager.h"
     "generator_jit_streams.h"
@@ -76,7 +89,9 @@ set(PROJECT_SOURCES
     "generator_jit_hlsl.cpp"
     "generator_jit_hlsl_writer.cpp"
     "generator_jit_libbsdf.cpp"
+    "generator_jit_libbsdf_data.cpp"
     "generator_jit_libdevice.cpp"
+    "generator_jit_libmdlrt.cpp"
     "generator_jit_mangle.cpp"
     "generator_jit_llvm.cpp"
     "generator_jit_llvm_df.cpp"
@@ -89,7 +104,9 @@ set(PROJECT_SOURCES
     )
 
 # mark files as generated to disable the check for existence during configure
+# mark them also as headers since generated .cpp files are included in other sources
 set_source_files_properties(${_GENERATED_SOURCES} PROPERTIES GENERATED TRUE)
+set_source_files_properties(${_GENERATED_SOURCES} PROPERTIES HEADER_FILE_ONLY TRUE)
 
 # add the generator files to the solution
 set_source_files_properties(${_GENERATOR_FILES} PROPERTIES HEADER_FILE_ONLY TRUE)
@@ -134,6 +151,7 @@ target_add_dependencies(TARGET ${PROJECT_NAME}
     DEPENDS 
         boost
         mdl-jit-libbsdf
+        mdl-jit-libmdlrt
     )
 
 # add cuda headers, only required for CUDA_VERSION define
@@ -183,14 +201,26 @@ add_custom_command(
     VERBATIM
     )
 
+foreach(HS ${DF_HANDLE_SLOT_MODES})
+    add_custom_command(
+        OUTPUT ${_GENERATED_DIR}/libbsdf_bitcode_${HS}.h
+        COMMAND ${CMAKE_COMMAND} -E make_directory ${_GENERATED_DIR}
+        COMMAND ${python_PATH} ${CMAKE_CURRENT_SOURCE_DIR}/gen_libbsdf.py ${CMAKE_CURRENT_BINARY_DIR}/../libbsdf/generated/libbsdf_${HS}.bc ${_GENERATED_DIR}
+        DEPENDS 
+            ${CMAKE_CURRENT_SOURCE_DIR}/gen_libbsdf.py
+            ${CMAKE_CURRENT_BINARY_DIR}/../libbsdf/generated/libbsdf_${HS}.bc
+        VERBATIM
+        )
+endforeach()
+
 add_custom_command(
-    OUTPUT ${_GENERATED_DIR}/libbsdf_bitcode.h
-    COMMAND ${CMAKE_COMMAND} -E echo "Generating libbsdf_bitcode.h ..."
+    OUTPUT ${_GENERATED_DIR}/libmdlrt_bitcode.h
+    COMMAND ${CMAKE_COMMAND} -E echo "Generating libmdlrt_bitcode.h ..."
     COMMAND ${CMAKE_COMMAND} -E make_directory ${_GENERATED_DIR}
-    COMMAND ${python_PATH} ${CMAKE_CURRENT_SOURCE_DIR}/gen_libbsdf.py ${CMAKE_CURRENT_BINARY_DIR}/../libbsdf/generated/libbsdf.bc ${_GENERATED_DIR}
-    DEPENDS 
-        ${CMAKE_CURRENT_SOURCE_DIR}/gen_libbsdf.py
-        ${CMAKE_CURRENT_BINARY_DIR}/../libbsdf/generated/libbsdf.bc
+    COMMAND ${python_PATH} ${CMAKE_CURRENT_SOURCE_DIR}/gen_libmdlrt.py ${CMAKE_CURRENT_BINARY_DIR}/../libmdlrt/generated/libmdlrt.bc ${_GENERATED_DIR}
+    DEPENDS
+        ${CMAKE_CURRENT_SOURCE_DIR}/gen_libmdlrt.py
+        ${CMAKE_CURRENT_BINARY_DIR}/../libmdlrt/generated/libmdlrt.bc
     VERBATIM
     )
 
@@ -202,5 +232,27 @@ add_custom_command(
     DEPENDS 
         ${CMAKE_CURRENT_SOURCE_DIR}/gen_libdevice.py
         ${CMAKE_CURRENT_SOURCE_DIR}/../libdevice/libdevice.10.bc # try to replace this with the cuda sdk file
+    VERBATIM
+    )
+
+set(_TABLES
+    ${CMAKE_CURRENT_SOURCE_DIR}/../libbsdf/multiscatter_tables/beckmann_smith.bin
+    ${CMAKE_CURRENT_SOURCE_DIR}/../libbsdf/multiscatter_tables/beckmann_vc.bin
+    ${CMAKE_CURRENT_SOURCE_DIR}/../libbsdf/multiscatter_tables/phong_vc.bin
+    ${CMAKE_CURRENT_SOURCE_DIR}/../libbsdf/multiscatter_tables/disk_bs.bin
+    ${CMAKE_CURRENT_SOURCE_DIR}/../libbsdf/multiscatter_tables/ggx_smith.bin
+    ${CMAKE_CURRENT_SOURCE_DIR}/../libbsdf/multiscatter_tables/ggx_vc.bin
+    ${CMAKE_CURRENT_SOURCE_DIR}/../libbsdf/multiscatter_tables/sink_vc.bin
+    ${CMAKE_CURRENT_SOURCE_DIR}/../libbsdf/multiscatter_tables/ward_gm.bin
+    )
+
+add_custom_command(
+    OUTPUT ${_GENERATED_DIR}/libbsdf_multiscatter_tables.cpp
+    COMMAND ${CMAKE_COMMAND} -E echo "Generating libbsdf_multiscatter_tables.cpp ..."
+    COMMAND ${CMAKE_COMMAND} -E make_directory ${_GENERATED_DIR}
+    COMMAND ${python_PATH} ${CMAKE_CURRENT_SOURCE_DIR}/gen_libbsdf_multiscatter_tables.py ${_GENERATED_DIR}/libbsdf_multiscatter_tables.cpp ${_TABLES}
+    DEPENDS
+        ${CMAKE_CURRENT_SOURCE_DIR}/gen_libbsdf_multiscatter_tables.py
+        ${_TABLES}
     VERBATIM
     )

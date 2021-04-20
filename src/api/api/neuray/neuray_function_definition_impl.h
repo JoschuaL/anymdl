@@ -1,5 +1,5 @@
 /***************************************************************************************************
- * Copyright (c) 2015-2019, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2015-2020, NVIDIA CORPORATION. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -33,8 +33,6 @@
 #ifndef API_API_NEURAY_FUNCTION_DEFINITION_IMPL_H
 #define API_API_NEURAY_FUNCTION_DEFINITION_IMPL_H
 
-#include <base/system/main/neuray_cc_conf.h>
-
 #include <mi/neuraylib/ifunction_definition.h>
 
 #include "neuray_db_element_impl.h"
@@ -47,7 +45,7 @@ namespace MDL { class Mdl_function_definition; }
 namespace NEURAY {
 
 /// This class implements an MDL function definition.
-class Function_definition_impl NEURAY_FINAL
+class Function_definition_impl final
     : public Attribute_set_impl<Db_element_impl<mi::neuraylib::IFunction_definition,
                                                 MDL::Mdl_function_definition> >
 {
@@ -65,49 +63,68 @@ public:
 
     // public API methods
 
-    mi::neuraylib::Element_type get_element_type() const NEURAY_FINAL;
+    mi::neuraylib::Element_type get_element_type() const final;
 
-    const char* get_module() const NEURAY_FINAL;
+    const char* get_module() const final;
 
-    const char* get_mdl_name() const NEURAY_FINAL;
+    const char* get_mdl_name() const final;
 
-    const char* get_prototype() const NEURAY_FINAL;
+    const char* get_mdl_module_name() const final;
 
-    mi::neuraylib::IFunction_definition::Semantics get_semantic() const NEURAY_FINAL;
+    const char* get_mdl_simple_name() const final;
 
-    bool is_exported() const NEURAY_FINAL;
+    const char* get_mdl_parameter_type_name( Size index) const final;
 
-    bool is_uniform() const NEURAY_FINAL;
+    const char* get_prototype() const final;
 
-    const mi::neuraylib::IType* get_return_type() const NEURAY_FINAL;
+    void get_mdl_version(
+        mi::neuraylib::Mdl_version& since, mi::neuraylib::Mdl_version& removed) const final;
 
-    mi::Size get_parameter_count() const NEURAY_FINAL;
+    mi::neuraylib::IFunction_definition::Semantics get_semantic() const final;
 
-    const char* get_parameter_name( mi::Size index) const NEURAY_FINAL;
+    bool is_exported() const final;
 
-    mi::Size get_parameter_index( const char* name) const NEURAY_FINAL;
+    bool is_uniform() const final;
 
-    const mi::neuraylib::IType_list* get_parameter_types() const NEURAY_FINAL;
+    const mi::neuraylib::IType* get_return_type() const final;
 
-    const mi::neuraylib::IExpression_list* get_defaults() const NEURAY_FINAL;
+    mi::Size get_parameter_count() const final;
 
-    const mi::neuraylib::IExpression_list* get_enable_if_conditions() const NEURAY_FINAL;
+    const char* get_parameter_name( mi::Size index) const final;
 
-    mi::Size get_enable_if_users( mi::Size index) const NEURAY_FINAL;
+    mi::Size get_parameter_index( const char* name) const final;
 
-    mi::Size get_enable_if_user( mi::Size index, mi::Size u_index) const NEURAY_FINAL;
+    const mi::neuraylib::IType_list* get_parameter_types() const final;
 
-    const mi::neuraylib::IAnnotation_block* get_annotations() const NEURAY_FINAL;
+    const mi::neuraylib::IExpression_list* get_defaults() const final;
 
-    const mi::neuraylib::IAnnotation_block* get_return_annotations() const NEURAY_FINAL;
+    const mi::neuraylib::IExpression_list* get_enable_if_conditions() const final;
 
-    const mi::neuraylib::IAnnotation_list* get_parameter_annotations() const NEURAY_FINAL;
+    mi::Size get_enable_if_users( mi::Size index) const final;
 
-    const char* get_thumbnail() const NEURAY_FINAL;
+    mi::Size get_enable_if_user( mi::Size index, mi::Size u_index) const final;
+
+    const mi::neuraylib::IAnnotation_block* get_annotations() const final;
+
+    const mi::neuraylib::IAnnotation_block* get_return_annotations() const final;
+
+    const mi::neuraylib::IAnnotation_list* get_parameter_annotations() const final;
+
+    const char* get_thumbnail() const final;
+
+    bool is_valid(mi::neuraylib::IMdl_execution_context* context) const final;
 
     mi::neuraylib::IFunction_call* create_function_call(
         const mi::neuraylib::IExpression_list* arguments,
-        mi::Sint32* errors = 0) const NEURAY_FINAL;
+        mi::Sint32* errors = nullptr) const final;
+
+    const mi::neuraylib::IExpression* get_body() const final;
+
+    mi::Size get_temporary_count() const final;
+
+    const mi::neuraylib::IExpression* get_temporary( mi::Size index) const final;
+
+    const char* get_temporary_name( mi::Size index) const final;
 };
 
 } // namespace NEURAY

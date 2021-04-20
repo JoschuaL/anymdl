@@ -1,5 +1,5 @@
 /***************************************************************************************************
- * Copyright (c) 2010-2019, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2010-2020, NVIDIA CORPORATION. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -46,14 +46,14 @@ mi::base::IInterface* String_impl::create_api_class(
     const mi::base::IInterface* argv[])
 {
     if( argc != 0)
-        return 0;
+        return nullptr;
     return new String_impl();
 }
 
-String_impl::String_impl()
-  : m_storage( 0)
+String_impl::String_impl(const char* const str)
+  : m_storage( nullptr)
 {
-    set_c_str( "");
+    set_c_str( str);
 }
 
 String_impl::~String_impl()
@@ -89,13 +89,13 @@ mi::base::IInterface* String_impl_proxy::create_api_class(
     const mi::base::IInterface* argv[])
 {
     if( argc != 0)
-        return 0;
+        return nullptr;
     return (new String_impl_proxy())->cast_to_major();
 }
 
 String_impl_proxy::String_impl_proxy()
 {
-    m_pointer = 0;
+    m_pointer = nullptr;
 }
 
 const char* String_impl_proxy::get_type_name() const
@@ -107,7 +107,7 @@ const char* String_impl_proxy::get_c_str() const
 {
     // Note that the constructor of the proxy implementation does not call set_c_str( "").
     // Hence, we have to check for NULL pointers here.
-    if( *m_pointer == 0)
+    if( *m_pointer == nullptr)
         return "";
     return *m_pointer;
 }
@@ -133,7 +133,7 @@ void String_impl_proxy::set_pointer_and_owner( void* pointer, const mi::base::II
 void String_impl_proxy::release_referenced_memory()
 {
     delete[] *m_pointer;
-    *m_pointer = 0;
+    *m_pointer = nullptr;
 }
 
 } // namespace NEURAY

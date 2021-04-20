@@ -1,5 +1,5 @@
 /***************************************************************************************************
- * Copyright (c) 2015-2019, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2015-2020, NVIDIA CORPORATION. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -77,7 +77,7 @@ public:
     {
         mi::base::Handle<const IType> ptr_type( get_type());
         if( !ptr_type)
-            return 0;
+            return nullptr;
         return static_cast<const T*>( ptr_type->get_interface( typename T::IID()));
     }
 
@@ -192,7 +192,7 @@ class IValue_string_localized : public
 {
 public:
     virtual const char* get_original_value() const = 0;
-    
+
     virtual void set_original_value( const char* value) = 0;
 };
 
@@ -212,7 +212,7 @@ public:
     {
         mi::base::Handle<const IValue> ptr_value( get_value( index));
         if( !ptr_value)
-            return 0;
+            return nullptr;
         return static_cast<const T*>( ptr_value->get_interface( typename T::IID()));
     }
 
@@ -223,7 +223,7 @@ public:
     {
         mi::base::Handle<IValue> ptr_value( get_value( index));
         if( !ptr_value)
-            return 0;
+            return nullptr;
         return static_cast<T*>( ptr_value->get_interface( typename T::IID()));
     }
 
@@ -248,7 +248,7 @@ public:
     {
         mi::base::Handle<const IValue_atomic> ptr_value( get_value( index));
         if( !ptr_value)
-            return 0;
+            return nullptr;
         return static_cast<const T*>( ptr_value->get_interface( typename T::IID()));
     }
 
@@ -257,7 +257,7 @@ public:
     {
         mi::base::Handle<IValue_atomic> ptr_value( get_value( index));
         if( !ptr_value)
-            return 0;
+            return nullptr;
         return static_cast<T*>( ptr_value->get_interface( typename T::IID()));
     }
 };
@@ -322,7 +322,7 @@ public:
     {
         mi::base::Handle<const IValue> ptr_value( get_field( name));
         if( !ptr_value)
-            return 0;
+            return nullptr;
         return static_cast<T*>( ptr_value->get_interface( typename T::IID()));
     }
 
@@ -333,7 +333,7 @@ public:
     {
         mi::base::Handle<IValue> ptr_value( get_field( name));
         if( !ptr_value)
-            return 0;
+            return nullptr;
         return static_cast<T*>( ptr_value->get_interface( typename T::IID()));
     }
 
@@ -424,7 +424,7 @@ public:
     {
         mi::base::Handle<const IValue> ptr_value( get_value( index));
         if( !ptr_value)
-            return 0;
+            return nullptr;
         return static_cast<const T*>( ptr_value->get_interface( typename T::IID()));
     }
 
@@ -435,7 +435,7 @@ public:
     {
         mi::base::Handle<const IValue> ptr_value( get_value( name));
         if( !ptr_value)
-            return 0;
+            return nullptr;
         return static_cast<const T*>( ptr_value->get_interface( typename T::IID()));
     }
 
@@ -495,7 +495,17 @@ public:
 
     virtual IValue_light_profile* create_light_profile( DB::Tag value) const = 0;
 
+    virtual IValue_light_profile* create_light_profile(
+        DB::Tag value,
+        const char *unresolved_mdl_url,
+        const char *owner_module) const = 0;
+
     virtual IValue_bsdf_measurement* create_bsdf_measurement( DB::Tag value) const = 0;
+
+    virtual IValue_bsdf_measurement* create_bsdf_measurement(
+        DB::Tag value,
+        const char *unresolved_mdl_url,
+        const char *owner_module) const = 0;
 
     virtual IValue_invalid_df* create_invalid_df( const IType_reference* type) const = 0;
 
@@ -506,7 +516,7 @@ public:
     {
         mi::base::Handle<IValue> ptr_value( create( type));
         if( !ptr_value)
-            return 0;
+            return nullptr;
         return static_cast<T*>( ptr_value->get_interface( typename T::IID()));
     }
 
@@ -519,7 +529,7 @@ public:
     {
         mi::base::Handle<IValue> ptr_value( clone( static_cast<const IValue*>( value)));
         if( !ptr_value)
-            return 0;
+            return nullptr;
         return static_cast<T*>( ptr_value->get_interface( typename T::IID()));
     }
 
@@ -553,7 +563,7 @@ public:
     {
         mi::base::Handle<IValue> ptr_value( deserialize( deserializer));
         if( !ptr_value)
-            return 0;
+            return nullptr;
         return static_cast<T*>( ptr_value->get_interface( typename T::IID()));
     }
 

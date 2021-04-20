@@ -1,5 +1,5 @@
 /***************************************************************************************************
- * Copyright (c) 2018-2019, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2018-2020, NVIDIA CORPORATION. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -30,9 +30,9 @@
 #define API_API_NEURAY_NEURAY_MDL_EXECUTION_CONTEXT_IMPL_H
 
 #include <mi/neuraylib/imdl_execution_context.h>
-#include <mi/base/interface_implement.h>
-#include <base/system/main/neuray_cc_conf.h>
 
+#include <string>
+#include <mi/base/interface_implement.h>
 
 namespace MI {
 
@@ -46,50 +46,77 @@ class Mdl_execution_context_impl
 {
 public:
 
-    // constructor 
     Mdl_execution_context_impl();
-    
-    // destructor 
+
     virtual ~Mdl_execution_context_impl();
-    
-    // public interface functions
-    mi::Size get_messages_count() const NEURAY_FINAL;
 
-    mi::Size get_error_messages_count() const NEURAY_FINAL;
+    // public API methods
 
-    const mi::neuraylib::IMessage* get_message(mi::Size index) const NEURAY_FINAL;
+    mi::Size get_messages_count() const final;
 
-    const mi::neuraylib::IMessage* get_error_message(mi::Size index) const NEURAY_FINAL;
+    mi::Size get_error_messages_count() const final;
 
+    const mi::neuraylib::IMessage* get_message(mi::Size index) const final;
 
-    mi::Size get_option_count() const NEURAY_FINAL;
+    const mi::neuraylib::IMessage* get_error_message(mi::Size index) const final;
 
-    const char* get_option_name(mi::Size index) const NEURAY_FINAL;
+    void clear_messages() final;
 
-    const char* get_option_type(const char* name) const NEURAY_FINAL;
+    void add_message(
+        mi::neuraylib::IMessage::Kind kind,
+        mi::base::Message_severity severity,
+        mi::Sint32 code,
+        const char* message) final;
 
-    mi::Sint32 get_option(const char* name, const char*& value) const NEURAY_FINAL;
+    mi::Size get_option_count() const final;
 
-    mi::Sint32 get_option(const char* name, mi::Float32& value) const NEURAY_FINAL;
+    const char* get_option_name(mi::Size index) const final;
 
-    mi::Sint32 get_option(const char* name, bool& value) const NEURAY_FINAL;
+    const char* get_option_type(const char* name) const final;
 
-    mi::Sint32 set_option(const char* name, const char* value) NEURAY_FINAL;
+    mi::Sint32 get_option(const char* name, const char*& value) const final;
 
-    mi::Sint32 set_option(const char* name, mi::Float32 value) NEURAY_FINAL;
+    mi::Sint32 get_option(const char* name, mi::Sint32& value) const final;
 
-    mi::Sint32 set_option(const char* name, bool value) NEURAY_FINAL;
+    mi::Sint32 get_option(const char* name, mi::Float32& value) const final;
 
-    
-    // own stuff
+    mi::Sint32 get_option(const char* name, bool& value) const final;
 
-    MI::MDL::Execution_context& get_context() const;
-    
+    mi::Sint32 get_option(const char* name, const mi::base::IInterface** value) const final;
+
+    mi::Sint32 set_option(const char* name, const char* value) final;
+
+    mi::Sint32 set_option(const char* name, mi::Sint32 value) final;
+
+    mi::Sint32 set_option(const char* name, mi::Float32 value) final;
+
+    mi::Sint32 set_option(const char* name, bool value) final;
+
+    mi::Sint32 set_option(const char* name, const mi::base::IInterface* value) final;
+
+    // internal methods
+
+    MDL::Execution_context& get_context() const;
+
 private:
 
-    MI::MDL::Execution_context* m_context;
+    MDL::Execution_context* m_context;
 };
 
+/// Unwraps the passed execution context, i.e., casts to the implementation class.
+///
+/// Returns address of \p default_context if \p context is \c NULL.
+MDL::Execution_context* unwrap_context(
+    mi::neuraylib::IMdl_execution_context* context,
+    MDL::Execution_context& default_context);
+
+/// Unwraps the passed execution context, i.e., casts to the implementation class, clears
+/// all messages and sets the result to 0.
+///
+/// Uses \p default_context if \p context is \c NULL.
+MDL::Execution_context* unwrap_and_clear_context(
+    mi::neuraylib::IMdl_execution_context* context,
+    MDL::Execution_context& default_context);
 
 } // namespace NEURAY
 

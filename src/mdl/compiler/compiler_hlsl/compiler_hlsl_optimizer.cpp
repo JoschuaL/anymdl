@@ -1,5 +1,5 @@
 /******************************************************************************
- * Copyright (c) 2019, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2019-2020, NVIDIA CORPORATION. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -95,7 +95,7 @@ bool Optimizer::same_expr(Expr *a, Expr *b) const
             Expr_ref *ra = cast<Expr_ref>(a);
             Expr_ref *rb = cast<Expr_ref>(b);
 
-            return ra->get_definition()== rb->get_definition();
+            return ra->get_definition() != NULL && ra->get_definition() == rb->get_definition();
         }
     case Expr::EK_UNARY:
         {
@@ -289,6 +289,18 @@ Expr *Optimizer::create_unary(
 // Run local optimizations.
 Declaration *Optimizer::local_opt(Declaration *decl)
 {
+    if (Declaration_variable *vdecl = as<Declaration_variable>(decl)) {
+        for (hlsl::Init_declarator &idecl : *vdecl) {
+            if (Expr *expr = idecl.get_initializer()) {
+                Expr *n_expr = local_opt(expr);
+                if (expr != n_expr) {
+                    idecl.set_initializer(n_expr);
+                }
+            }
+        }
+        return decl;
+    }
+
     return NULL;
 }
 

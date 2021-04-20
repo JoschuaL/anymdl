@@ -1,5 +1,5 @@
 /******************************************************************************
- * Copyright (c) 2012-2019, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2012-2020, NVIDIA CORPORATION. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -35,6 +35,7 @@
 #include "compilercore_def_table.h"
 #include "compilercore_modules.h"
 #include "compilercore_factories.h"
+#include "compilercore_messages.h"
 #include "compilercore_thread_context.h"
 #include "compilercore_assert.h"
 
@@ -137,6 +138,11 @@ template <typename T, typename I>
 T &impl_cast(I &);
 
 template<>
+inline Messages_impl const *impl_cast(Messages const *t) {
+    return static_cast<Messages_impl const *>(t);
+}
+
+template<>
 inline Definition const *impl_cast(IDefinition const *t) {
     return static_cast<const Definition *>(t);
 }
@@ -199,10 +205,29 @@ static inline bool is_material_type_or_sub_type(IType const *type)
     return false;
 }
 
+/// Checks if the given MDL type is a derivative type.
+///
+/// \param type  the type to check
+static inline bool is_deriv_type(IType const *type)
+{
+    if (IType_struct const *struct_type = as<IType_struct>(type)) {
+        return struct_type->get_symbol()->get_name()[0] == '#';
+    }
+    return false;
+}
+
+/// Get the base value type of a derivative type.
+///
+/// \param type  the derivative type
+static inline IType const *get_deriv_base_type(IType const *deriv_type)
+{
+    return cast<IType_struct>(deriv_type)->get_compound_type(0);
+}
+
 /// Check if a given type is the texture_2d type.
 ///
 /// \param type  the type to check
-static inline bool is_tex_2d(mi::mdl::IType const *type)
+static inline bool is_tex_2d(IType const *type)
 {
     if (IType_texture const *tex_tp = as<IType_texture>(type))
         return tex_tp->get_shape() == IType_texture::TS_2D;
@@ -221,6 +246,35 @@ static inline IValue const *create_int2_zero(
     return vf.create_zero(int2_tp);
 }
 
+/// Check, if two float values are BITWISE identical.
+static inline bool bit_equal_float(float a, float b)
+{
+    union { size_t z; float f; } u1, u2; //-V117
+
+    u1.z = 0;
+    u1.f = a;
+
+    u2.z = 0;
+    u2.f = b;
+
+    return u1.z == u2.z;
+}
+
+/// Check, if two float values are BITWISE identical.
+static inline bool bit_equal_float(double a, double b)
+{
+    union { size_t z[2]; double d; } u1, u2; //-V117
+
+    u1.z[0] = 0;
+    u1.z[1] = 0;
+    u1.d = a;
+
+    u2.z[0] = 0;
+    u2.z[1] = 0;
+    u2.d = b;
+
+    return u1.z[0] == u2.z[0] && u1.z[1] == u2.z[1];
+}
 }  // mdl
 }  // mi
 

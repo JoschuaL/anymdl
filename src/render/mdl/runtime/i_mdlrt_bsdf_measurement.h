@@ -1,5 +1,5 @@
 /******************************************************************************
- * Copyright (c) 2014-2019, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2014-2020, NVIDIA CORPORATION. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -78,7 +78,8 @@ protected:
     void prepare_mbsdfs_part(Mbsdf_part part, const mi::neuraylib::IBsdf_isotropic_data*);
     mi::Float32_2 albedo(const mi::Float32_2& theta_phi, Mbsdf_part part) const;
 
-    DB::Access<BSDFM::Bsdf_measurement>  m_bsdf_measurement;   // the underlying bsdf measurement
+    DB::Access<BSDFM::Bsdf_measurement>      m_bsdf_measurement;      // the underlying bsdf meas.
+    DB::Access<BSDFM::Bsdf_measurement_impl> m_bsdf_measurement_impl; // the underlying bsdf meas.
 
     unsigned        m_has_data[2];                // true if there is a measurement for this part
     float*          m_eval_data[2];               // uses filter mode cudaFilterModeLinear

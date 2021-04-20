@@ -1,5 +1,5 @@
 /******************************************************************************
- * Copyright (c) 2016-2019, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2016-2020, NVIDIA CORPORATION. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -281,7 +281,8 @@ private:
     /// See MDL spec, section 2.2 for details.
     ///
     /// \param file_path                   The file path to normalize (SLASH).
-    /// \param file_mask                   The file mask tp normalize (SLASH).
+    /// \param file_mask                   The file mask to normalize (SLASH).
+    /// \param file_mask_is_regex          True, if file_mask is a regular expression.
     /// \param directory_path              The directory path split from the file path (SLASH).
     /// \param file_name                   The file name split from the file path (SLASH).
     /// \param nesting_level               The nesting level of the importing MDL module.
@@ -296,6 +297,7 @@ private:
     string normalize_file_path(
         string const &file_path,
         string const &file_mask,
+        bool         file_mask_is_regex,
         string const &directory_path,
         string const &file_name,
         size_t       nesting_level,
@@ -332,6 +334,8 @@ private:
     ///
     /// \param resolved_file_system_location  The resolved file system location to be checked (OS).
     /// \param canonical_file_path            The canonical file path (SLASH).
+    /// \param is_regex                       True, if the canonical file path is a
+    ///                                       regular expression.
     /// \param file_path                      The (original) file path (to select the type of check
     ///                                       and error messages, SLASH).
     /// \param current_working_directory      The current working directory (OS).
@@ -343,6 +347,7 @@ private:
     bool check_consistency(
         string const &resolved_file_system_location,
         string const &canonical_file_path,
+        bool         is_regex,
         string const &file_path,
         string const &current_working_directory,
         string const &current_search_path,
@@ -398,9 +403,11 @@ private:
     /// Check if the given file name (UTF8 encoded) names a file on the file system or inside
     /// an archive.
     ///
-    /// \param fname  a file name (might contain a regex)
+    /// \param fname     a file name
+    /// \param is_regex  if true, threat fname as a regular expression
     bool file_exists(
-        char const *fname) const;
+        char const *fname,
+        bool       is_regex) const;
 
     /// Resolve a MDL file name
     ///
@@ -496,8 +503,7 @@ class File_handle
     friend class Allocator_builder;
 public:
 
-    enum Kind
-    {
+    enum Kind {
         FH_FILE,
         FH_ARCHIVE,
         FH_MDLE,
@@ -570,9 +576,6 @@ private:
     /// Current allocator.
     IAllocator *m_alloc;
 
-    /// The kind this file.
-    Kind m_kind;
-
     /// If non-null, this is an container.
     MDL_zip_container *m_container;
 
@@ -580,6 +583,9 @@ private:
         FILE                   *fp;
         MDL_zip_container_file *z_fp;
     } u;
+
+    /// The kind this file.
+    Kind m_kind;
 
     /// If true, this file handle has ownership on the MDL container.
     bool m_owns_container;
@@ -642,6 +648,16 @@ public:
     /// Get the UDIM mode for this set.
     UDIM_mode get_udim_mode() const MDL_FINAL;
 
+    /// Get the resource hash value for the i'th file in the set if any.
+    ///
+    /// \param[in]  i     the index
+    /// \param[out] hash  the hash value if exists
+    ///
+    /// \return true if this entry has a hash, false otherwise
+    bool get_resource_hash(
+        size_t i,
+        unsigned char hash[16]) const MDL_FINAL;
+
     /// Create a resource set from a file mask.
     ///
     /// \param alloc      the allocator
@@ -676,6 +692,7 @@ private:
     /// \param prefix     the (directory or archive name) prefix
     /// \param sep        the separator to be used between prefix and file name
     /// \param udim_mode  the UDIM mode
+    /// \param hash       if non-NULL, the hash value of the resource file
     static void parse_u_v(
         MDL_resource_set *s,
         char const       *name,
@@ -683,7 +700,8 @@ private:
         char const       *url,
         string const     &prefix,
         char             sep,
-        UDIM_mode        udim_mode);
+        UDIM_mode        udim_mode,
+        unsigned char    hash[16]);
 
     /// Create a resource set from a file mask describing files on a container.
     ///
@@ -707,10 +725,12 @@ private:
     /// \param alloc     the allocator
     /// \param url       the absolute MDL url
     /// \param filename  the file name
+    /// \param hash      the resource hash value if any
     MDL_resource_set(
-        IAllocator *alloc,
-        char const *url,
-        char const *filename);
+        IAllocator          *alloc,
+        char const          *url,
+        char const          *filename,
+        unsigned char const hash[16]);
 
     /// Empty constructor from masks.
     ///
@@ -730,18 +750,27 @@ private:
     struct Resource_entry {
         /// Constructor.
         Resource_entry(
-            char const *url,
-            char const *filename,
-            int        u,
-            int        v)
-        : url(url), filename(filename), u(u), v(v)
+            char const          *url,
+            char const          *filename,
+            int                 u,
+            int                 v,
+            unsigned char const hash[16])
+        : url(url), filename(filename), u(u), v(v), has_hash(false)
         {
+            if (hash != NULL) {
+                memcpy(this->hash, hash, sizeof(this->hash));
+                has_hash = true;
+            } else {
+                memset(this->hash, 0, sizeof(this->hash));
+            }
         }
 
+        unsigned char hash[16];
         char const *url;
         char const *filename;
         int        u;
         int        v;
+        bool       has_hash;
     };
 
     typedef Arena_vector<Resource_entry>::Type Entry_vec;
@@ -777,7 +806,7 @@ public:
     char const *get_file_name() const MDL_FINAL;
 
     /// Return an input stream to the given entity if found, NULL otherwise.
-    IInput_stream *open(Thread_context &ctx) const MDL_FINAL;
+    IInput_stream *open(IThread_context *ctx) const MDL_FINAL;
 
 private:
     /// Constructor.
@@ -831,6 +860,13 @@ public:
     /// Get the UTF8 encoded absolute MDL resource name on which this reader operates.
     /// \returns    The absolute MDL url of the resource or NULL.
     char const *get_mdl_url() const MDL_FINAL;
+
+    /// Returns the associated hash of this resource.
+    ///
+    /// \param[out]  get the hash value (16 bytes)
+    ///
+    /// \return true if this resource has an associated hash value, false otherwise
+    bool get_resource_hash(unsigned char hash[16]) MDL_FINAL;
 
     /// Constructor.
     ///
@@ -895,6 +931,14 @@ public:
     /// Get the UTF8 encoded absolute MDL resource name on which this reader operates.
     /// \returns    The absolute MDL url of the resource or NULL.
     char const *get_mdl_url() const MDL_FINAL;
+
+    /// Returns the associated hash of this resource.
+    ///
+    /// \param[out]  get the hash value (16 bytes)
+    ///
+    /// \return true if this resource has an associated hash value, false otherwise
+    bool get_resource_hash(unsigned char hash[16]) MDL_FINAL;
+
     /// Constructor.
     ///
     /// \param alloc             the allocator
@@ -948,7 +992,11 @@ public:
     /// Resolve a resource file name.
     /// If \p owner_name and \p owner_file_path are not provided, no relative paths can be resolved.
     ///
-    /// \param file_path         the MDL file path to resolve
+    /// \param file_path         The MDL file path of the resource to resolve. In addition, for
+    ///                          resources from MDLE files, it is also possible to provide the
+    ///                          absolute OS file system path to the MDLE file (with slashes instead
+    ///                          of backslashes on Windows), followed by a colon, followed by the
+    ///                          relative path inside the MDLE container.
     /// \param owner_file_path   if non-NULL, the file path of the owner
     /// \param owner_name        if non-NULL, the absolute name of the owner
     /// \param pos               if non-NULL, the position of the import statement for error
@@ -956,22 +1004,6 @@ public:
     ///
     /// \return the set of resolved resources or NULL if this name could not be resolved
     IMDL_resource_set *resolve_resource_file_name(
-        char const     *file_path,
-        char const     *owner_file_path,
-        char const     *owner_name,
-        Position const *pos) MDL_FINAL;
-
-    /// Opens a resource.
-    /// If \p owner_name and \p owner_file_path are not provided, no relative paths can be resolved.
-    ///
-    /// \param file_path         the MDL file path to resolve
-    /// \param owner_file_path   if non-NULL, the file path of the owner
-    /// \param owner_name        if non-NULL, the absolute name of the owner
-    /// \param pos               if non-NULL, the position of the import statement for error
-    ///                          messages
-    ///
-    /// \return a resource reader for the requested resource or NULL if it could not be resolved
-    IMDL_resource_reader *open_resource(
         char const     *file_path,
         char const     *owner_file_path,
         char const     *owner_name,

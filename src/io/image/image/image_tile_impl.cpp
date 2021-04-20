@@ -1,5 +1,5 @@
 /***************************************************************************************************
- * Copyright (c) 2011-2019, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2011-2020, NVIDIA CORPORATION. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -33,7 +33,10 @@
 #include <mi/math/color.h>
 #include <mi/math/function.h>
 
+#include <io/image/image/i_image_quantization.h>
+
 #include <base/lib/log/i_log_logger.h>
+
 
 namespace MI {
 
@@ -48,7 +51,7 @@ Tile_impl<T>::Tile_impl( mi::Uint32 width, mi::Uint32 height)
     m_width = width;
     m_height = height;
     typedef typename Pixel_type_traits<T>::Base_type Base_type;
-    m_data = new Base_type[static_cast<mi::Size>( m_width) * m_height * s_components_per_pixel]();
+    m_data.resize(static_cast<mi::Size>( m_width) * m_height * s_components_per_pixel);
 }
 
 template <Pixel_type T>
@@ -74,8 +77,8 @@ void Tile_impl<PT_SINT8>::set_pixel(
     if( x_offset >= m_width || y_offset >= m_height)
         return;
 
-    mi::Uint8* position
-        = m_data + (x_offset + y_offset * static_cast<mi::Size>( m_width)) * s_components_per_pixel;
+    mi::Uint8* const position = m_data.data()
+            + (x_offset + y_offset * static_cast<mi::Size>( m_width)) * s_components_per_pixel;
     mi::Float32 value = 0.27f * floats[0] + 0.67f * floats[1] + 0.06f * floats[2];
     position[0] = mi::Uint8( mi::math::clamp( value, 0.0f, 1.0f) * 255.0f);
 }
@@ -87,8 +90,8 @@ void Tile_impl<PT_SINT8>::get_pixel(
     if( x_offset >= m_width || y_offset >= m_height)
         return;
 
-    const mi::Uint8* position
-        = m_data + (x_offset + y_offset * static_cast<mi::Size>( m_width)) * s_components_per_pixel;
+    const mi::Uint8* const position = m_data.data()
+            + (x_offset + y_offset * static_cast<mi::Size>( m_width)) * s_components_per_pixel;
     mi::Float32 value = mi::Float32( position[0]) * mi::Float32( 1.0/255.0);
     floats[0] = floats[1] = floats[2] = value;
     floats[3] = 1.0f;
@@ -104,12 +107,12 @@ void Tile_impl<PT_SINT32>::set_pixel(
         return;
 
     // treat PT_SINT32 as PT_RGBA
-    mi::Uint8* position = reinterpret_cast<mi::Uint8*>(
-        m_data + (x_offset + y_offset * static_cast<mi::Size>( m_width)) * s_components_per_pixel);
-    position[0] = mi::Uint8( mi::math::clamp( floats[0], 0.0f, 1.0f) * 255.0f);
-    position[1] = mi::Uint8( mi::math::clamp( floats[1], 0.0f, 1.0f) * 255.0f);
-    position[2] = mi::Uint8( mi::math::clamp( floats[2], 0.0f, 1.0f) * 255.0f);
-    position[3] = mi::Uint8( mi::math::clamp( floats[3], 0.0f, 1.0f) * 255.0f);
+    mi::Uint8* const position = reinterpret_cast<mi::Uint8*>(m_data.data()
+            + (x_offset + y_offset * static_cast<mi::Size>( m_width)) * s_components_per_pixel);
+    position[0] = IMAGE::quantize_unsigned<mi::Uint8>(floats[0]);
+    position[1] = IMAGE::quantize_unsigned<mi::Uint8>(floats[1]);
+    position[2] = IMAGE::quantize_unsigned<mi::Uint8>(floats[2]);
+    position[3] = IMAGE::quantize_unsigned<mi::Uint8>(floats[3]);
 }
 
 template <>
@@ -120,8 +123,8 @@ void Tile_impl<PT_SINT32>::get_pixel(
         return;
 
     // treat PT_SINT32 as PT_RGBA
-    const mi::Uint8* position = reinterpret_cast<const mi::Uint8*>(
-        m_data + (x_offset + y_offset * static_cast<mi::Size>( m_width)) * s_components_per_pixel);
+    const mi::Uint8* const position = reinterpret_cast<const mi::Uint8*>(m_data.data()
+            + (x_offset + y_offset * static_cast<mi::Size>( m_width)) * s_components_per_pixel);
     floats[0] = mi::Float32( position[0]) * mi::Float32( 1.0/255.0);
     floats[1] = mi::Float32( position[1]) * mi::Float32( 1.0/255.0);
     floats[2] = mi::Float32( position[2]) * mi::Float32( 1.0/255.0);
@@ -137,8 +140,8 @@ void Tile_impl<PT_FLOAT32>::set_pixel(
     if( x_offset >= m_width || y_offset >= m_height)
         return;
 
-    mi::Float32* position
-        = m_data + (x_offset + y_offset * static_cast<mi::Size>( m_width)) * s_components_per_pixel;
+    mi::Float32* const position = m_data.data()
+            + (x_offset + y_offset * static_cast<mi::Size>( m_width)) * s_components_per_pixel;
     position[0] = floats[0];
 }
 
@@ -149,8 +152,8 @@ void Tile_impl<PT_FLOAT32>::get_pixel(
     if( x_offset >= m_width || y_offset >= m_height)
         return;
 
-    mi::Float32* position
-        = m_data + (x_offset + y_offset * static_cast<mi::Size>( m_width)) * s_components_per_pixel;
+    const mi::Float32* const position = m_data.data()
+            + (x_offset + y_offset * static_cast<mi::Size>( m_width)) * s_components_per_pixel;
     floats[0] = floats[1] = floats[2] = position[0];
     floats[3] = 1.0f;
 }
@@ -164,8 +167,8 @@ void Tile_impl<PT_FLOAT32_2>::set_pixel(
     if( x_offset >= m_width || y_offset >= m_height)
         return;
 
-    mi::Float32* position
-        = m_data + (x_offset + y_offset * static_cast<mi::Size>( m_width)) * s_components_per_pixel;
+    mi::Float32* const position = m_data.data()
+            + (x_offset + y_offset * static_cast<mi::Size>( m_width)) * s_components_per_pixel;
     position[0] = floats[0];
     position[1] = floats[1];
 }
@@ -177,8 +180,8 @@ void Tile_impl<PT_FLOAT32_2>::get_pixel(
     if( x_offset >= m_width || y_offset >= m_height)
         return;
 
-    mi::Float32* position
-        = m_data + (x_offset + y_offset * static_cast<mi::Size>( m_width)) * s_components_per_pixel;
+    const mi::Float32* const position = m_data.data()
+            + (x_offset + y_offset * static_cast<mi::Size>( m_width)) * s_components_per_pixel;
     floats[0] = position[0];
     floats[1] = position[1];
     floats[2] = 0.0f;
@@ -194,8 +197,8 @@ void Tile_impl<PT_FLOAT32_3>::set_pixel(
     if( x_offset >= m_width || y_offset >= m_height)
         return;
 
-    mi::Float32* position
-        = m_data + (x_offset + y_offset * static_cast<mi::Size>( m_width)) * s_components_per_pixel;
+    mi::Float32* const position = m_data.data()
+            + (x_offset + y_offset * static_cast<mi::Size>( m_width)) * s_components_per_pixel;
     position[0] = floats[0];
     position[1] = floats[1];
     position[2] = floats[2];
@@ -208,8 +211,8 @@ void Tile_impl<PT_FLOAT32_3>::get_pixel(
     if( x_offset >= m_width || y_offset >= m_height)
         return;
 
-    mi::Float32* position
-        = m_data + (x_offset + y_offset * static_cast<mi::Size>( m_width)) * s_components_per_pixel;
+    const mi::Float32* const position = m_data.data()
+            + (x_offset + y_offset * static_cast<mi::Size>( m_width)) * s_components_per_pixel;
     floats[0] = position[0];
     floats[1] = position[1];
     floats[2] = position[2];
@@ -225,8 +228,8 @@ void Tile_impl<PT_FLOAT32_4>::set_pixel(
     if( x_offset >= m_width || y_offset >= m_height)
         return;
 
-    mi::Float32* position
-        = m_data + (x_offset + y_offset * static_cast<mi::Size>( m_width)) * s_components_per_pixel;
+    mi::Float32* const position = m_data.data()
+            + (x_offset + y_offset * static_cast<mi::Size>( m_width)) * s_components_per_pixel;
     position[0] = floats[0];
     position[1] = floats[1];
     position[2] = floats[2];
@@ -240,8 +243,8 @@ void Tile_impl<PT_FLOAT32_4>::get_pixel(
     if( x_offset >= m_width || y_offset >= m_height)
         return;
 
-    mi::Float32* position
-        = m_data + (x_offset + y_offset * static_cast<mi::Size>( m_width)) * s_components_per_pixel;
+    const mi::Float32* const position = m_data.data()
+            + (x_offset + y_offset * static_cast<mi::Size>( m_width)) * s_components_per_pixel;
     floats[0] = position[0];
     floats[1] = position[1];
     floats[2] = position[2];
@@ -257,11 +260,11 @@ void Tile_impl<PT_RGB>::set_pixel(
     if( x_offset >= m_width || y_offset >= m_height)
         return;
 
-    mi::Uint8* position
-        = m_data + (x_offset + y_offset * static_cast<mi::Size>( m_width)) * s_components_per_pixel;
-    position[0] = mi::Uint8( mi::math::clamp( floats[0], 0.0f, 1.0f) * 255.0f);
-    position[1] = mi::Uint8( mi::math::clamp( floats[1], 0.0f, 1.0f) * 255.0f);
-    position[2] = mi::Uint8( mi::math::clamp( floats[2], 0.0f, 1.0f) * 255.0f);
+    mi::Uint8* const position = m_data.data()
+            + (x_offset + y_offset * static_cast<mi::Size>( m_width)) * s_components_per_pixel;
+    position[0] = IMAGE::quantize_unsigned<mi::Uint8>(floats[0]);
+    position[1] = IMAGE::quantize_unsigned<mi::Uint8>(floats[1]);
+    position[2] = IMAGE::quantize_unsigned<mi::Uint8>(floats[2]);
 }
 
 template <>
@@ -271,8 +274,8 @@ void Tile_impl<PT_RGB>::get_pixel(
     if( x_offset >= m_width || y_offset >= m_height)
         return;
 
-    const mi::Uint8* position
-        = m_data + (x_offset + y_offset * static_cast<mi::Size>( m_width)) * s_components_per_pixel;
+    const mi::Uint8* const position = m_data.data()
+            + (x_offset + y_offset * static_cast<mi::Size>( m_width)) * s_components_per_pixel;
     floats[0] = mi::Float32( position[0]) * mi::Float32( 1.0/255.0);
     floats[1] = mi::Float32( position[1]) * mi::Float32( 1.0/255.0);
     floats[2] = mi::Float32( position[2]) * mi::Float32( 1.0/255.0);
@@ -288,12 +291,12 @@ void Tile_impl<PT_RGBA>::set_pixel(
     if( x_offset >= m_width || y_offset >= m_height)
         return;
 
-    mi::Uint8* position
-        = m_data + (x_offset + y_offset * static_cast<mi::Size>( m_width)) * s_components_per_pixel;
-    position[0] = mi::Uint8( mi::math::clamp( floats[0], 0.0f, 1.0f) * 255.0f);
-    position[1] = mi::Uint8( mi::math::clamp( floats[1], 0.0f, 1.0f) * 255.0f);
-    position[2] = mi::Uint8( mi::math::clamp( floats[2], 0.0f, 1.0f) * 255.0f);
-    position[3] = mi::Uint8( mi::math::clamp( floats[3], 0.0f, 1.0f) * 255.0f);
+    mi::Uint8* const position = m_data.data()
+            + (x_offset + y_offset * static_cast<mi::Size>( m_width)) * s_components_per_pixel;
+    position[0] = IMAGE::quantize_unsigned<mi::Uint8>(floats[0]);
+    position[1] = IMAGE::quantize_unsigned<mi::Uint8>(floats[1]);
+    position[2] = IMAGE::quantize_unsigned<mi::Uint8>(floats[2]);
+    position[3] = IMAGE::quantize_unsigned<mi::Uint8>(floats[3]);
 }
 
 template <>
@@ -303,8 +306,8 @@ void Tile_impl<PT_RGBA>::get_pixel(
     if( x_offset >= m_width || y_offset >= m_height)
         return;
 
-    const mi::Uint8* position
-        = m_data + (x_offset + y_offset * static_cast<mi::Size>( m_width)) * s_components_per_pixel;
+    const mi::Uint8* const position = m_data.data()
+            + (x_offset + y_offset * static_cast<mi::Size>( m_width)) * s_components_per_pixel;
     floats[0] = mi::Float32( position[0]) * mi::Float32( 1.0/255.0);
     floats[1] = mi::Float32( position[1]) * mi::Float32( 1.0/255.0);
     floats[2] = mi::Float32( position[2]) * mi::Float32( 1.0/255.0);
@@ -320,8 +323,8 @@ void Tile_impl<PT_RGBE>::set_pixel(
     if( x_offset >= m_width || y_offset >= m_height)
         return;
 
-    mi::Uint8* position
-        = m_data + (x_offset + y_offset * static_cast<mi::Size>( m_width)) * s_components_per_pixel;
+    mi::Uint8* const position = m_data.data()
+            + (x_offset + y_offset * static_cast<mi::Size>( m_width)) * s_components_per_pixel;
     mi::math::to_rgbe( floats, position);
 }
 
@@ -332,8 +335,8 @@ void Tile_impl<PT_RGBE>::get_pixel(
     if( x_offset >= m_width || y_offset >= m_height)
         return;
 
-    const mi::Uint8* position
-        = m_data + (x_offset + y_offset * static_cast<mi::Size>( m_width)) * s_components_per_pixel;
+    const mi::Uint8* const position = m_data.data()
+            + (x_offset + y_offset * static_cast<mi::Size>( m_width)) * s_components_per_pixel;
     mi::math::from_rgbe( position, floats);
     floats[3] = 1.0f;
 }
@@ -347,10 +350,10 @@ void Tile_impl<PT_RGBEA>::set_pixel(
     if( x_offset >= m_width || y_offset >= m_height)
         return;
 
-    mi::Uint8* position
-        = m_data + (x_offset + y_offset * static_cast<mi::Size>( m_width)) * s_components_per_pixel;
+    mi::Uint8* const position = m_data.data()
+            + (x_offset + y_offset * static_cast<mi::Size>( m_width)) * s_components_per_pixel;
     mi::math::to_rgbe( floats, position);
-    position[4] = mi::Uint8( mi::math::clamp( floats[3], 0.0f, 1.0f) * 255.0f);
+    position[4] = IMAGE::quantize_unsigned<mi::Uint8>(floats[3]);
 }
 
 template <>
@@ -360,8 +363,8 @@ void Tile_impl<PT_RGBEA>::get_pixel(
     if( x_offset >= m_width || y_offset >= m_height)
         return;
 
-    const mi::Uint8* position
-        = m_data + (x_offset + y_offset * static_cast<mi::Size>( m_width)) * s_components_per_pixel;
+    const mi::Uint8* const position = m_data.data()
+            + (x_offset + y_offset * static_cast<mi::Size>( m_width)) * s_components_per_pixel;
     mi::math::from_rgbe( position, floats);
     floats[3] = mi::Float32( position[4]) * mi::Float32( 1.0/255.0);
 }
@@ -375,11 +378,11 @@ void Tile_impl<PT_RGB_16>::set_pixel(
     if( x_offset >= m_width || y_offset >= m_height)
         return;
 
-    mi::Uint16* position
-        = m_data + (x_offset + y_offset * static_cast<mi::Size>( m_width)) * s_components_per_pixel;
-    position[0] = mi::Uint16( mi::math::clamp( floats[0], 0.0f, 1.0f) * 65535.0f);
-    position[1] = mi::Uint16( mi::math::clamp( floats[1], 0.0f, 1.0f) * 65535.0f);
-    position[2] = mi::Uint16( mi::math::clamp( floats[2], 0.0f, 1.0f) * 65535.0f);
+    mi::Uint16* const position = m_data.data()
+            + (x_offset + y_offset * static_cast<mi::Size>( m_width)) * s_components_per_pixel;
+    position[0] = IMAGE::quantize_unsigned<mi::Uint16>(floats[0]);
+    position[1] = IMAGE::quantize_unsigned<mi::Uint16>(floats[1]);
+    position[2] = IMAGE::quantize_unsigned<mi::Uint16>(floats[2]);
 }
 
 template <>
@@ -389,8 +392,8 @@ void Tile_impl<PT_RGB_16>::get_pixel(
     if( x_offset >= m_width || y_offset >= m_height)
         return;
 
-    const mi::Uint16* position
-        = m_data + (x_offset + y_offset * static_cast<mi::Size>( m_width)) * s_components_per_pixel;
+    const mi::Uint16* const position = m_data.data()
+            + (x_offset + y_offset * static_cast<mi::Size>( m_width)) * s_components_per_pixel;
     floats[0] = mi::Float32( position[0]) * mi::Float32( 1.0/65535.0);
     floats[1] = mi::Float32( position[1]) * mi::Float32( 1.0/65535.0);
     floats[2] = mi::Float32( position[2]) * mi::Float32( 1.0/65535.0);
@@ -406,12 +409,12 @@ void Tile_impl<PT_RGBA_16>::set_pixel(
     if( x_offset >= m_width || y_offset >= m_height)
         return;
 
-    mi::Uint16* position
-        = m_data + (x_offset + y_offset * static_cast<mi::Size>( m_width)) * s_components_per_pixel;
-    position[0] = mi::Uint16( mi::math::clamp( floats[0], 0.0f, 1.0f) * 65535.0f);
-    position[1] = mi::Uint16( mi::math::clamp( floats[1], 0.0f, 1.0f) * 65535.0f);
-    position[2] = mi::Uint16( mi::math::clamp( floats[2], 0.0f, 1.0f) * 65535.0f);
-    position[3] = mi::Uint16( mi::math::clamp( floats[3], 0.0f, 1.0f) * 65535.0f);
+    mi::Uint16* const position = m_data.data()
+            + (x_offset + y_offset * static_cast<mi::Size>( m_width)) * s_components_per_pixel;
+    position[0] = IMAGE::quantize_unsigned<mi::Uint16>(floats[0]);
+    position[1] = IMAGE::quantize_unsigned<mi::Uint16>(floats[1]);
+    position[2] = IMAGE::quantize_unsigned<mi::Uint16>(floats[2]);
+    position[3] = IMAGE::quantize_unsigned<mi::Uint16>(floats[3]);
 }
 
 template <>
@@ -421,8 +424,8 @@ void Tile_impl<PT_RGBA_16>::get_pixel(
     if( x_offset >= m_width || y_offset >= m_height)
         return;
 
-    const mi::Uint16* position
-        = m_data + (x_offset + y_offset * static_cast<mi::Size>( m_width)) * s_components_per_pixel;
+    const mi::Uint16* const position = m_data.data()
+            + (x_offset + y_offset * static_cast<mi::Size>( m_width)) * s_components_per_pixel;
     floats[0] = mi::Float32( position[0]) * mi::Float32( 1.0/65535.0);
     floats[1] = mi::Float32( position[1]) * mi::Float32( 1.0/65535.0);
     floats[2] = mi::Float32( position[2]) * mi::Float32( 1.0/65535.0);
@@ -438,8 +441,8 @@ void Tile_impl<PT_RGB_FP>::set_pixel(
     if( x_offset >= m_width || y_offset >= m_height)
         return;
 
-    mi::Float32* position
-        = m_data + (x_offset + y_offset * static_cast<mi::Size>( m_width)) * s_components_per_pixel;
+    mi::Float32* const position = m_data.data()
+            + (x_offset + y_offset * static_cast<mi::Size>( m_width)) * s_components_per_pixel;
     position[0] = floats[0];
     position[1] = floats[1];
     position[2] = floats[2];
@@ -452,8 +455,8 @@ void Tile_impl<PT_RGB_FP>::get_pixel(
     if( x_offset >= m_width || y_offset >= m_height)
         return;
 
-    const mi::Float32* position
-        = m_data + (x_offset + y_offset * static_cast<mi::Size>( m_width)) * s_components_per_pixel;
+    const mi::Float32* const position = m_data.data()
+            + (x_offset + y_offset * static_cast<mi::Size>( m_width)) * s_components_per_pixel;
     floats[0] = position[0];
     floats[1] = position[1];
     floats[2] = position[2];
@@ -469,8 +472,8 @@ void Tile_impl<PT_COLOR>::set_pixel(
     if( x_offset >= m_width || y_offset >= m_height)
         return;
 
-    mi::Float32* position
-        = m_data + (x_offset + y_offset * static_cast<mi::Size>( m_width)) * s_components_per_pixel;
+    mi::Float32* const position = m_data.data()
+            + (x_offset + y_offset * static_cast<mi::Size>( m_width)) * s_components_per_pixel;
     position[0] = floats[0];
     position[1] = floats[1];
     position[2] = floats[2];
@@ -484,8 +487,8 @@ void Tile_impl<PT_COLOR>::get_pixel(
     if( x_offset >= m_width || y_offset >= m_height)
         return;
 
-    const mi::Float32* position
-        = m_data + (x_offset + y_offset * static_cast<mi::Size>( m_width)) * s_components_per_pixel;
+    const mi::Float32* const position = m_data.data()
+            + (x_offset + y_offset * static_cast<mi::Size>( m_width)) * s_components_per_pixel;
     floats[0] = position[0];
     floats[1] = position[1];
     floats[2] = position[2];

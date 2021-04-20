@@ -1,5 +1,5 @@
 /***************************************************************************************************
- * Copyright (c) 2010-2019, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2010-2020, NVIDIA CORPORATION. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -58,6 +58,7 @@ Db_element_tracker::~Db_element_tracker()
 
 void Db_element_tracker::add_element( const Db_element_impl_base* db_element)
 {
+    mi::base::Lock::Block block(&m_lock);
 
     // Note: we store a pointer to a reference-counted object without calling retain() here.
     // This is not a problem since this method will only be called from the constructor of that

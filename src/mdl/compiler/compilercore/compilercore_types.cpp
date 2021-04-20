@@ -1,5 +1,5 @@
 /******************************************************************************
- * Copyright (c) 2011-2019, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2011-2020, NVIDIA CORPORATION. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -1506,10 +1506,11 @@ IType_texture const *Type_factory::create_texture(
         return m_compiler_factory->create_texture(shape);
 
     switch (shape) {
-    case IType_texture::TS_2D:   return &the_texture_2d_type;
-    case IType_texture::TS_3D:   return &the_texture_3d_type;
-    case IType_texture::TS_CUBE: return &the_texture_cube_type;
-    case IType_texture::TS_PTEX: return &the_texture_ptex_type;
+    case IType_texture::TS_2D:        return &the_texture_2d_type;
+    case IType_texture::TS_3D:        return &the_texture_3d_type;
+    case IType_texture::TS_CUBE:      return &the_texture_cube_type;
+    case IType_texture::TS_PTEX:      return &the_texture_ptex_type;
+    case IType_texture::TS_BSDF_DATA: return &the_texture_bsdf_data_type;
     }
     MDL_ASSERT(!"Unsupported texture shape");
     return NULL;

@@ -1,5 +1,5 @@
 /******************************************************************************
- * Copyright (c) 2011-2019, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2011-2020, NVIDIA CORPORATION. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -29,6 +29,8 @@
 #ifndef MDL_COMPILERCORE_VISITOR_H
 #define MDL_COMPILERCORE_VISITOR_H 1
 
+#include "compilercore_cc_conf.h"
+
 namespace mi {
 namespace mdl {
 
@@ -43,6 +45,7 @@ class IDeclaration_annotation;
 class IDeclaration_constant;
 class IDeclaration_function;
 class IDeclaration_module;
+class IDeclaration_namespace_alias;
 class IDeclaration_import;
 class IDeclaration_invalid;
 class IDeclaration_type_alias;
@@ -98,7 +101,9 @@ public:
     /// Visit an expression and all its children.
     ///
     /// \param expr  the expression
-    void visit(IExpression const *expr);
+    ///
+    /// \return expr or an replacement
+    IExpression const *visit(IExpression const *expr);
 
     /// Visit a declaration and all its children.
     ///
@@ -171,7 +176,9 @@ public:
     ///
     /// Overwrite this method if some general processing for every
     /// not explicitly overwritten expression is needed.
-    virtual void post_visit(IExpression *expr);
+    ///
+    /// \return expr or an replacement expression
+    virtual IExpression *post_visit(IExpression *expr);
 
     /// Default pre visitor for declarations.
     ///
@@ -246,29 +253,32 @@ public:
     virtual bool pre_visit(IDeclaration_module *mod_decl);
     virtual void post_visit(IDeclaration_module *mod_decl);
 
+    virtual bool pre_visit(IDeclaration_namespace_alias *alias_decl);
+    virtual void post_visit(IDeclaration_namespace_alias *alias_decl);
+
     virtual bool pre_visit(IExpression_invalid *expr);
-    virtual void post_visit(IExpression_invalid *expr);
+    virtual IExpression *post_visit(IExpression_invalid *expr);
 
     virtual bool pre_visit(IExpression_literal *expr);
-    virtual void post_visit(IExpression_literal *expr);
+    virtual IExpression *post_visit(IExpression_literal *expr);
 
     virtual bool pre_visit(IExpression_reference *expr);
-    virtual void post_visit(IExpression_reference *expr);
+    virtual IExpression *post_visit(IExpression_reference *expr);
 
     virtual bool pre_visit(IExpression_unary *expr);
-    virtual void post_visit(IExpression_unary *expr);
+    virtual IExpression *post_visit(IExpression_unary *expr);
 
     virtual bool pre_visit(IExpression_binary *expr);
-    virtual void post_visit(IExpression_binary *expr);
+    virtual IExpression *post_visit(IExpression_binary *expr);
 
     virtual bool pre_visit(IExpression_conditional *expr);
-    virtual void post_visit(IExpression_conditional *expr);
+    virtual IExpression *post_visit(IExpression_conditional *expr);
 
     virtual bool pre_visit(IExpression_call *expr);
-    virtual void post_visit(IExpression_call *expr);
+    virtual IExpression *post_visit(IExpression_call *expr);
 
     virtual bool pre_visit(IExpression_let *expr);
-    virtual void post_visit(IExpression_let *expr);
+    virtual IExpression *post_visit(IExpression_let *expr);
 
     virtual bool pre_visit(IStatement_invalid *stmt);
     virtual void post_visit(IStatement_invalid *stmt);
@@ -322,6 +332,7 @@ private:
     void do_variable_decl(IDeclaration_variable const *var_decl);
     void do_function_decl(IDeclaration_function const *fkt_decl);
     void do_module_decl(IDeclaration_module const *mod_decl);
+    void do_namespace_alias(IDeclaration_namespace_alias const *alias_decl);
     void do_declaration(IDeclaration const *decl);
     void do_named_argument(IArgument_named const *arg);
     void do_positional_argument(IArgument_positional const *arg);
@@ -334,15 +345,26 @@ private:
     void do_declaration_constant(IDeclaration_constant const *c);
     void do_qualified_name(IQualified_name const *name);
     void do_simple_name(ISimple_name const *name);
-    void do_invalid_expression(IExpression_invalid const *expr);
-    void do_literal_expression(IExpression_literal const *expr);
-    void do_reference_expression(IExpression_reference const *expr);
-    void do_unary_expression(IExpression_unary const *expr);
-    void do_binary_expression(IExpression_binary const *expr);
-    void do_conditional_expression(IExpression_conditional const *expr);
-    void do_call_expression(IExpression_call const *expr);
-    void do_let_expression(IExpression_let const *expr);
-    void do_expression(IExpression const *expr);
+
+    MDL_CHECK_RESULT IExpression const *do_invalid_expression(
+        IExpression_invalid const *expr);
+    MDL_CHECK_RESULT IExpression const *do_literal_expression(
+        IExpression_literal const *expr);
+    MDL_CHECK_RESULT IExpression const *do_reference_expression(
+        IExpression_reference const *expr);
+    MDL_CHECK_RESULT IExpression const *do_unary_expression(
+        IExpression_unary const *expr);
+    MDL_CHECK_RESULT IExpression const *do_binary_expression(
+        IExpression_binary const *expr);
+    MDL_CHECK_RESULT IExpression const *do_conditional_expression(
+        IExpression_conditional const *expr);
+    MDL_CHECK_RESULT IExpression const *do_call_expression(
+        IExpression_call const *expr);
+    MDL_CHECK_RESULT IExpression const *do_let_expression(
+        IExpression_let const *expr);
+    MDL_CHECK_RESULT IExpression const *do_expression(
+        IExpression const *expr);
+
     void do_invalid_statement(IStatement_invalid const *stmt);
     void do_compound_statement(IStatement_compound const *stmt);
     void do_declaration_statement(IStatement_declaration const *stmt);

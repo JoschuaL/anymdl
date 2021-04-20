@@ -1,5 +1,5 @@
 /******************************************************************************
- * Copyright (c) 2018-2019, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2018-2020, NVIDIA CORPORATION. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -33,6 +33,8 @@
 #include "version.h"
 #include "search_path.h"
 #include <base/util/string_utils/i_string_utils.h>
+#include <base/hal/hal/i_hal_ospath.h>
+#include <base/hal/disk/disk.h>
 #include <map>
 #include <iostream>
 using namespace mdlm;
@@ -43,8 +45,8 @@ using std::endl;
 using std::find;
 using std::map;
 using mi::base::Handle;
-using mi::neuraylib::IMdl_compiler;
 using mi::neuraylib::IMdl_info;
+using mi::neuraylib::IMdl_impexp_api;
 
 // In the GNU C Library, "minor" and "major" are defined
 #ifdef minor
@@ -87,29 +89,37 @@ private:
             handle_message(note.get());
         }
     }
-    void handle_return_code(const mi::Sint32 & code) const
+    void handle_return_code(const mi::Sint32 & code, bool ctx_empty) const
     {
         if (code == -1)
         {
-            Util::log_error("Invalid parameters");
+            Util::log_error("Comparison failed: Invalid parameters");
         }
         else if (code == -2)
         {
-            Util::log_error("An error occurred during module comparison");
+            if (ctx_empty) {
+                // error code -2 implies additional errors reported through the context
+                Util::log_error("An error occurred during module comparison");
+            } else {
+                Util::log_error("Comparison failed:");
+            }
         }
     }
     void handle_return_code_and_messages(
         const mi::Sint32 & code, const mi::neuraylib::IMdl_execution_context * context) const
     {
-        handle_return_code(code);
+        mi::Size msg_n = context->get_messages_count();
+        mi::Size err_n = context->get_error_messages_count();
 
-        for (mi::Size i = 0; i < context->get_messages_count(); i++)
+        handle_return_code(code, msg_n == 0 && err_n == 0);
+
+        for (mi::Size i = 0; i < msg_n; ++i)
         {
             mi::base::Handle<const mi::neuraylib::IMessage> msg(context->get_message(i));
             check_success(msg != NULL);
             handle_message(msg.get());
         }
-        for (mi::Size i = 0; i < context->get_error_messages_count(); i++)
+        for (mi::Size i = 0; i < err_n; ++i)
         {
             mi::base::Handle<const mi::neuraylib::IMessage> msg(context->get_error_message(i));
             check_success(msg != NULL);
@@ -862,17 +872,40 @@ int Show_archive::execute()
         if (list_field(key))
         {
             const char* value = manifest->get_value(i);
-            mdlm::report(key + string(" = \"") + value + string("\""));
+            if (m_report)
+            {
+                mdlm::report(key + string(" = \"") + value + string("\""));
+            }
+            m_manifest.insert(std::pair<string, string>(key, value));
         }
     }
 
     return SUCCESS;
 }
 
+const std::string List_dependencies::dependency_keyword = "dependency";
+
 List_dependencies::List_dependencies(const std::string & archive)
     : Show_archive(Archive::with_extension(archive))
 {
-    add_filter_field("dependency");
+    add_filter_field(dependency_keyword);
+}
+
+void List_dependencies::get_dependencies(std::multimap<Archive::NAME, Version> & dependencies) const
+{
+    std::pair<std::multimap<std::string, std::string>::const_iterator, std::multimap<std::string, std::string>::const_iterator> ret;
+    ret = m_manifest.equal_range(dependency_keyword);
+    for (std::multimap<std::string, std::string>::const_iterator it = ret.first; it != ret.second; ++it)
+    {
+        string archiveAndVersion(it->second);
+        vector<string> tmp(Util::split(archiveAndVersion, ' '));
+        if (tmp.size() == 2)
+        {
+            std::string archiveName(tmp[0]);
+            std::string archiveVersion(tmp[1]);
+            dependencies.insert(std::pair<Archive::NAME, Version>(archiveName, Version(archiveVersion)));
+        }
+    }
 }
 
 Extract::Extract(const std::string & archive, const std::string & path)
@@ -957,7 +990,9 @@ int Create_mdle::execute()
     else
     {
         // parse module and material name
-        size_t p = m_prototype.rfind("::");
+        size_t p = m_prototype.find('(');
+        std::string tmp = m_prototype.substr(0, p);
+        p = tmp.rfind("::");
         if (p == 0 || p == std::string::npos || m_prototype[0] != ':' || m_prototype[1] != ':')
         {
             Util::log_error("Invalid material name '" + m_prototype + "' "
@@ -989,8 +1024,6 @@ int Create_mdle::execute()
     mi::base::Handle<mi::neuraylib::IMdle_api> mdle_api(
         mdlm::neuray()->get_api_component<mi::neuraylib::IMdle_api>());
 
-    mi::base::Handle<mi::neuraylib::IMdl_compiler> mdl_compiler(
-        mdlm::neuray()->get_api_component<mi::neuraylib::IMdl_compiler>());
 
     // Load the FreeImage plugin.
     if(!mdlm::freeimage_available())
@@ -1018,50 +1051,75 @@ int Create_mdle::execute()
         context->set_option("experimental", true);
 
         // load module
-        mdl_compiler->load_module(transaction.get(), module_name.c_str(), context.get());
+        Handle<IMdl_impexp_api> mdl_impexp_api(
+            mdlm::neuray()->get_api_component<IMdl_impexp_api>());
+        mdl_impexp_api->load_module(transaction.get(), module_name.c_str(), context.get());
         if (context->get_error_messages_count() > 0)
             break;
 
         // get the resulting db name
-        std::string db_name = mdl_compiler->get_module_db_name(
-            transaction.get(), module_name.c_str(), context.get());
+        mi::base::Handle<const mi::IString> module_db_name(
+            mdl_factory->get_db_module_name(module_name.c_str()));
+
+        // parameter is no a valid qualified module name
+        if (!module_db_name)
+        {
+            Util::log_warning("module name to load '%s' is invalid" + module_name);
+            return -1;
+        }
+
+        std::string db_name(module_db_name->get_c_str());
 
         // since "main" could be a function the signature is required
         // therefore, get the module and iterate over the functions that are called main (only one)
-        if (is_mdle)
+        mi::base::Handle<const mi::neuraylib::IModule> mdl_module(
+            transaction->access<mi::neuraylib::IModule>(db_name.c_str()));
+
+        // db_name is now the name of the function/material
+        db_name += "::" + function_name;
+        mi::base::Handle<const mi::IArray> func_list(mdl_module->get_function_overloads(db_name.c_str()));
+
+        bool unknown_signature = false;
+        std::string potential_msg = "";
+        switch (func_list->get_length())
         {
-            mi::base::Handle<const mi::neuraylib::IModule> mdl_module(
-                transaction->access<mi::neuraylib::IModule>(db_name.c_str()));
-
-            std::string function_db_name = db_name + "::" + "main";
-            mi::base::Handle<const mi::IArray> func_list(mdl_module->get_function_overloads(function_db_name.c_str()));
-
-            switch (func_list->get_length())
+            case 0: // material names are unique
             {
-                case 0: // mdle contains a material, that means no function called 'main'
-                {
-                    
-                    db_name = function_db_name;
-                    break;
-                }
+                break;
+            }
 
-                case 1: // mdle contains a function, there can be only one called 'main'
-                {
-                    mi::base::Handle<const mi::IString> func_sign(func_list->get_element<mi::IString>(0));
-                    db_name = func_sign->get_c_str();
-                    break;
-                }
+            case 1: // if there is only one function with the selected name it is okay too
+            {
+                mi::base::Handle<const mi::IString> func_sign(func_list->get_element<mi::IString>(0));
+                db_name = func_sign->get_c_str();
+                break;
+            }
 
-                default: // not allowed
+            default: // if there are overloads, check if the selected one exists
+            {
+                unknown_signature = true;
+                potential_msg = 
+                    "multiple functions with name: '" + function_name + "' found in module: '" + module_name + "'.\n"
+                    "Valid function names are:\n";
+
+                for (mi::Size i = 0, n = func_list->get_length(); i < n; ++i)
                 {
-                    Util::log_error("Multiple functions with name: 'main' found in module: '" + module_name + "'.");
-                    break;
+                    mi::base::Handle<const mi::IString> func_sign(func_list->get_element<mi::IString>(i));
+                    potential_msg += "-   " + std::string(func_sign->get_c_str() + 3 /* skip 'mdl'*/) + "\n";
+
+                    if (strcmp(db_name.c_str(), func_sign->get_c_str()) == 0)
+                    {
+                        unknown_signature = false;
+                        break;
+                    }
                 }
+                break;
             }
         }
-        else
+        if (unknown_signature)
         {
-            db_name += "::" + function_name;
+            Util::log_error(potential_msg);
+            break;
         }
 
         // check if the material/function is available
@@ -1084,15 +1142,36 @@ int Create_mdle::execute()
 
         // keep the thumbnail (since defaults can't be change here)
         std::string thumbnail_path("");
+        mi::Size parameter_count = 0;
+        mi::Size defaults_count = 0;
+
         if(material_definition) 
         {
             const char* p = material_definition->get_thumbnail();
+            parameter_count = material_definition->get_parameter_count();
+            mi::base::Handle<const mi::neuraylib::IExpression_list> defaults(
+                material_definition->get_defaults());
+            defaults_count = defaults->get_size();
             thumbnail_path = p ? p : "";
         } 
         else if (function_definition) 
         {
             const char* p = function_definition->get_thumbnail();
+            parameter_count = function_definition->get_parameter_count();
+            mi::base::Handle<const mi::neuraylib::IExpression_list> defaults(
+                function_definition->get_defaults());
+            defaults_count = defaults->get_size();
             thumbnail_path = p ? p : "";
+        }
+
+        // check if all parameters have defaults
+        if (parameter_count != defaults_count)
+        {
+            Util::log_error("failed to create MDLE for '" + module_name + "::" + function_name +
+                            "' because at least one parameter is unspecified. "
+                            "For MDLEs all function/material parameters have to be defined. "
+                            "MDLM does not support the export of such functions/materials.");
+            break;
         }
 
         if (!thumbnail_path.empty()) {
@@ -1181,48 +1260,148 @@ int Help::execute()
     return 0;
 }
 
-List::List(const std::string & archive)
+List_cmd::List_cmd(const std::string & archive)
     : m_archive_name(Archive::with_extension(archive))
 {}
 
-int List::execute()
+int List_cmd::execute()
 {
     // Initialize
     m_result = List_result();
+    Search_path sp(mdlm::neuray());
+    sp.snapshot();
 
-    // 
+    // Look for all archives
     if (m_archive_name.empty())
     {
         // List all archives installed
-        Util::log_warning("TODO Implement...");
-        return 0;
+        for (auto& directory : sp.paths())
+        {
+            MI::DISK::Directory d;
+            if (d.open(directory.c_str()))
+            {
+                std::string testFile;
+                while (!(testFile = d.read()).empty())
+                {
+                    Archive testArchive(Util::path_appends(directory, testFile));
+                    if (testArchive.is_valid())
+                    {
+                        m_result.m_archives.push_back(testArchive);
+                        Util::log_report("Found archive: " + Util::normalize(testArchive.full_name()));
+                    }
+                }
+            }
+        }
+        return SUCCESS;
     }
 
-    Search_path sp(mdlm::neuray());
-    sp.snapshot();
+    // Look for specific archive names
     bool found(false);
     for (auto& directory : sp.paths())
     {
-        std::string archive = Util::path_appends(directory, m_archive_name);
-        Util::File file(archive);
-
-        if (file.exist())
+        Archive testArchive(Util::path_appends(directory, m_archive_name));
+        if (testArchive.is_valid())
         {
-            string archive_file_name = archive;
             if (found == true)
             {
                 // Already found one installed archive report a warning
                 Util::log_warning("Found shadowed archive (inconsistent installation): " + 
-                    Util::normalize(archive_file_name));
+                    Util::normalize(testArchive.full_name()));
             }
             found = true;
-            m_result.m_archives.push_back(Archive(archive_file_name));
-            Util::log_verbose("Found archive: " + Util::normalize(archive_file_name));
-
-            Util::log_report("Found archive: " + Util::normalize(archive_file_name));
+            m_result.m_archives.push_back(testArchive);
+            Util::log_report("Found archive: " + Util::normalize(testArchive.full_name()));
         }
     }
-    return 0;
+    return SUCCESS;
+}
+
+Remove_cmd::Remove_cmd(const std::string & archive)
+    : m_archive_name(Archive::with_extension(archive))
+{}
+
+ int Remove_cmd::find_archive(Archive & archive)
+{
+    archive = Archive(m_archive_name);
+    if (archive.is_valid())
+    {
+        return SUCCESS;
+    }
+    List_cmd list(m_archive_name);
+    if (list.execute() != List_cmd::SUCCESS)
+    {
+        Util::log_error("Unable to list archive: " + m_archive_name);
+        return UNSPECIFIED_FAILURE;
+    }
+    List_cmd::List_result archives(list.get_result());
+    if (archives.m_archives.empty())
+    {
+        Util::log_error("Can not find archive: " + m_archive_name);
+        return ARCHIVE_NOT_FOUND;
+    }
+
+    if (archives.m_archives.size() > 1)
+    {
+        Util::log_warning("Found multiple installations of archive: " + m_archive_name);
+        Util::log_warning("Considering: " + archives.m_archives[0].full_name());
+    }
+
+    archive = archives.m_archives[0];
+    return SUCCESS;
+}
+
+int Remove_cmd::Remove_cmd::execute()
+{
+    Archive toRemove("");
+    int rtn;
+    if ((rtn = find_archive(toRemove)) != SUCCESS)
+    {
+        return rtn;
+    }
+    
+    // Look for dependencies on the archive being uninstalled
+    Util::log_verbose("Looking for dependencies on archive: " + toRemove.full_name());
+    List_cmd listAll("");
+    listAll.execute();
+    List_cmd::List_result allArchives(listAll.get_result());
+    for (auto & a : allArchives.m_archives)
+    {
+        if (a.full_name() == toRemove.full_name())
+        {
+            // Do not test self
+            continue;
+        }
+        List_dependencies dependsCmd(a.full_name());
+        dependsCmd.set_report(false);
+        if (dependsCmd.execute() != List_dependencies::SUCCESS)
+        {
+            Util::log_error("Unable to list archive dependencies: " + m_archive_name);
+            return UNSPECIFIED_FAILURE;
+        }
+
+        std::multimap<Archive::NAME, Version> depends;
+        dependsCmd.get_dependencies(depends);
+
+        std::pair<std::multimap<Archive::NAME, Version>::const_iterator, std::multimap<Archive::NAME, Version>::const_iterator> ret;
+        ret = depends.equal_range(toRemove.stem()/* remove the .mdr extension*/);
+
+        for (std::multimap<Archive::NAME, Version>::const_iterator it = ret.first; it != ret.second; ++it)
+        {
+            if (toRemove.get_version() == it->second)
+            {
+                string archiveWithDependencies(it->first);
+                Util::log_warning(a.stem() + " depends on archive " + toRemove.stem() + ". Can not remove.");
+                return SUCCESS;
+            }
+        }
+    }
+
+    // All tests passed, we can remove the archive
+    Util::log_report("Removing archive: " + Util::normalize(toRemove.full_name()));
+
+    Util::delete_file_or_directory(Util::normalize(toRemove.full_name()));
+         
+    return SUCCESS;
 }
 
 Command * Command_factory::build_command(const Option_set & option)
@@ -1248,11 +1427,11 @@ Command * Command_factory::build_command(const Option_set & option)
             }
             else if (it->id() == MDLM_option_parser::LIST)
             {
-                return new List(it->value()[0]);
+                return new List_cmd(it->value()[0]);
             }
             else if (it->id() == MDLM_option_parser::LIST_ALL)
             {
-                return new List("");
+                return new List_cmd("");
             }
             else if (it->id() == MDLM_option_parser::INSTALL_ARCHIVE)
             {
@@ -1324,7 +1503,7 @@ Command * Command_factory::build_command(const Option_set & option)
             }
             else if (it->id() == MDLM_option_parser::REMOVE)
             {
-                Util::log_warning("Command not implemented...");
+                return new Remove_cmd(it->value()[0]);
             }
             else if (it->id() == MDLM_option_parser::CREATE_MDLE)
             {

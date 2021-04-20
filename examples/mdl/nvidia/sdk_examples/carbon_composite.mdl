@@ -1,5 +1,5 @@
 /******************************************************************************
- * Copyright 2019 NVIDIA Corporation. All rights reserved.
+ * Copyright 2020 NVIDIA Corporation. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -28,20 +28,20 @@
  
 mdl 1.4;
 
-import df::fresnel_layer;
-import df::weighted_layer;
-import df::microfacet_ggx_smith_bsdf;
-import core_definitions::scratched_metal;
-import core_definitions::apply_clearcoat;
-import core_definitions::file_texture;
-import core_definitions::file_bump_texture;
-import core_definitions::perlin_noise_bump_texture;
-import core_definitions::mono_mode;
-import core_definitions::texture_return;
-import base::anisotropy_conversion;
-import base::anisotropy_return;
-import tex::gamma_mode;
-import anno::*;
+import ::df::fresnel_layer;
+import ::df::weighted_layer;
+import ::df::microfacet_ggx_smith_bsdf;
+import ::nvidia::core_definitions::scratched_metal;
+import ::nvidia::core_definitions::apply_clearcoat;
+import ::nvidia::core_definitions::file_texture;
+import ::nvidia::core_definitions::file_bump_texture;
+import ::nvidia::core_definitions::perlin_noise_bump_texture;
+import ::nvidia::core_definitions::mono_mode;
+import ::nvidia::core_definitions::texture_return;
+import ::base::anisotropy_conversion;
+import ::base::anisotropy_return;
+import ::tex::gamma_mode;
+import ::anno::*;
 
 
 export material carbon_composite (
@@ -112,7 +112,7 @@ export material carbon_composite (
     ]]
 ) [[ 
     anno::copyright_notice (
-    "Copyright 2019 NVIDIA Corporation. All rights reserved."),
+    "Copyright 2020 NVIDIA Corporation. All rights reserved."),
     anno::author("NVIDIA Corporation"),
     anno::display_name("Carbon fibre composite")
 ]] = let{
@@ -120,30 +120,30 @@ export material carbon_composite (
         roughness: roughness*roughness, //squaring the roughness is perceived more natural by many
         anisotropy: anisotropy, 
         anisotropy_rotation: 
-            core_definitions::file_texture(
+            nvidia::core_definitions::file_texture(
                 texture:  rotation,
-                mono_source:  core_definitions::mono_average,
+                mono_source:  nvidia::core_definitions::mono_average,
                 scaling:  scale,
                 texture_space:  0
             ).mono
     ); 
 
-    float3 bump_map = ::core_definitions::file_bump_texture(
+    float3 bump_map = ::nvidia::core_definitions::file_bump_texture(
         texture: bump_texture,
-        bump_source: core_definitions::mono_average,
+        bump_source: nvidia::core_definitions::mono_average,
         scaling: scale,
         factor: bump_amount,
         texture_space:  0
     );
 
-    float3 orange_peel = core_definitions::perlin_noise_bump_texture( 
+    float3 orange_peel = nvidia::core_definitions::perlin_noise_bump_texture( 
         scaling: float3(scale.x,scale.y,1.)/peel_size,
         object_space: false,
         noise_levels: 1,
         factor: peel_amount
     );    
     
-    color base_color = core_definitions::file_texture(
+    color base_color = nvidia::core_definitions::file_texture(
         texture: fibre_reflectance,
         brightness: fibre_reflectance_multiplier,
         scaling:  scale

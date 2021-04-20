@@ -1,5 +1,5 @@
 /***************************************************************************************************
- * Copyright (c) 2012-2019, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2012-2020, NVIDIA CORPORATION. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -31,6 +31,7 @@
 #include "i_mdl_elements_material_definition.h"
 
 #include "i_mdl_elements_expression.h"
+#include "i_mdl_elements_function_call.h"
 #include "i_mdl_elements_material_instance.h"
 #include "i_mdl_elements_module.h"
 #include "i_mdl_elements_type.h"
@@ -39,7 +40,9 @@
 #include "mdl_elements_detail.h"
 #include "mdl_elements_utilities.h"
 
+#include <map>
 #include <sstream>
+
 #include <mi/neuraylib/istring.h>
 #include <mi/mdl/mdl_archiver.h>
 #include <base/system/main/access_module.h>
@@ -49,6 +52,8 @@
 #include <base/data/db/i_db_transaction.h>
 #include <base/hal/hal/i_hal_ospath.h>
 #include <base/hal/disk/disk.h>
+#include <mdl/compiler/compilercore/compilercore_modules.h>
+#include <mdl/compiler/compilercore/compilercore_tools.h>
 #include <mdl/integration/mdlnr/i_mdlnr.h>
 #include <io/scene/scene/i_scene_journal_types.h>
 
@@ -58,17 +63,22 @@ namespace MI {
 namespace MDL {
 
 Mdl_material_definition::Mdl_material_definition()
-: m_tf(get_type_factory())
-, m_vf(get_value_factory())
-, m_ef(get_expression_factory())
+: m_tf( get_type_factory())
+, m_vf( get_value_factory())
+, m_ef( get_expression_factory())
+, m_module_mdl_name()
 , m_module_db_name()
 , m_material_tag()
-, m_material_index(~0u)
+, m_material_ident( -1)
 , m_name()
+, m_simple_name()
+, m_db_name()
 , m_original_name()
 , m_thumbnail()
 , m_prototype_tag()
-, m_is_exported(false)
+, m_is_exported( false)
+, m_since_version( mi_mdl_IMDL_MDL_VERSION_INVALID)
+, m_removed_version( mi_mdl_IMDL_MDL_VERSION_INVALID)
 , m_parameter_types()
 , m_defaults()
 , m_annotations()
@@ -80,20 +90,24 @@ Mdl_material_definition::Mdl_material_definition()
 
 Mdl_material_definition::Mdl_material_definition(
     DB::Transaction* transaction,
-    DB::Tag module_tag,
     DB::Tag material_tag,
+    Mdl_ident material_ident,
+    const mi::mdl::IModule* module,
     const mi::mdl::IGenerated_code_dag* code_dag,
-    mi::Uint32 material_index,
+    mi::Size material_index,
     const char* module_filename,
     const char* module_name,
     bool load_resources)
 : m_tf( get_type_factory())
 , m_vf( get_value_factory())
 , m_ef( get_expression_factory())
-, m_module_db_name(add_mdl_db_prefix(module_name))
+, m_module_mdl_name( module_name)
+, m_module_db_name( get_db_name( module_name))
 , m_material_tag( material_tag)
-, m_material_index( material_index)
+, m_material_ident(material_ident)
 , m_name( code_dag->get_material_name( material_index))
+, m_simple_name( code_dag->get_simple_material_name( material_index))
+, m_db_name( get_db_name( m_name))
 , m_original_name()
 , m_thumbnail()
 , m_prototype_tag()
@@ -106,9 +120,9 @@ Mdl_material_definition::Mdl_material_definition(
 , m_enable_if_users()
 {
     const char* s = code_dag->get_cloned_material_name( material_index);
-    std::string prototype_name = s == NULL ? "" : s;
+    std::string prototype_name = s ? s : "";
     m_prototype_tag = prototype_name.empty()
-        ? DB::Tag() : transaction->name_to_tag( add_mdl_db_prefix( prototype_name).c_str());
+        ? DB::Tag() : transaction->name_to_tag( get_db_name( prototype_name).c_str());
     ASSERT( M_SCENE, m_prototype_tag || prototype_name.empty());
 
     const char* original_name = code_dag->get_original_material_name( material_index);
@@ -122,17 +136,19 @@ Mdl_material_definition::Mdl_material_definition(
     Mdl_dag_converter converter(
         m_ef.get(),
         transaction,
+        code_dag->get_resource_tagger(),
         /*immutable*/ true,
         /*create_direct_calls*/ false,
         module_filename,
         module_name,
         m_prototype_tag,
-        load_resources);
+        load_resources,
+        /*user_modules_seen*/ nullptr);
 
     // material annotations
-    mi::Uint32 annotation_count = code_dag->get_material_annotation_count( material_index);
+    mi::Size annotation_count = code_dag->get_material_annotation_count( material_index);
     Mdl_annotation_block annotations( annotation_count);
-    for( mi::Uint32 i = 0; i < annotation_count; ++i)
+    for( mi::Size i = 0; i < annotation_count; ++i)
         annotations[i] = code_dag->get_material_annotation( material_index, i);
     m_annotations = converter.mdl_dag_node_vector_to_int_annotation_block(
         annotations, m_name.c_str());
@@ -143,10 +159,10 @@ Mdl_material_definition::Mdl_material_definition(
     m_parameter_types = m_tf->create_type_list();
     m_enable_if_conditions = m_ef->create_expression_list();
 
-    mi::Uint32 parameter_count = code_dag->get_material_parameter_count( material_index);
+    mi::Size parameter_count = code_dag->get_material_parameter_count( material_index);
     m_enable_if_users.resize( parameter_count);
 
-    for( mi::Uint32 i = 0; i < parameter_count; ++i) {
+    for( mi::Size i = 0; i < parameter_count; ++i) {
 
         const char* parameter_name = code_dag->get_material_parameter_name( material_index, i);
 
@@ -185,10 +201,10 @@ Mdl_material_definition::Mdl_material_definition(
         }
 
         // update m_parameter_annotations
-        mi::Uint32 parameter_annotation_count
+        mi::Size parameter_annotation_count
             = code_dag->get_material_parameter_annotation_count( material_index, i);
         Mdl_annotation_block parameter_annotations( parameter_annotation_count);
-        for( mi::Uint32 j = 0; j < parameter_annotation_count; ++j)
+        for( mi::Size j = 0; j < parameter_annotation_count; ++j)
             parameter_annotations[j]
                 = code_dag->get_material_parameter_annotation( material_index, i, j);
         mi::base::Handle<IAnnotation_block> block(
@@ -197,25 +213,40 @@ Mdl_material_definition::Mdl_material_definition(
         if( block)
             m_parameter_annotations->add_annotation_block( parameter_name, block.get());
     }
-    
-    if (m_is_exported && module_filename)
-    {
-        SYSTEM::Access_module<MDLC::Mdlc_module> mdlc_module( false);
-        mi::base::Handle<mi::mdl::IMDL> mdl(mdlc_module->get_mdl());
-        mi::base::Handle<mi::mdl::IArchive_tool> archive_tool(mdl->create_archive_tool());
-        m_thumbnail = DETAIL::lookup_thumbnail(
-            module_filename, m_name, m_annotations.get(), archive_tool.get());
-    }
+
+    // thumbnails: store information for on demand resolving
+    m_thumbnail = (m_is_exported && module_filename && module_filename[0]) ? module_filename : "";
+
+    const mi::mdl::Module* impl = mi::mdl::impl_cast<mi::mdl::Module>( module);
+    m_since_version   = impl->get_mdl_version();
+    m_removed_version = mi_mdl_IMDL_MDL_VERSION_INVALID;
 }
 
 DB::Tag Mdl_material_definition::get_module(DB::Transaction* transaction) const
 {
-    return transaction->name_to_tag(m_module_db_name.c_str());
+    return transaction->name_to_tag( m_module_db_name.c_str());
 }
 
 const char* Mdl_material_definition::get_mdl_name() const
 {
     return m_name.c_str();
+}
+
+const char* Mdl_material_definition::get_mdl_module_name() const
+{
+    return m_module_mdl_name.c_str();
+}
+
+const char* Mdl_material_definition::get_mdl_simple_name() const
+{
+    return m_simple_name.c_str();
+}
+
+void Mdl_material_definition::get_mdl_version(
+    mi::neuraylib::Mdl_version& since, mi::neuraylib::Mdl_version& removed) const
+{
+    since   = MDL::convert_mdl_version( m_since_version);
+    removed = MDL::convert_mdl_version( m_removed_version);
 }
 
 DB::Tag Mdl_material_definition::get_prototype() const
@@ -281,7 +312,7 @@ mi::Size Mdl_material_definition::get_enable_if_user(mi::Size index, mi::Size u_
 const IAnnotation_block* Mdl_material_definition::get_annotations() const
 {
     if( !m_annotations)
-        return 0;
+        return nullptr;
     m_annotations->retain();
     return m_annotations.get();
 }
@@ -292,14 +323,160 @@ const IAnnotation_list* Mdl_material_definition::get_parameter_annotations() con
     return m_parameter_annotations.get();
 }
 
+const IExpression_direct_call* Mdl_material_definition::get_body( DB::Transaction* transaction) const
+{
+    DB::Tag module_tag = transaction->name_to_tag( m_module_db_name.c_str());
+    ASSERT( M_SCENE, module_tag);
+
+    DB::Access<Mdl_module> module( module_tag, transaction);
+    if( !module->is_valid( transaction, /*context=*/nullptr))
+        return nullptr;
+    if( module->has_material_definition( m_db_name.c_str(), m_material_ident) != 0)
+        return nullptr;
+
+    mi::Size material_index = module->get_material_definition_index( m_db_name, m_material_ident);
+    ASSERT( M_SCENE, (int)material_index != -1);
+
+    mi::base::Handle<const mi::mdl::IGenerated_code_dag> code_dag( module->get_code_dag());
+    const mi::mdl::DAG_node* body = code_dag->get_material_value( material_index);
+
+    Mdl_dag_converter converter(
+        m_ef.get(),
+        transaction,
+        code_dag->get_resource_tagger(),
+        /*immutable*/ true,
+        /*create_direct_calls*/ true,
+        /*module_filename*/ nullptr,
+        /*module_name*/ nullptr,
+        m_prototype_tag,
+        /*load_resources*/ false,
+        /*user_modules_seen*/ nullptr);
+
+    mi::base::Handle<const IExpression> body_int( converter.mdl_dag_node_to_int_expr( body, nullptr));
+    return body_int->get_interface<const IExpression_direct_call>();
+}
+
+mi::Size Mdl_material_definition::get_temporary_count( DB::Transaction* transaction) const
+{
+    DB::Tag module_tag = transaction->name_to_tag( m_module_db_name.c_str());
+    ASSERT( M_SCENE, module_tag);
+
+    DB::Access<Mdl_module> module( module_tag, transaction);
+    if( !module->is_valid( transaction, /*context=*/nullptr))
+        return 0;
+    if( module->has_material_definition( m_db_name.c_str(), m_material_ident) != 0)
+        return 0;
+
+    mi::Size material_index = module->get_material_definition_index( m_db_name, m_material_ident);
+    ASSERT( M_SCENE, (int)material_index != -1);
+
+    mi::base::Handle<const mi::mdl::IGenerated_code_dag> code_dag( module->get_code_dag());
+    return code_dag->get_material_temporary_count( material_index);
+}
+
+const IExpression* Mdl_material_definition::get_temporary(
+    DB::Transaction* transaction, mi::Size index) const
+{
+    DB::Tag module_tag = transaction->name_to_tag( m_module_db_name.c_str());
+    ASSERT( M_SCENE, module_tag);
+
+    DB::Access<Mdl_module> module( module_tag, transaction);
+    if( !module->is_valid( transaction, /*context=*/nullptr))
+        return nullptr;
+    if( module->has_material_definition( m_db_name.c_str(), m_material_ident) != 0)
+        return nullptr;
+
+    mi::Size material_index = module->get_material_definition_index( m_db_name, m_material_ident);
+    ASSERT( M_SCENE, (int)material_index != -1);
+
+    mi::base::Handle<const mi::mdl::IGenerated_code_dag> code_dag( module->get_code_dag());
+    if( index >= code_dag->get_material_temporary_count( material_index))
+        return nullptr;
+
+    const mi::mdl::DAG_node* temporary = code_dag->get_material_temporary( material_index, index);
+
+    Mdl_dag_converter converter(
+        m_ef.get(),
+        transaction,
+        code_dag->get_resource_tagger(),
+        /*immutable*/ true,
+        /*create_direct_calls*/ true,
+        /*module_filename*/ nullptr,
+        /*module_name*/ nullptr,
+        m_prototype_tag,
+        /*load_resources*/ false,
+        /*user_modules_seen*/ nullptr);
+
+    return converter.mdl_dag_node_to_int_expr( temporary, nullptr);
+}
+
+const char* Mdl_material_definition::get_temporary_name(
+    DB::Transaction* transaction, mi::Size index) const
+{
+    DB::Tag module_tag = transaction->name_to_tag( m_module_db_name.c_str());
+    ASSERT( M_SCENE, module_tag);
+
+    DB::Access<Mdl_module> module( module_tag, transaction);
+    if( !module->is_valid( transaction, /*context=*/nullptr))
+        return nullptr;
+    if( module->has_material_definition( m_db_name.c_str(), m_material_ident) != 0)
+        return nullptr;
+
+    mi::Size material_index = module->get_material_definition_index( m_db_name, m_material_ident);
+    ASSERT( M_SCENE, (int)material_index != -1);
+
+    mi::base::Handle<const mi::mdl::IGenerated_code_dag> code_dag( module->get_code_dag());
+    if( index >= code_dag->get_material_temporary_count( material_index))
+        return nullptr;
+
+    const char* name = code_dag->get_material_temporary_name( material_index, index);
+    return *name ? name : nullptr;
+}
+
 const char* Mdl_material_definition::get_thumbnail() const
 {
-    return m_thumbnail.empty() ? 0 : m_thumbnail.c_str();
+    if (!m_is_exported || m_thumbnail.empty() || m_thumbnail.size() < 5)
+        return nullptr;
+
+    // TODO remove .mdl/r/e encoding and the const_cast with next API and serialization change
+    // to not change serialization the original module file path is stored in m_thumbnail
+    // within the constructor
+    size_t size = m_thumbnail.size();
+    if ((m_thumbnail[size - 4] == '.' &&
+         m_thumbnail[size - 3] == 'm' &&
+         m_thumbnail[size - 2] == 'd' &&
+         (m_thumbnail[size - 1] == 'l' || m_thumbnail[size - 1] == 'r'))
+        ||
+        (m_thumbnail[size - 5] == '.' &&
+         m_thumbnail[size - 4] == 'm' &&
+         m_thumbnail[size - 3] == 'd' &&
+         m_thumbnail[size - 2] == 'l' &&
+         m_thumbnail[size - 1] == 'e'))
+    {
+        const std::string module_filename = m_thumbnail;
+
+        SYSTEM::Access_module<MDLC::Mdlc_module> mdlc_module(false);
+        mi::base::Handle<mi::mdl::IMDL> mdl(mdlc_module->get_mdl());
+        mi::base::Handle<mi::mdl::IArchive_tool> archive_tool(mdl->create_archive_tool());
+        m_thumbnail = DETAIL::lookup_thumbnail(
+            module_filename, m_module_mdl_name, m_simple_name, m_annotations.get(),
+            archive_tool.get());
+    }
+
+    if (m_thumbnail.empty())
+        return nullptr;
+    return m_thumbnail.c_str();
 }
 
 Mdl_material_instance* Mdl_material_definition::create_material_instance(
     DB::Transaction* transaction, const IExpression_list* arguments, mi::Sint32* errors) const
 {
+    Execution_context context;
+    if (!is_valid(transaction, &context)) {
+        if (errors)
+            *errors = -9;
+        return nullptr;
+    }
     return create_material_instance_internal(
         transaction, arguments, /*allow_ek_parameter*/ false, /*immutable*/ false, errors);
 }
@@ -312,16 +489,16 @@ Mdl_material_instance* Mdl_material_definition::create_material_instance_interna
     mi::Sint32* errors) const
 {
     mi::Sint32 dummy_errors;
-    if (errors == NULL)
+    if (!errors)
         errors = &dummy_errors;
 
     // prevent instantiation of non-exported materials
     if( !m_is_exported) {
         *errors = -4;
-        return NULL;
+        return nullptr;
     }
 
-    std::vector<bool> needs_cast(m_parameter_types->get_size(), false);
+    std::map<std::string, bool> needs_cast;
     SYSTEM::Access_module<MDLC::Mdlc_module> mdlc_module(false);
     bool allow_cast = mdlc_module->get_implicit_cast_enabled();
 
@@ -335,7 +512,7 @@ Mdl_material_instance* Mdl_material_definition::create_material_instance_interna
             mi::base::Handle<const IType> expected_type(m_parameter_types->get_type(parameter_index));
             if( !expected_type) {
                 *errors = -1;
-                return NULL;
+                return nullptr;
             }
             mi::base::Handle<const IExpression> argument( arguments->get_expression( i));
             mi::base::Handle<const IType> actual_type( argument->get_type());
@@ -347,9 +524,9 @@ Mdl_material_instance* Mdl_material_definition::create_material_instance_interna
                 allow_cast,
                 needs_cast_tmp)) {
                 *errors = -2;
-                return NULL;
+                return nullptr;
             }
-            needs_cast[parameter_index] = needs_cast_tmp;
+            needs_cast[name] = needs_cast_tmp;
 
             bool actual_type_varying
                 = (actual_type->get_all_type_modifiers()   & IType::MK_VARYING) != 0;
@@ -357,18 +534,18 @@ Mdl_material_instance* Mdl_material_definition::create_material_instance_interna
                 = (expected_type->get_all_type_modifiers() & IType::MK_UNIFORM) != 0;
             if( actual_type_varying && expected_type_uniform) {
                 *errors = -5;
-                return NULL;
+                return nullptr;
             }
             IExpression::Kind kind = argument->get_kind();
             if(     kind != IExpression::EK_CONSTANT
                 &&  kind != IExpression::EK_CALL
                 && (kind != IExpression::EK_PARAMETER || !allow_ek_parameter)) {
                 *errors = -6;
-                return NULL;
+                return nullptr;
             }
             if( expected_type_uniform && return_type_is_varying( transaction, argument.get())) {
                 *errors = -8;
-                return NULL;
+                return nullptr;
             }
         }
     }
@@ -379,14 +556,14 @@ Mdl_material_instance* Mdl_material_definition::create_material_instance_interna
     for( mi::Size i = 0, n = m_parameter_types->get_size(); i < n; ++i) {
         const char* name = get_parameter_name( i);
         mi::base::Handle<const IExpression> argument(
-            arguments ? arguments->get_expression( name) : NULL);
+            arguments ? arguments->get_expression( name) : nullptr);
         if( argument) {
             // use provided argument
             mi::base::Handle<IExpression> argument_copy( m_ef->clone(
                 argument.get(), transaction, /*copy_immutable_calls=*/!immutable));
             ASSERT( M_SCENE, argument_copy);
 
-            if (needs_cast[i]) {
+            if (needs_cast[name]) {
                 mi::base::Handle<const IType> expected_type(
                     m_parameter_types->get_type(i));
                 mi::Sint32 errors = 0;
@@ -408,14 +585,14 @@ Mdl_material_instance* Mdl_material_definition::create_material_instance_interna
             if( !default_) {
                 // no default available
                 *errors = -3;
-                return NULL;
+                return nullptr;
             }
             mi::base::Handle<const IType> expected_type( m_parameter_types->get_type( name));
             bool expected_type_uniform
                 = (expected_type->get_all_type_modifiers() & IType::MK_UNIFORM) != 0;
             if( expected_type_uniform && return_type_is_varying( transaction, default_.get())) {
                 *errors = -8;
-                return NULL;
+                return nullptr;
             }
             // use clone of default as argument
             mi::base::Handle<IExpression> default_copy(
@@ -429,7 +606,8 @@ Mdl_material_instance* Mdl_material_definition::create_material_instance_interna
 
     Mdl_material_instance* instance = new Mdl_material_instance(
         transaction->name_to_tag(m_module_db_name.c_str()),
-        m_material_tag, m_material_index, complete_arguments.get(), m_name.c_str(),
+        m_module_db_name.c_str(),
+        m_material_tag, m_material_ident, complete_arguments.get(), m_name.c_str(),
         m_parameter_types.get(),
         immutable,
         m_enable_if_conditions.get());
@@ -442,20 +620,23 @@ const mi::mdl::IType* Mdl_material_definition::get_mdl_parameter_type(
 {
     DB::Tag module_tag = transaction->name_to_tag(m_module_db_name.c_str());
     ASSERT( M_SCENE, module_tag);
+
     DB::Access<Mdl_module> module(module_tag, transaction);
+    if (!module->is_valid(transaction, /*context=*/nullptr))
+        return nullptr;
+    if (module->has_material_definition(m_db_name.c_str(), m_material_ident) != 0)
+        return nullptr;
+
+    mi::Size material_index = module->get_material_definition_index(m_db_name, m_material_ident);
+    ASSERT(M_SCENE, (int)material_index != -1);
+
     mi::base::Handle<const mi::mdl::IGenerated_code_dag> code_dag( module->get_code_dag());
-    return code_dag->get_material_parameter_type( m_material_index, index);
+    return code_dag->get_material_parameter_type(material_index, index);
 }
 
 const char* Mdl_material_definition::get_mdl_original_name() const
 {
-    return m_original_name.empty() ? 0 : m_original_name.c_str();
-}
-
-const char* Mdl_material_definition::get_module_name() const
-{
-    ASSERT(M_SCENE, !m_module_db_name.empty());
-    return &m_module_db_name.c_str()[3]; // strip "mdl"-prefix
+    return m_original_name.empty() ? nullptr : m_original_name.c_str();
 }
 
 const char* Mdl_material_definition::get_module_db_name() const
@@ -464,18 +645,125 @@ const char* Mdl_material_definition::get_module_db_name() const
     return m_module_db_name.c_str();
 }
 
+bool Mdl_material_definition::is_valid(
+    DB::Transaction* transaction,
+    Execution_context* context) const
+{
+    DB::Tag module_tag = get_module(transaction);
+    DB::Access<Mdl_module> module(module_tag, transaction);
+    if (!module->is_valid(transaction, context))
+        return false;
+
+    if (module->has_material_definition(m_db_name.c_str(), m_material_ident) < 0)
+        return false;
+
+    // check defaults. is this really needed?
+    for (mi::Size i = 0; i < m_defaults->get_size(); ++i) {
+
+        mi::base::Handle<const IExpression_call> expr(
+            m_defaults->get_expression<IExpression_call>(i));
+        if (expr.is_valid_interface()) {
+            DB::Tag call_tag = expr->get_call();
+            SERIAL::Class_id class_id = transaction->get_class_id(call_tag);
+            if (class_id == ID_MDL_MATERIAL_INSTANCE) {
+                DB::Access<Mdl_material_instance> minst(call_tag, transaction);
+                DB::Tag_set tags_seen;
+                if (!minst->is_valid(transaction, tags_seen, context))
+                    return false;
+            }
+            else if (class_id == ID_MDL_FUNCTION_CALL) {
+                DB::Access<Mdl_function_call> fcall(call_tag, transaction);
+                DB::Tag_set tags_seen;
+                if (!fcall->is_valid(transaction, tags_seen, context))
+                    return false;
+            }
+        }
+    }
+    return true;
+}
+
+bool Mdl_material_definition::is_compatible(const Mdl_material_definition& other) const
+{
+    if (m_is_exported != other.m_is_exported)
+        return false;
+
+    if (m_prototype_tag != other.m_prototype_tag)
+        return false;
+
+    if (m_original_name != other.m_original_name)
+        return false;
+
+    if (m_tf->compare(m_parameter_types.get(), other.m_parameter_types.get()) != 0)
+        return false;
+
+    if (m_ef->compare(m_defaults.get(), other.m_defaults.get()) != 0)
+        return false;
+
+    // check annotations
+    if (m_annotations) {
+        if (!other.m_annotations)
+            return false;
+
+        if (m_annotations->get_size() != other.m_annotations->get_size())
+            return false;
+
+        // for now, annotations must match. this implies, that all annotations
+        // used by this definition that are part of the module the definition
+        // comes from, also still exist.
+        for (mi::Size i = 0, n = m_annotations->get_size(); i < n; ++i) {
+
+            mi::base::Handle<const IAnnotation> anno(m_annotations->get_annotation(i));
+            mi::base::Handle<const IAnnotation> other_anno(
+                other.m_annotations->get_annotation(i));
+
+            const char* anno_name = anno->get_name();
+            const char* other_anno_name = other_anno->get_name();
+            if (strcmp(anno_name, other_anno_name) != 0)
+                return false;
+
+            mi::base::Handle<const IExpression_list> anno_args(anno->get_arguments());
+            mi::base::Handle<const IExpression_list> other_anno_args(other_anno->get_arguments());
+
+            if (m_ef->compare(anno_args.get(), other_anno_args.get()) != 0)
+                return false;
+        }
+    }
+    else
+        if (other.m_annotations)
+            return false;
+
+    return true;
+}
+
+Mdl_ident Mdl_material_definition::get_ident() const
+{
+    return m_material_ident;
+}
+
+void Mdl_material_definition::get_mdl_version(
+    mi::mdl::IMDL::MDL_version& since, mi::mdl::IMDL::MDL_version& removed) const
+{
+    since   = m_since_version;
+    removed = m_removed_version;
+}
+
 const SERIAL::Serializable* Mdl_material_definition::serialize( SERIAL::Serializer* serializer) const
 {
     Scene_element_base::serialize( serializer);
 
+    serializer->write( m_module_mdl_name);
     serializer->write( m_module_db_name);
     serializer->write( m_material_tag);
-    serializer->write( m_material_index);
+    serializer->write( m_material_ident);
     serializer->write( m_name);
+    serializer->write( m_simple_name);
+    serializer->write( m_db_name);
     serializer->write( m_original_name);
     serializer->write( m_thumbnail);
     serializer->write( m_prototype_tag);
     serializer->write( m_is_exported);
+    serializer->write( static_cast<mi::Uint32>( m_since_version));
+    serializer->write( static_cast<mi::Uint32>( m_removed_version));
 
     m_tf->serialize_list( serializer, m_parameter_types.get());
     m_ef->serialize_list( serializer, m_defaults.get());
@@ -492,14 +780,22 @@ SERIAL::Serializable* Mdl_material_definition::deserialize( SERIAL::Deserializer
 {
     Scene_element_base::deserialize( deserializer);
 
+    deserializer->read( &m_module_mdl_name);
     deserializer->read( &m_module_db_name);
     deserializer->read( &m_material_tag);
-    deserializer->read( &m_material_index);
+    deserializer->read( &m_material_ident);
     deserializer->read( &m_name);
+    deserializer->read( &m_simple_name);
+    deserializer->read( &m_db_name);
     deserializer->read( &m_original_name);
     deserializer->read( &m_thumbnail);
     deserializer->read( &m_prototype_tag);
     deserializer->read( &m_is_exported);
+    mi::Uint32 version;
+    deserializer->read( &version);
+    m_since_version = static_cast<mi::mdl::IMDL::MDL_version>( version);
+    deserializer->read( &version);
+    m_removed_version = static_cast<mi::mdl::IMDL::MDL_version>( version);
 
     m_parameter_types = m_tf->deserialize_list( deserializer);
     m_defaults = m_ef->deserialize_list( deserializer);
@@ -526,21 +822,27 @@ void Mdl_material_definition::dump( DB::Transaction* transaction) const
     s << std::boolalpha;
     mi::base::Handle<const mi::IString> tmp;
 
+    s << "Module MDL name: " << m_module_mdl_name << std::endl;
     s << "Module DB name: " << m_module_db_name << std::endl;
     s << "Material definition tag: " << m_material_tag.get_uint() << std::endl;
-    s << "Material index: " << m_material_index << std::endl;
+    s << "Material definition ID: " << m_material_ident << std::endl;
     s << "Material definition MDL name: " << m_name << std::endl;
+    s << "Material definition MDL simple name: " << m_simple_name << std::endl;
+    s << "Material definition DB name: " << m_db_name << std::endl;
     s << "Material definition MDL original name: " << m_original_name << std::endl;
     s << "Prototype tag: " << m_prototype_tag.get_uint() << std::endl;
     s << "Is exported: " << m_is_exported << std::endl;
+    s << "Since version: " << m_since_version << std::endl;
+    s << "Removed version: " << m_removed_version << std::endl;
+
     tmp = m_tf->dump( m_parameter_types.get());
     s << "Parameter types: " << tmp->get_c_str() << std::endl;
-    tmp = m_ef->dump( transaction, m_defaults.get(), /*name*/ 0);
+    tmp = m_ef->dump( transaction, m_defaults.get(), /*name*/ nullptr);
     s << "Defaults: " << tmp->get_c_str() << std::endl;
     s << "Annotations: " << tmp->get_c_str() << std::endl;
-    tmp = m_ef->dump( transaction, m_parameter_annotations.get(), /*name*/ 0);
+    tmp = m_ef->dump( transaction, m_parameter_annotations.get(), /*name*/ nullptr);
     s << "Parameter annotations: " << tmp->get_c_str() << std::endl;
-    tmp = m_ef->dump( transaction, m_enable_if_conditions.get(), /*name*/ 0);
+    tmp = m_ef->dump( transaction, m_enable_if_conditions.get(), /*name*/ nullptr);
     s << "Enable_if conditions: " << tmp->get_c_str() << std::endl;
 
     LOG::mod_log->info( M_SCENE, LOG::Mod_log::C_DATABASE, "%s", s.str().c_str());
@@ -551,7 +853,11 @@ size_t Mdl_material_definition::get_size() const
     return sizeof( *this)
         + SCENE::Scene_element<Mdl_material_definition, Mdl_material_definition::id>::get_size()
             - sizeof( SCENE::Scene_element<Mdl_material_definition, Mdl_material_definition::id>)
+        + dynamic_memory_consumption( m_module_mdl_name)
+        + dynamic_memory_consumption( m_module_db_name)
         + dynamic_memory_consumption( m_name)
+        + dynamic_memory_consumption( m_simple_name)
+        + dynamic_memory_consumption( m_db_name)
         + dynamic_memory_consumption( m_original_name)
         + dynamic_memory_consumption( m_thumbnail)
         + dynamic_memory_consumption( m_parameter_types)

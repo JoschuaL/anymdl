@@ -1,5 +1,5 @@
 /******************************************************************************
- * Copyright (c) 2014-2019, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2014-2020, NVIDIA CORPORATION. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -106,6 +106,7 @@ Thread_context::Thread_context(
 , m_front_path(alloc)
 , m_repl_module_name(alloc)
 , m_repl_file_name(alloc)
+, m_all_warnings_are_off(false)
 {
     // copy options
     for (int i = 0, n = options->get_option_count(); i < n; ++i) {

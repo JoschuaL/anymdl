@@ -1,5 +1,5 @@
 #*****************************************************************************
-# Copyright (c) 2018-2019, NVIDIA CORPORATION. All rights reserved.
+# Copyright (c) 2018-2020, NVIDIA CORPORATION. All rights reserved.
 #
 # Redistribution and use in source and binary forms, with or without
 # modification, are permitted provided that the following conditions
@@ -73,6 +73,12 @@ else()
             target_copy_to_output_dir(TARGET ${__TARGET_ADD_DEPENDENCY_TARGET}
                 RELATIVE  ${Qt5_BASE_DIR}/bin
                 FILES     Qt5${qt_component}$<$<CONFIG:DEBUG>:d>.dll)
+
+            # copy opengl es
+            target_copy_to_output_dir(TARGET ${__TARGET_ADD_DEPENDENCY_TARGET}
+                RELATIVE  ${Qt5_BASE_DIR}/bin
+                FILES     libEGL$<$<CONFIG:DEBUG>:d>.dll
+                          libGLESv2$<$<CONFIG:DEBUG>:d>.dll)
 
             # collect plugins and other libraries that are required
             if(${qt_component} STREQUAL Svg)

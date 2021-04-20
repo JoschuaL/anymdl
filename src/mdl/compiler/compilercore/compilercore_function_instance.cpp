@@ -1,5 +1,5 @@
 /******************************************************************************
- * Copyright (c) 2015-2019, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2015-2020, NVIDIA CORPORATION. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -60,7 +60,10 @@ Function_instance::Function_instance(
 , m_kind(KI_DEFINITION)
 {
     // def might be NULL for intrinsic functions
-    MDL_ASSERT(def == NULL || def->get_kind() == IDefinition::DK_FUNCTION);
+    MDL_ASSERT(
+        def == NULL ||
+        def->get_kind() == IDefinition::DK_FUNCTION ||
+        def->get_kind() == IDefinition::DK_CONSTRUCTOR);
 }
 
 // Constructor from a lambda function.

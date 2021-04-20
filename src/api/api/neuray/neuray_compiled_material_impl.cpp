@@ -1,5 +1,5 @@
 /***************************************************************************************************
- * Copyright (c) 2015-2019, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2015-2020, NVIDIA CORPORATION. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -36,6 +36,7 @@
 
 #include "neuray_compiled_material_impl.h"
 #include "neuray_expression_impl.h"
+#include "neuray_mdl_execution_context_impl.h"
 #include "neuray_transaction_impl.h"
 #include "neuray_value_impl.h"
 #include "neuray_string_impl.h"
@@ -53,7 +54,7 @@ DB::Element_base* Compiled_material_impl::create_db_element(
     const mi::base::IInterface* argv[])
 {
     if( argc != 0)
-        return 0;
+        return nullptr;
     return new MDL::Mdl_compiled_material;
 }
 
@@ -63,7 +64,7 @@ mi::base::IInterface* Compiled_material_impl::create_api_class(
     const mi::base::IInterface* argv[])
 {
     if( argc != 0)
-        return 0;
+        return nullptr;
     return (new Compiled_material_impl())->cast_to_major();
 }
 
@@ -123,6 +124,21 @@ bool Compiled_material_impl::depends_on_global_distribution() const
     return get_db_element()->depends_on_global_distribution();
 }
 
+bool Compiled_material_impl::depends_on_uniform_scene_data() const
+{
+    return get_db_element()->depends_on_uniform_scene_data();
+}
+
+mi::Size Compiled_material_impl::get_referenced_scene_data_count() const
+{
+    return get_db_element()->get_referenced_scene_data_count();
+}
+
+char const *Compiled_material_impl::get_referenced_scene_data_name( mi::Size index) const
+{
+    return get_db_element()->get_referenced_scene_data_name( index);
+}
+
 mi::Size Compiled_material_impl::get_parameter_count() const
 {
     return get_db_element()->get_parameter_count();
@@ -170,23 +186,23 @@ const mi::IString* Compiled_material_impl::get_connected_function_db_name(
 
     if (!material_instance_name) {
         *errors = -1;
-        return NULL;
+        return nullptr;
     }
     if (parameter_index >= get_parameter_count()) {
         *errors = -2;
-        return NULL;
+        return nullptr;
     }
-    MI::DB::Transaction* transaction = get_db_transaction();
+    DB::Transaction* transaction = get_db_transaction();
     DB::Tag material_instance_tag = transaction->name_to_tag(material_instance_name);
     if (material_instance_tag.is_invalid()) {
         *errors = -1;
-        return NULL;
+        return nullptr;
     }
     DB::Tag call_tag = get_db_element()->get_connected_function_db_name(
         transaction, material_instance_tag, get_parameter_name(parameter_index));
     if (call_tag.is_invalid()) {
         *errors = -3;
-        return NULL;
+        return nullptr;
     }
     mi::IString* result = new String_impl();
     result->set_c_str(transaction->tag_to_name(call_tag));
@@ -195,9 +211,9 @@ const mi::IString* Compiled_material_impl::get_connected_function_db_name(
     return result;
 }
 
-mi::neuraylib::Material_opacity Compiled_material_impl::get_opacity() const
+static mi::neuraylib::Material_opacity int_opacity_to_opacity(
+    mi::mdl::IGenerated_code_dag::IMaterial_instance::Opacity opacity)
 {
-    mi::mdl::IGenerated_code_dag::IMaterial_instance::Opacity opacity = get_db_element()->get_opacity();
     switch (opacity) {
     case mi::mdl::IGenerated_code_dag::IMaterial_instance::OPACITY_OPAQUE:
         return mi::neuraylib::OPACITY_OPAQUE;
@@ -211,9 +227,27 @@ mi::neuraylib::Material_opacity Compiled_material_impl::get_opacity() const
     return mi::neuraylib::OPACITY_UNKNOWN;
 }
 
+mi::neuraylib::Material_opacity Compiled_material_impl::get_opacity() const
+{
+    return int_opacity_to_opacity(get_db_element()->get_opacity());
+}
+
+mi::neuraylib::Material_opacity Compiled_material_impl::get_surface_opacity() const
+{
+    return int_opacity_to_opacity(get_db_element()->get_surface_opacity());
+}
+
 bool Compiled_material_impl::get_cutout_opacity(mi::Float32 *cutout_opacity) const
 {
     return get_db_element()->get_cutout_opacity(cutout_opacity);
+}
+
+bool Compiled_material_impl::is_valid(mi::neuraylib::IMdl_execution_context* context) const
+{
+    MDL::Execution_context default_context;
+    return get_db_element()->is_valid(
+        get_db_transaction(),
+        unwrap_and_clear_context(context, default_context));
 }
 
 void Compiled_material_impl::swap( MDL::Mdl_compiled_material& rhs)

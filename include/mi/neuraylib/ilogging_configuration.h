@@ -1,5 +1,5 @@
 /***************************************************************************************************
- * Copyright (c) 2008-2019, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2008-2020, NVIDIA CORPORATION. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -77,8 +77,8 @@ mi_static_assert( sizeof( Log_prefix) == sizeof( Uint32));
 /// levels act as independent filters; only messages passing both log level settings are reported.
 ///
 /// Note that setting a particular log level implies all higher log levels, e.g.,
-/// #mi::base::MESSAGE_SEVERITY_WARNING includes #mi::base::MESSAGE_SEVERITY_ERROR and
-/// #mi::base::MESSAGE_SEVERITY_FATAL.
+/// #mi::base::details::MESSAGE_SEVERITY_WARNING includes #mi::base::details::MESSAGE_SEVERITY_ERROR
+/// and #mi::base::details::MESSAGE_SEVERITY_FATAL.
 ///
 /// In a cluster setup only one host, the logging host, receives the log messages of all hosts. The
 /// selection of the logging host is controlled via log priorities (see #set_log_priority()).

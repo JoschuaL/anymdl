@@ -1,5 +1,5 @@
 /******************************************************************************
- * Copyright 2019 NVIDIA Corporation. All rights reserved.
+ * Copyright 2020 NVIDIA Corporation. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -29,17 +29,17 @@
 mdl 1.4;
 
 
-import base::perlin_noise_texture;
-import base::worley_noise_texture;
-import base::perlin_noise_bump_texture;
-import base::worley_noise_bump_texture;
-import base::transform_coordinate;
-import base::coordinate_source;
-import base::texture_return;
-import base::rotation_translation_scale;
-import base::texture_coordinate_system;
-import core_definitions::scratched_plastic;
-import anno::*;
+import ::base::perlin_noise_texture;
+import ::base::worley_noise_texture;
+import ::base::perlin_noise_bump_texture;
+import ::base::worley_noise_bump_texture;
+import ::base::transform_coordinate;
+import ::base::coordinate_source;
+import ::base::texture_return;
+import ::base::rotation_translation_scale;
+import ::base::texture_coordinate_system;
+import ::nvidia::core_definitions::scratched_plastic;
+import ::anno::*;
 
 export material noise_worley_glossy (
     uniform float ior = 3
@@ -74,11 +74,11 @@ export material noise_worley_glossy (
     ]]
 ) [[ 
     anno::copyright_notice (
-    "Copyright 2019 NVIDIA Corporation. All rights reserved."),
+    "Copyright 2020 NVIDIA Corporation. All rights reserved."),
     anno::author("NVIDIA Corporation"),
     anno::display_name("Dielectric, worley noise textures"),
     anno::description("A simple dielectric material showcasing procedural texturing")
-]] = core_definitions::scratched_plastic(
+]] = nvidia::core_definitions::scratched_plastic(
     ior: ior,
     diffuse_color: base::worley_noise_texture(
         uvw: base::transform_coordinate(
@@ -159,11 +159,11 @@ export material noise_perlin_glossy (
     ]]
 ) [[ 
     anno::copyright_notice (
-    "Copyright 2019 NVIDIA Corporation. All rights reserved."),
+    "Copyright 2020 NVIDIA Corporation. All rights reserved."),
     anno::author("NVIDIA Corporation"),
     anno::display_name("Dielectric, perlin noise textures"),
     anno::description("A simple dielectric material showcasing procedural texturing")
-]] = core_definitions::scratched_plastic(
+]] = nvidia::core_definitions::scratched_plastic(
     ior: ior,
     diffuse_color: base::perlin_noise_texture(
         uvw: base::transform_coordinate(

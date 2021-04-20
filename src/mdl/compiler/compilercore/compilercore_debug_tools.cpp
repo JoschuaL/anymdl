@@ -1,5 +1,5 @@
 /******************************************************************************
- * Copyright (c) 2012-2019, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2012-2020, NVIDIA CORPORATION. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -352,7 +352,7 @@ void *DebugMallocAllocator::objalloc(char const *cls_name, Size size)
     if (h == NULL && size != 0) {
         os_printf("*** Memory exhausted (after " PRT_SIZE "Mb).\n",
             m_allocated_size >> size_t(20));
-        abort();
+        abort(); //-V2014
     }
 
     m_allocated_size += size;
@@ -538,7 +538,7 @@ DebugMallocAllocator::~DebugMallocAllocator()
         // abort in debug mode, so unit test will fail if they have memory errors
         os_printf("*** Memory errors found, aborting ...\n");
         fflush(stderr);
-        abort();
+        abort(); //-V2014
     }
 }
 
@@ -569,9 +569,9 @@ void DebugMallocAllocator::check_memory_leaks()
         for (Header const *h = m_first; h != NULL; h = h->next) {
             if (h->flags & BH_REF_COUNTED) {
                 // reference counted object leaked
-                fprintf(
-                    stderr, "%s ", h->cls_name != NULL ? h->cls_name : "Object");
-                if (strcmp(h->cls_name, "class mi::mdl::Module") == 0) {
+                char const *cls_name = h->cls_name != NULL ? h->cls_name : "Object";
+                fprintf(stderr, "%s ", cls_name);
+                if (strcmp(cls_name, "class mi::mdl::Module") == 0) {
                     Module const *mod = (Module const *)(h + 1);
                     fprintf(stderr, "(%s) ", mod->get_name());
                 }

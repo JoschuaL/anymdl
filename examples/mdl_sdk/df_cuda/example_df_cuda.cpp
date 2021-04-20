@@ -1,5 +1,5 @@
 /******************************************************************************
- * Copyright (c) 2017-2019, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2017-2020, NVIDIA CORPORATION. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -26,10 +26,11 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *****************************************************************************/
 
-// examples/example_df_cuda.cpp
+// examples/mdl_sdk/df_cuda/example_df_cuda.cpp
 //
 // Simple renderer using compiled BSDFs with a material parameter editor GUI.
 
+#include <chrono>
 #include <iostream>
 #include <string>
 #include <vector>
@@ -39,7 +40,9 @@
 #define _USE_MATH_DEFINES
 #include <math.h>
 
+// shared example helpers
 #include "example_df_cuda.h"
+#include "lpe.h"
 
 // Enable this to dump the generated PTX code to stdout.
 // #define DUMP_PTX
@@ -53,14 +56,16 @@
 #include <GL/glew.h>
 #include <GLFW/glfw3.h>
 
+#define GL_DISPLAY_CUDA
+#include "utils/gl_display.h"
+
 #define terminate()          \
     do {                     \
         glfwTerminate();     \
-        keep_console_open(); \
-        exit(EXIT_FAILURE);  \
+        exit_failure();      \
     } while (0)
 
-#define WINDOW_TITLE "MDL SDK DF Example"
+#define WINDOW_TITLE "MDL SDK DF CUDA Example"
 
 
 /////////////////////////////
@@ -78,13 +83,19 @@ inline float3 normalize(const float3 &d)
     return make_float3(d.x * inv_len, d.y * inv_len, d.z * inv_len);
 }
 
+inline float3 operator/(const float3& d, float s)
+{
+    const float inv_s = 1.0f / s;
+    return make_float3(d.x * inv_s, d.y * inv_s, d.z * inv_s);
+}
+
 
 /////////////////
 // OpenGL code //
 /////////////////
 
 // Initialize OpenGL and create a window with an associated OpenGL context.
-static GLFWwindow *init_opengl(std::string& version_string)
+static GLFWwindow *init_opengl(std::string& version_string, int res_x, int res_y)
 {
     // Initialize GLFW
     check_success(glfwInit());
@@ -96,7 +107,7 @@ static GLFWwindow *init_opengl(std::string& version_string)
 
     // Create an OpenGL window and a context
     GLFWwindow *window = glfwCreateWindow(
-        1024, 768, WINDOW_TITLE, nullptr, nullptr);
+        res_x, res_y, WINDOW_TITLE, nullptr, nullptr);
     if (!window) {
         std::cerr << "Error creating OpenGL window!" << std::endl;
         terminate();
@@ -120,116 +131,6 @@ static GLFWwindow *init_opengl(std::string& version_string)
     return window;
 }
 
-static void dump_info(GLuint shader, const char* text)
-{
-    GLint length = 0;
-    glGetShaderiv(shader, GL_INFO_LOG_LENGTH, &length);
-    if (length > 0) {
-        GLchar *log = new GLchar[length + 1];
-        glGetShaderInfoLog(shader, length + 1, nullptr, log);
-        std::cerr << text << log << std::endl;
-        delete [] log;
-    } else {
-        std::cerr << text << std::endl;
-    }
-}
-
-static void add_shader(GLenum shader_type, const std::string& source_code, GLuint program)
-{
-    const GLchar* src_buffers[1] = { source_code.c_str() };
-    GLuint shader = glCreateShader(shader_type);
-    check_success(shader);
-    glShaderSource(shader, 1, src_buffers, nullptr);
-    glCompileShader(shader);
-
-    GLint success;
-    glGetShaderiv(shader, GL_COMPILE_STATUS, &success);
-    if (!success) {
-        dump_info(shader,"Error compiling the fragment shader: ");
-        terminate();
-    }
-    glAttachShader(program, shader);
-    check_success(glGetError() == GL_NO_ERROR);
-}
-
-
-// Create a shader program with a fragment shader.
-static GLuint create_shader_program()
-{
-    GLint success;
-    GLuint program = glCreateProgram();
-
-    const char *vert =
-        "#version 330\n"
-        "in vec3 Position;\n"
-        "out vec2 TexCoord;\n"
-        "void main() {\n"
-        "    gl_Position = vec4(Position, 1.0);\n"
-        "    TexCoord = 0.5 * Position.xy + vec2(0.5);\n"
-        "}\n";
-    add_shader(GL_VERTEX_SHADER, vert, program);
-
-    const char *frag =
-        "#version 330\n"
-        "in vec2 TexCoord;\n"
-        "out vec4 FragColor;\n"
-        "uniform sampler2D TexSampler;\n"
-        "void main() {\n"
-        "    FragColor = texture(TexSampler, TexCoord);\n"
-        "}\n";
-    add_shader(GL_FRAGMENT_SHADER, frag, program);
-
-    glLinkProgram(program);
-    glGetProgramiv(program, GL_LINK_STATUS, &success);
-    if (!success) {
-        dump_info(program, "Error linking the shader program: ");
-        terminate();
-    }
-
-#if !defined(__APPLE__)
-    glValidateProgram(program);
-    glGetProgramiv(program, GL_VALIDATE_STATUS, &success);
-    if (!success) {
-        dump_info(program, "Error validating the shader program: ");
-        terminate();
-    }
-#endif
-
-    glUseProgram(program);
-    check_success(glGetError() == GL_NO_ERROR);
-
-    return program;
-}
-
-// Create a quad filling the whole screen.
-static GLuint create_quad(GLuint program, GLuint* vertex_buffer)
-{
-    static const float3 vertices[6] = {
-        { -1.f, -1.f, 0.0f },
-        {  1.f, -1.f, 0.0f },
-        { -1.f,  1.f, 0.0f },
-        {  1.f, -1.f, 0.0f },
-        {  1.f,  1.f, 0.0f },
-        { -1.f,  1.f, 0.0f }
-    };
-
-    glGenBuffers(1, vertex_buffer);
-    glBindBuffer(GL_ARRAY_BUFFER, *vertex_buffer);
-    glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
-
-    GLuint vertex_array;
-    glGenVertexArrays(1, &vertex_array);
-    glBindVertexArray(vertex_array);
-
-    const GLint pos_index = glGetAttribLocation(program, "Position");
-    glEnableVertexAttribArray(pos_index);
-    glVertexAttribPointer(
-        pos_index, 3, GL_FLOAT, GL_FALSE, sizeof(float3), 0);
-
-    check_success(glGetError() == GL_NO_ERROR);
-
-    return vertex_array;
-}
 
 ///////////////////////
 // Application logic //
@@ -256,6 +157,17 @@ struct Window_context
     bool exposure_event;
     float exposure;
 };
+
+static std::string to_string(Display_buffer_options option)
+{
+    switch (option)
+    {
+        case DISPLAY_BUFFER_LPE: return "Selected LPE";
+        case DISPLAY_BUFFER_ALBEDO: return "Albedo";
+        case DISPLAY_BUFFER_NORMAL: return "Normal";
+        default: return "";
+    }
+}
 
 // GLFW scroll callback
 static void handle_scroll(GLFWwindow *window, double xoffset, double yoffset)
@@ -336,29 +248,17 @@ static void handle_mouse_pos(GLFWwindow *window, double xpos, double ypos)
     }
 }
 
-// Resize OpenGL and CUDA buffers for a given resolution
-static void resize_buffers(
-    CUdeviceptr *accum_buffer_cuda,
-    CUgraphicsResource *display_buffer_cuda, int width, int height, GLuint display_buffer)
+// Resize CUDA buffers for a given resolution
+static void resize_buffers(CUdeviceptr *buffer_cuda, int width, int height)
 {
-    // Allocate GL display buffer
-    glBindBuffer(GL_PIXEL_UNPACK_BUFFER, display_buffer);
-    glBufferData(GL_PIXEL_UNPACK_BUFFER, width * height * 4, nullptr, GL_DYNAMIC_COPY);
-    glBindBuffer(GL_PIXEL_UNPACK_BUFFER, 0);
+    // Allocate CUDA buffer
+    if (*buffer_cuda)
+        check_cuda_success(cuMemFree(*buffer_cuda));
 
-    check_success(glGetError() == GL_NO_ERROR);
-
-    // Register GL display buffer to CUDA
-    if (*display_buffer_cuda)
-        check_cuda_success(cuGraphicsUnregisterResource(*display_buffer_cuda));
-    check_cuda_success(
-        cuGraphicsGLRegisterBuffer(
-            display_buffer_cuda, display_buffer, CU_GRAPHICS_REGISTER_FLAGS_WRITE_DISCARD));
-
-    // Allocate CUDA accumulation buffer
-    if (*accum_buffer_cuda)
-        check_cuda_success(cuMemFree(*accum_buffer_cuda));
-    check_cuda_success(cuMemAlloc(accum_buffer_cuda, width * height * sizeof(float3)));
+    if (width == 0 || height == 0)
+        *buffer_cuda = 0;
+    else
+        check_cuda_success(cuMemAlloc(buffer_cuda, width * height * sizeof(float3)));
 }
 
 // Helper for create_environment()
@@ -429,9 +329,9 @@ static void create_environment(
     mi::base::Handle<const mi::neuraylib::ITile> tile(canvas->get_tile(0, 0));
     const float *pixels = static_cast<const float *>(tile->get_data());
 
-    check_cuda_success(cudaMemcpyToArray(
+    check_cuda_success(cudaMemcpy2DToArray(
         *env_tex_data, 0, 0, pixels,
-        rx * ry * sizeof(float4), cudaMemcpyHostToDevice));
+        rx * sizeof(float4), rx * sizeof(float4), ry, cudaMemcpyHostToDevice));
 
     // Create a CUDA texture
     cudaResourceDesc res_desc;
@@ -482,22 +382,64 @@ static void create_environment(
     free(env_accel_host);
 }
 
+
+static void upload_lpe_state_machine(
+    Kernel_params& kernel_params,
+    LPE_state_machine& lpe_state_machine)
+{
+    uint32_t num_trans = lpe_state_machine.get_transition_count();
+    uint32_t num_states = lpe_state_machine.get_state_count();
+    kernel_params.lpe_num_transitions = num_trans;
+    kernel_params.lpe_num_states = num_states;
+
+    // free old data
+    if (kernel_params.lpe_state_table)
+        check_cuda_success(cuMemFree(reinterpret_cast<CUdeviceptr>(kernel_params.lpe_state_table)));
+    if (kernel_params.lpe_final_mask)
+        check_cuda_success(cuMemFree(reinterpret_cast<CUdeviceptr>(kernel_params.lpe_final_mask)));
+
+    // state table
+    CUdeviceptr state_table = 0;
+    check_cuda_success(cuMemAlloc(&state_table, num_states * num_trans * sizeof(uint32_t)));
+    check_cuda_success(cuMemcpyHtoD(state_table, lpe_state_machine.get_state_table().data(),
+                       num_states * num_trans * sizeof(uint32_t)));
+    kernel_params.lpe_state_table = reinterpret_cast<uint32_t*>(state_table);
+
+    // final state masks
+    CUdeviceptr final_mask = 0;
+    check_cuda_success(cuMemAlloc(&final_mask, num_states * sizeof(uint32_t)));
+    check_cuda_success(cuMemcpyHtoD(final_mask, lpe_state_machine.get_final_state_masks().data(),
+                       num_states * sizeof(uint32_t)));
+    kernel_params.lpe_final_mask = reinterpret_cast<uint32_t*>(final_mask);
+
+    // tag ID for light sources as they don't store tags in this examples
+    kernel_params.default_gtag = lpe_state_machine.handle_to_global_tag("");
+    kernel_params.point_light_gtag = lpe_state_machine.handle_to_global_tag("point_light");
+    kernel_params.env_gtag = lpe_state_machine.handle_to_global_tag("env");
+}
+
 // Save current result image to disk
 static void save_result(
-    const CUdeviceptr accum_buffer,
+    const CUdeviceptr cuda_buffer,
     const unsigned int width,
     const unsigned int height,
     const std::string &filename,
     mi::base::Handle<mi::neuraylib::IImage_api> image_api,
-    mi::base::Handle<mi::neuraylib::IMdl_compiler> mdl_compiler)
+    mi::base::Handle<mi::neuraylib::IMdl_impexp_api> mdl_impexp_api)
 {
     mi::base::Handle<mi::neuraylib::ICanvas> canvas(
         image_api->create_canvas("Rgb_fp", width, height));
     mi::base::Handle<mi::neuraylib::ITile> tile(canvas->get_tile(0, 0));
     float3 *data = static_cast<float3 *>(tile->get_data());
-    check_cuda_success(cuMemcpyDtoH(data, accum_buffer, width * height * sizeof(float3)));
+    check_cuda_success(cuMemcpyDtoH(data, cuda_buffer, width * height * sizeof(float3)));
 
-    mdl_compiler->export_canvas(filename.c_str(), canvas.get());
+    // assuming EXR and HDR are the only linear color space formats we are using
+    // other formats are stored in sRGB (approximated by gamma 2.2)
+    if (!mi::examples::strings::ends_with(filename, ".exr") &&
+        !mi::examples::strings::ends_with(filename, ".hdr"))
+            image_api->adjust_gamma(canvas.get(), 2.2f);
+
+    mdl_impexp_api->export_canvas(filename.c_str(), canvas.get());
 }
 
 // Application options
@@ -509,6 +451,7 @@ struct Options {
     bool no_aa;
     bool enable_derivatives;
     bool fold_ternary_on_df;
+    bool enable_auxiliary_output;
     unsigned int res_x, res_y;
     unsigned int iterations;
     unsigned int samples_per_iteration;
@@ -521,9 +464,9 @@ struct Options {
     float3 light_intensity;
 
     std::string hdrfile;
+    float hdr_rot;
     std::string outputfile;
     std::vector<std::string> material_names;
-    std::vector<std::string> mdl_paths;
 
     // Default constructor, sets default values.
     Options()
@@ -534,6 +477,7 @@ struct Options {
     , no_aa(false)
     , enable_derivatives(false)
     , fold_ternary_on_df(false)
+    , enable_auxiliary_output(true)
     , res_x(1024)
     , res_y(1024)
     , iterations(4096)
@@ -543,12 +487,12 @@ struct Options {
     , fov(96.0f)
     , exposure(0.0f)
     , cam_pos(make_float3(0, 0, 3))
-    , light_pos(make_float3(0, 0, 0))
+    , light_pos(make_float3(10, 0, 5))
     , light_intensity(make_float3(0, 0, 0))
     , hdrfile("nvidia/sdk_examples/resources/environment.hdr")
+    , hdr_rot(0.0f)
     , outputfile("output.exr")
     , material_names()
-    , mdl_paths()
     {}
 };
 
@@ -936,21 +880,18 @@ static void render_scene(
     const Options &options,
     mi::base::Handle<mi::neuraylib::ITransaction>         transaction,
     mi::base::Handle<mi::neuraylib::IImage_api>           image_api,
-    mi::base::Handle<mi::neuraylib::IMdl_compiler>        mdl_compiler,
+    mi::base::Handle<mi::neuraylib::IMdl_impexp_api>      mdl_impexp_api,
     mi::base::Handle<mi::neuraylib::ITarget_code const>   target_code,
     Material_compiler::Material_definition_list const    &material_defs,
     Material_compiler::Compiled_material_list const      &compiled_materials,
     std::vector<size_t> const                            &arg_block_indices,
-    std::vector<Df_cuda_material> const                  &material_bundle)
+    std::vector<Df_cuda_material> const                  &material_bundle,
+    LPE_state_machine                                    &lpe_state_machine)
 {
     Window_context window_context;
     memset(&window_context, 0, sizeof(Window_context));
 
-    GLuint display_buffer = 0;
-    GLuint display_tex = 0;
-    GLuint program = 0;
-    GLuint quad_vertex_buffer = 0;
-    GLuint quad_vao = 0;
+    mi::examples::mdl::GL_display *gl_display = nullptr;
     GLFWwindow *window = nullptr;
     int width = -1;
     int height = -1;
@@ -958,7 +899,7 @@ static void render_scene(
     if (options.opengl) {
         // Init OpenGL window
         std::string version_string;
-        window = init_opengl(version_string);
+        window = init_opengl(version_string, int(options.res_x), int(options.res_y));
         glfwSetWindowUserPointer(window, &window_context);
         glfwSetKeyCallback(window, handle_key);
         glfwSetScrollCallback(window, handle_scroll);
@@ -968,31 +909,30 @@ static void render_scene(
 
         IMGUI_CHECKVERSION();
         ImGui::CreateContext();
+
         ImGui_ImplGlfw_InitForOpenGL(window, false);
         ImGui_ImplOpenGL3_Init(version_string.c_str());
         ImGui::GetIO().IniFilename = nullptr;       // disable creating imgui.ini
+        ImGui::StyleColorsDark();
+        ImGui::GetStyle().Alpha = 0.7f;
         ImGui::GetStyle().ScaleAllSizes(options.gui_scale);
 
-        glGenBuffers(1, &display_buffer);
-        glGenTextures(1, &display_tex);
-        check_success(glGetError() == GL_NO_ERROR);
-
-        // Create shader program
-        program = create_shader_program();
-
-        // Create scene data
-        quad_vao = create_quad(program, &quad_vertex_buffer);
+        gl_display = new mi::examples::mdl::GL_display(int(options.res_x), int(options.res_y));
     }
 
     // Initialize CUDA
     CUcontext cuda_context = init_cuda(options.cuda_device, options.opengl);
 
     CUdeviceptr accum_buffer = 0;
-    CUgraphicsResource display_buffer_cuda = nullptr;
+    CUdeviceptr aux_albedo_buffer = 0; // buffer for auxiliary output
+    CUdeviceptr aux_normal_buffer = 0; //
+
     if (!options.opengl) {
         width = options.res_x;
         height = options.res_y;
         check_cuda_success(cuMemAlloc(&accum_buffer, width * height * sizeof(float3)));
+        check_cuda_success(cuMemAlloc(&aux_albedo_buffer, width * height * sizeof(float3)));
+        check_cuda_success(cuMemAlloc(&aux_normal_buffer, width * height * sizeof(float3)));
     }
 
     // Setup initial CUDA kernel parameters
@@ -1000,7 +940,12 @@ static void render_scene(
     memset(&kernel_params, 0, sizeof(Kernel_params));
     kernel_params.cam_focal = 1.0f / tanf(options.fov / 2 * float(2 * M_PI / 360));
     kernel_params.light_pos = options.light_pos;
-    kernel_params.light_intensity = options.light_intensity;
+    kernel_params.light_intensity = fmaxf(
+        options.light_intensity.x, fmaxf(options.light_intensity.y, options.light_intensity.z));
+    kernel_params.light_color = kernel_params.light_intensity > 0.0f
+        ? options.light_intensity / kernel_params.light_intensity
+        : make_float3(1.0f, 0.9f, 0.5f);
+    kernel_params.env_intensity = 1.0f;
     kernel_params.iteration_start = 0;
     kernel_params.iteration_num = options.samples_per_iteration;
     kernel_params.mdl_test_type = options.mdl_test_type;
@@ -1008,6 +953,16 @@ static void render_scene(
     kernel_params.exposure_scale = powf(2.0f, options.exposure);
     kernel_params.disable_aa = options.no_aa;
     kernel_params.use_derivatives = options.enable_derivatives;
+    kernel_params.enable_auxiliary_output = options.enable_auxiliary_output;
+    kernel_params.display_buffer_index = 0;
+
+    kernel_params.lpe_ouput_expression = 0;
+    kernel_params.lpe_state_table = nullptr;
+    kernel_params.lpe_final_mask = nullptr;
+
+    kernel_params.current_material = 0;
+    kernel_params.geometry = material_bundle[kernel_params.current_material].contains_hair_bsdf ?
+        GT_HAIR : GT_SPHERE;
 
     // Setup camera
     float base_dist = length(options.cam_pos);
@@ -1028,13 +983,13 @@ static void render_scene(
         "example_df_cuda_derivatives.ptx" : "example_df_cuda.ptx";
     CUmodule    cuda_module = build_linked_kernel(
         target_codes,
-        (get_executable_folder() + "/" + ptx_name).c_str(),
-        "render_sphere_kernel",
+        (mi::examples::io::get_executable_folder() + "/" + ptx_name).c_str(),
+        "render_scene_kernel",
         &cuda_function);
 
-    // copy materials of the scene to the device 
+    // copy materials of the scene to the device
     CUdeviceptr material_buffer = 0;
-    check_cuda_success(cuMemAlloc(&material_buffer, 
+    check_cuda_success(cuMemAlloc(&material_buffer,
                                   material_bundle.size() * sizeof(Df_cuda_material)));
 
     check_cuda_success(cuMemcpyHtoD(material_buffer, material_bundle.data(),
@@ -1048,21 +1003,25 @@ static void render_scene(
         &kernel_params.env_tex, &env_tex_data, &env_accel, &kernel_params.env_size, transaction,
         image_api, options.hdrfile.c_str());
     kernel_params.env_accel = reinterpret_cast<Env_accel *>(env_accel);
+    kernel_params.env_rotation = options.hdr_rot / 180.0f * float(M_PI);
+
+    // Setup GPU runtime of the LPE state machine
+    upload_lpe_state_machine(kernel_params, lpe_state_machine);
 
     // Setup file name for nogl mode
-    std::string next_filename;
+    std::string next_filename_base;
     std::string filename_base, filename_ext;
-    if (options.material_names.size() > 1) {
-        size_t dot_pos = options.outputfile.rfind(".");
-        if (dot_pos == std::string::npos)
-            filename_base = options.outputfile;
-        else {
-            filename_base = options.outputfile.substr(0, dot_pos);
-            filename_ext = options.outputfile.substr(dot_pos);
-        }
-        next_filename = filename_base + "-0" + filename_ext;
-    } else
-        next_filename = options.outputfile;
+    size_t dot_pos = options.outputfile.rfind('.');
+    if (dot_pos == std::string::npos) {
+        filename_base = options.outputfile;
+    } else {
+        filename_base = options.outputfile.substr(0, dot_pos);
+        filename_ext = options.outputfile.substr(dot_pos);
+    }
+    if (options.material_names.size() > 1)
+        next_filename_base = filename_base + "-0";
+    else
+        next_filename_base = filename_base;
 
     // Scope for material context resources
     {
@@ -1182,7 +1141,7 @@ static void render_scene(
                                     case 3:
                                         param_array_elem_kind = Param_info::PK_FLOAT3;
                                         break;
-                                    default: 
+                                    default:
                                         assert(false || "Vector Size invalid or unhandled.");
                                     }
                                 }
@@ -1278,7 +1237,10 @@ static void render_scene(
                 if (anno_block) {
                     mi::neuraylib::Annotation_wrapper annos(anno_block.get());
                     mi::Size anno_index =
-                        annos.get_annotation_index("::anno::hard_range(float,float)");
+                        annos.get_annotation_index("::anno::soft_range(float,float)");
+                    if (anno_index == mi::Size(-1)) {
+                        anno_index = annos.get_annotation_index("::anno::hard_range(float,float)");
+                    }
                     if (anno_index != mi::Size(-1)) {
                         annos.get_annotation_param_value(anno_index, 0, param_info.range_min());
                         annos.get_annotation_param_value(anno_index, 1, param_info.range_max());
@@ -1298,23 +1260,46 @@ static void render_scene(
             mat_infos.push_back(mat_info);
         }
 
+        std::chrono::duration<double> state_update_time( 0.0 );
+        std::chrono::duration<double> render_time( 0.0 );
+        std::chrono::duration<double> display_time( 0.0 );
+        char stats_text[128];
+        int last_update_frames = -1;
+        auto last_update_time = std::chrono::steady_clock::now();
+        const std::chrono::duration<double> update_min_interval( 0.5 );
+
         // Main render loop
         while (true)
         {
-            double start_time = 0.0;
+            std::chrono::time_point<std::chrono::steady_clock> t0;
 
             if (!options.opengl)
             {
                 kernel_params.resolution.x = width;
                 kernel_params.resolution.y = height;
                 kernel_params.accum_buffer = reinterpret_cast<float3 *>(accum_buffer);
+                kernel_params.albedo_buffer = reinterpret_cast<float3 *>(aux_albedo_buffer);
+                kernel_params.normal_buffer = reinterpret_cast<float3 *>(aux_normal_buffer);
+
 
                 // Check if desired number of samples is reached
                 if (kernel_params.iteration_start >= options.iterations) {
                     std::cout << "rendering done" << std::endl;
 
                     save_result(
-                        accum_buffer, width, height, next_filename, image_api, mdl_compiler);
+                        accum_buffer, width, height,
+                        next_filename_base + filename_ext,
+                        image_api, mdl_impexp_api);
+
+                    save_result(
+                        aux_albedo_buffer, width, height,
+                        next_filename_base +  "_albedo" + filename_ext,
+                        image_api, mdl_impexp_api);
+
+                    save_result(
+                        aux_normal_buffer, width, height,
+                        next_filename_base + "_normal" + filename_ext,
+                        image_api, mdl_impexp_api);
 
                     std::cout << std::endl;
 
@@ -1322,11 +1307,16 @@ static void render_scene(
                     if (kernel_params.current_material + 1 >= material_bundle.size())
                         break;
 
+                    if (material_bundle[kernel_params.current_material].contains_hair_bsdf == 0)
+                        kernel_params.geometry = GT_SPHERE;
+                    else
+                        kernel_params.geometry = GT_HAIR;
+
                     // Start new image with next material
                     kernel_params.iteration_start = 0;
                     ++kernel_params.current_material;
-                    next_filename = filename_base + "-" + to_string(kernel_params.current_material)
-                        + filename_ext;
+                    next_filename_base =
+                        filename_base + "-" + to_string(kernel_params.current_material);
                 }
 
                 std::cout
@@ -1335,15 +1325,14 @@ static void render_scene(
             }
             else
             {
+                t0 = std::chrono::steady_clock::now();
+
                 // Check for termination
                 if (glfwWindowShouldClose(window))
                     break;
 
                 // Poll for events and process them
                 glfwPollEvents();
-                ImGui_ImplOpenGL3_NewFrame();
-                ImGui_ImplGlfw_NewFrame();
-                ImGui::NewFrame();
 
                 // Check if buffers need to be resized
                 int nwidth, nheight;
@@ -1353,29 +1342,123 @@ static void render_scene(
                     width = nwidth;
                     height = nheight;
 
+                    gl_display->resize(width, height);
+
                     resize_buffers(
-                        &accum_buffer, &display_buffer_cuda, width, height, display_buffer);
+                        &accum_buffer, width, height);
                     kernel_params.accum_buffer = reinterpret_cast<float3 *>(accum_buffer);
 
-                    glViewport(0, 0, width, height);
+                    resize_buffers(&aux_albedo_buffer, width, height);
+                    kernel_params.albedo_buffer = reinterpret_cast<float3 *>(aux_albedo_buffer);
+
+
+                    resize_buffers(&aux_normal_buffer, width, height);
+                    kernel_params.normal_buffer = reinterpret_cast<float3 *>(aux_normal_buffer);
 
                     kernel_params.resolution.x = width;
                     kernel_params.resolution.y = height;
                     kernel_params.iteration_start = 0;
                 }
 
+                // Don't render anything, if minimized
+                if (width == 0 || height == 0) {
+                    // Wait until something happens
+                    glfwWaitEvents();
+                    continue;
+                }
+
+                ImGui_ImplOpenGL3_NewFrame();
+                ImGui_ImplGlfw_NewFrame();
+                ImGui::NewFrame();
+
                 // Create material parameter editor window
-                ImGui::SetNextWindowPos(ImVec2(0, 0), ImGuiCond_FirstUseEver);
+
+                ImGui::SetNextWindowPos(ImVec2(10, 100), ImGuiCond_FirstUseEver);
                 ImGui::SetNextWindowSize(
-                    ImVec2(360 * options.gui_scale, 350 * options.gui_scale),
+                    ImVec2(360 * options.gui_scale, 600 * options.gui_scale),
                     ImGuiCond_FirstUseEver);
-                ImGui::Begin("Material parameters");
+                ImGui::Begin("Settings");
                 ImGui::SetWindowFontScale(options.gui_scale);
                 ImGui::PushItemWidth(-200 * options.gui_scale);
                 if (options.use_class_compilation)
                     ImGui::Text("CTRL + Click to manually enter numbers");
                 else
                     ImGui::Text("Parameter editing requires class compilation.");
+
+                if (kernel_params.enable_auxiliary_output)
+                {
+                    ImGui::Dummy(ImVec2(0.0f, 3.0f));
+                    ImGui::Text("Display options");
+                    ImGui::Separator();
+
+                    std::string current_lpe_name = lpe_state_machine.get_expression_name(
+                        kernel_params.lpe_ouput_expression);
+                    if (ImGui::BeginCombo("LPE", current_lpe_name.c_str()))
+                    {
+                        for (uint32_t i = 0; i < lpe_state_machine.get_expression_count(); ++i)
+                        {
+                            const char* name = lpe_state_machine.get_expression_name(i);
+                            bool is_selected = (i == kernel_params.lpe_ouput_expression);
+                            if (ImGui::Selectable(name, is_selected))
+                            {
+                                kernel_params.lpe_ouput_expression = i;
+                                kernel_params.iteration_start = 0;
+                            }
+                            if (is_selected)
+                                ImGui::SetItemDefaultFocus();
+                        }
+                        ImGui::EndCombo();
+                    }
+
+                    std::string current_display_buffer =
+                        to_string((Display_buffer_options) kernel_params.display_buffer_index);
+                    if (ImGui::BeginCombo("buffer", current_display_buffer.c_str()))
+                    {
+                        for (unsigned i = 0; i < (unsigned) DISPLAY_BUFFER_COUNT; ++i)
+                        {
+                            const std::string &name = to_string((Display_buffer_options) i);
+                            bool is_selected = (current_display_buffer == name);
+                            if (ImGui::Selectable(name.c_str(), is_selected))
+                            {
+                                kernel_params.display_buffer_index = i;
+                                kernel_params.iteration_start = 0;
+                            }
+                            if (is_selected)
+                                ImGui::SetItemDefaultFocus();
+                        }
+                        ImGui::EndCombo();
+                    }
+                }
+
+                ImGui::Dummy(ImVec2(0.0f, 3.0f));
+                ImGui::Text("Light parameters");
+                ImGui::Separator();
+
+                if (ImGui::ColorEdit3("Point Light Color", &kernel_params.light_color.x))
+                    kernel_params.iteration_start = 0;
+
+                if (ImGui::SliderFloat("Point Light Intensity",
+                    &kernel_params.light_intensity, 0.0f, 50000.0f))
+                        kernel_params.iteration_start = 0;
+
+                if (ImGui::SliderFloat("Environment Intensity Scale",
+                    &kernel_params.env_intensity, 0.0f, 10.0f))
+                        kernel_params.iteration_start = 0;
+
+                float env_rot_degree = kernel_params.env_rotation / float(M_PI) * 180.0f;
+                if (ImGui::SliderFloat("Environment Rotation",
+                    &env_rot_degree, 0.0f, 360.0f))
+                {
+                    // wrap in case of negative input
+                    // we don't want fmodf behavior for negative values
+                    env_rot_degree -= floorf(env_rot_degree / 360.0f) * 360.f;
+                    kernel_params.env_rotation = fmodf(env_rot_degree, 360.0f) / 180.0f * float(M_PI);
+                    kernel_params.iteration_start = 0;
+                }
+
+                ImGui::Dummy(ImVec2(0.0f, 3.0f));
+                ImGui::Text("Material parameters");
+                ImGui::Separator();
 
                 Material_info &mat_info = mat_infos[
                     material_bundle[kernel_params.current_material].compiled_material_index];
@@ -1589,14 +1672,27 @@ static void render_scene(
                     kernel_params.iteration_start = 0;
                 }
 
-                start_time = glfwGetTime();
-
                 // Handle events
                 Window_context *ctx =
                     static_cast<Window_context*>(glfwGetWindowUserPointer(window));
                 if (ctx->save_result && !ImGui::GetIO().WantCaptureKeyboard) {
                     save_result(
-                        accum_buffer, width, height, options.outputfile, image_api, mdl_compiler);
+                        accum_buffer,
+                        width, height,
+                        options.outputfile,
+                        image_api, mdl_impexp_api);
+
+                    save_result(
+                        aux_albedo_buffer,
+                        width, height,
+                        filename_base + "_albedo" + filename_ext,
+                        image_api, mdl_impexp_api);
+
+                    save_result(
+                        aux_normal_buffer,
+                        width, height,
+                        filename_base + "_normal" + filename_ext,
+                        image_api, mdl_impexp_api);
                 }
                 if (ctx->exposure_event && !ImGui::GetIO().WantCaptureKeyboard) {
                     kernel_params.exposure_scale = powf(2.0f, ctx->exposure);
@@ -1609,6 +1705,11 @@ static void render_scene(
                     kernel_params.current_material = (kernel_params.current_material +
                         ctx->material_index_delta + num_materials) % num_materials;
                     ctx->material_index_delta = 0;
+
+                    if (material_bundle[kernel_params.current_material].contains_hair_bsdf == 0)
+                        kernel_params.geometry = GT_SPHERE;
+                    else
+                        kernel_params.geometry = GT_HAIR;
                 }
                 if (ctx->mouse_button - 1 == GLFW_MOUSE_BUTTON_LEFT) {
                     // Only accept button press when not hovering GUI window
@@ -1644,13 +1745,13 @@ static void render_scene(
                 ctx->mouse_wheel_delta = 0;
                 ctx->mouse_button = 0;
 
+                auto t1 = std::chrono::steady_clock::now();
+                state_update_time += t1 - t0;
+                t0 = t1;
+
                 // Map GL buffer for access with CUDA
-                check_cuda_success(cuGraphicsMapResources(1, &display_buffer_cuda, /*stream=*/0));
-                CUdeviceptr p;
-                size_t size_p;
-                check_cuda_success(
-                    cuGraphicsResourceGetMappedPointer(&p, &size_p, display_buffer_cuda));
-                kernel_params.display_buffer = reinterpret_cast<unsigned int *>(p);
+                kernel_params.display_buffer =
+                    reinterpret_cast<unsigned int *>(gl_display->map(0));
             }
 
 
@@ -1673,23 +1774,51 @@ static void render_scene(
             if (options.opengl)
             {
                 // Unmap GL buffer
-                check_cuda_success(cuGraphicsUnmapResources(1, &display_buffer_cuda, /*stream=*/0));
+                gl_display->unmap(0);
 
-                // Update texture
-                glBindBuffer(GL_PIXEL_UNPACK_BUFFER, display_buffer);
-                glBindTexture(GL_TEXTURE_2D, display_tex);
-                glTexImage2D(
-                    GL_TEXTURE_2D, 0, GL_RGBA8, width, height, 0, GL_BGRA, GL_UNSIGNED_BYTE, nullptr);
-                glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-                glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-                glBindBuffer(GL_PIXEL_UNPACK_BUFFER, 0);
-                check_success(glGetError() == GL_NO_ERROR);
+                auto t1 = std::chrono::steady_clock::now();
+                render_time += t1 - t0;
+                t0 = t1;
 
-                // Render the quad
-                glClear(GL_COLOR_BUFFER_BIT);
-                glBindVertexArray(quad_vao);
-                glDrawArrays(GL_TRIANGLES, 0, 6);
-                check_success(glGetError() == GL_NO_ERROR);
+                // Render GL buffer
+                gl_display->update_display();
+
+                t1 = std::chrono::steady_clock::now();
+                display_time += t1 - t0;
+
+                // Render stats window
+                ImGui::SetNextWindowPos(ImVec2(10, 10));
+                ImGui::Begin("##notitle", nullptr,
+                    ImGuiWindowFlags_NoDecoration |
+                    ImGuiWindowFlags_AlwaysAutoResize |
+                    ImGuiWindowFlags_NoSavedSettings |
+                    ImGuiWindowFlags_NoFocusOnAppearing |
+                    ImGuiWindowFlags_NoNav);
+
+                // Update stats only every 0.5s
+                ++last_update_frames;
+                if (t1 - last_update_time > update_min_interval || last_update_frames == 0) {
+                    typedef std::chrono::duration<double, std::milli> durationMs;
+
+                    snprintf(stats_text, sizeof(stats_text),
+                        "%5.1f fps\n\n"
+                        "state update: %8.1f ms\n"
+                        "render:       %8.1f ms\n"
+                        "display:      %8.1f ms\n",
+                        last_update_frames / std::chrono::duration<double>(
+                            t1 - last_update_time).count(),
+                        (durationMs(state_update_time) / last_update_frames).count(),
+                        (durationMs(render_time) / last_update_frames).count(),
+                        (durationMs(display_time) / last_update_frames).count());
+
+                    last_update_time = t1;
+                    last_update_frames = 0;
+                    state_update_time = render_time = display_time =
+                        std::chrono::duration<double>::zero();
+                }
+
+                ImGui::TextUnformatted(stats_text);
+                ImGui::End();
 
                 // Show the GUI
                 ImGui::Render();
@@ -1697,13 +1826,6 @@ static void render_scene(
 
                 // Swap front and back buffers
                 glfwSwapBuffers(window);
-
-                // Update window title
-                const double fps =
-                    double(kernel_params.iteration_num) / (glfwGetTime() - start_time);
-                glfwSetWindowTitle(
-                    window, (std::string(WINDOW_TITLE) +
-                             " (iterations/s: " + to_string(fps) + ")").c_str());
             }
         }
     }
@@ -1713,16 +1835,18 @@ static void render_scene(
     check_cuda_success(cudaFreeArray(env_tex_data));
     check_cuda_success(cuMemFree(env_accel));
     check_cuda_success(cuMemFree(accum_buffer));
+    check_cuda_success(cuMemFree(aux_albedo_buffer));
+    check_cuda_success(cuMemFree(aux_normal_buffer));
     check_cuda_success(cuMemFree(material_buffer));
+    check_cuda_success(cuMemFree(reinterpret_cast<CUdeviceptr>(kernel_params.lpe_state_table)));
+    check_cuda_success(cuMemFree(reinterpret_cast<CUdeviceptr>(kernel_params.lpe_final_mask)));
     check_cuda_success(cuModuleUnload(cuda_module));
     uninit_cuda(cuda_context);
 
     // Cleanup OpenGL
     if (options.opengl) {
-        glDeleteVertexArrays(1, &quad_vao);
-        glDeleteBuffers(1, &quad_vertex_buffer);
-        glDeleteProgram(program);
-        check_success(glGetError() == GL_NO_ERROR);
+        delete gl_display;
+        gl_display = nullptr;
         ImGui_ImplOpenGL3_Shutdown();
         ImGui_ImplGlfw_Shutdown();
         ImGui::DestroyContext();
@@ -1741,7 +1865,8 @@ bool starts_with(std::string const &str, std::string const &prefix)
 Df_cuda_material create_cuda_material(
     size_t target_code_index,
     size_t compiled_material_index,
-    std::vector<mi::neuraylib::Target_function_description> const& descs)
+    std::vector<mi::neuraylib::Target_function_description> const& descs,
+    bool use_hair_bsdf)
 {
     Df_cuda_material mat;
 
@@ -1753,39 +1878,111 @@ Df_cuda_material create_cuda_material(
     //       material, if any function uses it
     mat.argument_block_index = static_cast<unsigned int>(descs[0].argument_block_index);
 
-    // identify the BSDF function by target_code_index (i'th link unit)
-    // and the function_index inside this target_code.
-    // same for the EDF and the intensity expression.
-    mat.bsdf.x = static_cast<unsigned int>(target_code_index);
-    mat.bsdf.y = static_cast<unsigned int>(descs[0].function_index);
+    mat.init.x = static_cast<unsigned int>(target_code_index);
+    mat.init.y = static_cast<unsigned int>(descs[0].function_index);
 
-    mat.edf.x = static_cast<unsigned int>(target_code_index);
-    mat.edf.y = static_cast<unsigned int>(descs[1].function_index);
+    if (!use_hair_bsdf)
+    {
+        // identify the BSDF function by target_code_index (i'th link unit)
+        // and the function_index inside this target_code.
+        // same for the EDF and the intensity expression.
 
-    mat.emission_intensity.x = static_cast<unsigned int>(target_code_index);
-    mat.emission_intensity.y = static_cast<unsigned int>(descs[2].function_index);
+        mat.bsdf.x = static_cast<unsigned int>(target_code_index);
+        mat.bsdf.y = static_cast<unsigned int>(descs[1].function_index);
 
-    mat.volume_absorption.x = static_cast<unsigned int>(target_code_index);
-    mat.volume_absorption.y = static_cast<unsigned int>(descs[3].function_index);
+        mat.edf.x = static_cast<unsigned int>(target_code_index);
+        mat.edf.y = static_cast<unsigned int>(descs[2].function_index);
 
-    mat.thin_walled.x = static_cast<unsigned int>(target_code_index);
-    mat.thin_walled.y = static_cast<unsigned int>(descs[4].function_index);
+        mat.emission_intensity.x = static_cast<unsigned int>(target_code_index);
+        mat.emission_intensity.y = static_cast<unsigned int>(descs[3].function_index);
 
+        mat.volume_absorption.x = static_cast<unsigned int>(target_code_index);
+        mat.volume_absorption.y = static_cast<unsigned int>(descs[4].function_index);
+
+        mat.thin_walled.x = static_cast<unsigned int>(target_code_index);
+        mat.thin_walled.y = static_cast<unsigned int>(descs[5].function_index);
+    }
+    else
+    {
+        mat.bsdf.x = static_cast<unsigned int>(target_code_index);
+        mat.bsdf.y = static_cast<unsigned int>(descs[6].function_index);
+        mat.contains_hair_bsdf = 1;
+    }
+
+    // init tag maps with zeros (optional)
+    memset(mat.bsdf_mtag_to_gtag_map, 0, MAX_DF_HANDLES * sizeof(unsigned int));
+    memset(mat.edf_mtag_to_gtag_map, 0, MAX_DF_HANDLES * sizeof(unsigned int));
     return mat;
+}
+
+void create_cuda_material_handles(
+    Df_cuda_material& mat,
+    const mi::neuraylib::ITarget_code* target_code,
+    LPE_state_machine& lpe_state_machine)
+{
+    // fill tag ID list.
+    // allows to map from local per material Tag IDs to global per scene Tag IDs
+    // Note, calling 'LPE_state_machine::handle_to_global_tag(...)' registers the string handles
+    // present in the MDL in our 'scene'
+    mat.bsdf_mtag_to_gtag_map_size = static_cast<unsigned int>(
+        target_code->get_callable_function_df_handle_count(mat.bsdf.y));
+    for (mi::Size i = 0; i < mat.bsdf_mtag_to_gtag_map_size; ++i)
+        mat.bsdf_mtag_to_gtag_map[i] = lpe_state_machine.handle_to_global_tag(
+            target_code->get_callable_function_df_handle(mat.bsdf.y, i));
+
+    // same for all other distribution functions
+    mat.edf_mtag_to_gtag_map_size = static_cast<unsigned int>(
+        target_code->get_callable_function_df_handle_count(mat.edf.y));
+    for (mi::Size i = 0; i < mat.edf_mtag_to_gtag_map_size; ++i)
+        mat.edf_mtag_to_gtag_map[i] = lpe_state_machine.handle_to_global_tag(
+            target_code->get_callable_function_df_handle(mat.edf.y, i));
+}
+
+// checks if a compiled material contains none-invalid hair BSDF
+bool contains_hair_bsdf(const mi::neuraylib::ICompiled_material* compiled_material)
+{
+    mi::base::Handle<const mi::neuraylib::IExpression_direct_call> body(
+        compiled_material->get_body());
+
+    mi::base::Handle<const mi::neuraylib::IExpression_list> body_args(body->get_arguments());
+    for (mi::Size i = 0, n = body_args->get_size(); i < n; ++i)
+    {
+        const char* name = body_args->get_name(i);
+        if (strcmp(name, "hair") == 0)
+        {
+            mi::base::Handle<const mi::neuraylib::IExpression> hair_exp(
+                body_args->get_expression(i));
+
+            if (hair_exp->get_kind() != mi::neuraylib::IExpression::EK_CONSTANT)
+                return true;
+
+            mi::base::Handle<const mi::neuraylib::IExpression_constant> hair_exp_const(
+                hair_exp->get_interface<const mi::neuraylib::IExpression_constant>());
+
+            mi::base::Handle<const mi::neuraylib::IValue> hair_exp_const_value(
+                hair_exp_const->get_value());
+
+            return hair_exp_const_value->get_kind() != mi::neuraylib::IValue::VK_INVALID_DF;
+        }
+    }
+    return true;
 }
 
 static void usage(const char *name)
 {
     std::cout
         << "usage: " << name << " [options] [<material_name1|full_mdle_path1> ...]\n"
-        << "-h                          print this text\n"
+        << "-h|--help                   print this text and exit\n"
+        << "-v|--version                print the MDL SDK version string and exit\n"
         << "--device <id>               run on CUDA device <id> (default: 0)\n"
         << "--nogl                      don't open interactive display\n"
         << "--nocc                      don't use class-compilation\n"
+        << "--noaux                     don't generate code for albedo and normal buffers\n"
         << "--gui_scale <factor>        GUI scaling factor (default: 1.0)\n"
         << "--res <res_x> <res_y>       resolution (default: 1024x1024)\n"
         << "--hdr <filename>            HDR environment map "
            "(default: nvidia/sdk_examples/resources/environment.hdr)\n"
+        << "--hdr_rot <degrees>         rotation of the environment in degrees (default: 0.0)\n"
         << "-o <outputfile>             image file to write result to (default: output.exr).\n"
         << "                            With multiple materials \"-<material index>\" will be\n"
         << "                            added in front of the extension\n"
@@ -1804,7 +2001,7 @@ static void usage(const char *name)
         << "                            reflection), clamped to 2..100\n"
         << "--noaa                      disable pixel oversampling\n"
         << "-d                          enable use of derivatives\n"
-        << " --fold_ternary_on_df       fold all ternary operators on *df types (default: false)\n"
+        << "--fold_ternary_on_df        fold all ternary operators on *df types (default: false)\n"
         << "\n"
         << "Note: material names can end with an '*' as a wildcard\n"
         << "      and alternatively, full MDLE file paths can be passed as material name\n";
@@ -1812,10 +2009,12 @@ static void usage(const char *name)
     exit(EXIT_FAILURE);
 }
 
-int main(int argc, char* argv[])
+int MAIN_UTF8(int argc, char* argv[])
 {
     // Parse commandline options
     Options options;
+    mi::examples::mdl::Configure_options configure_options;
+    bool print_version_and_exit = false;
 
     for (int i = 1; i < argc; ++i) {
         const char *opt = argv[i];
@@ -1826,6 +2025,8 @@ int main(int argc, char* argv[])
                 options.opengl = false;
             } else if (strcmp(opt, "--nocc") == 0) {
                 options.use_class_compilation = false;
+            } else if (strcmp(opt, "--noaux") == 0) {
+                options.enable_auxiliary_output = false;
             } else if (strcmp(opt, "--gui_scale") == 0 && i < argc - 1) {
                 options.gui_scale = static_cast<float>(atof(argv[++i]));
             } else if (strcmp(opt, "--res") == 0 && i < argc - 2) {
@@ -1833,6 +2034,12 @@ int main(int argc, char* argv[])
                 options.res_y = std::max(atoi(argv[++i]), 1);
             } else if (strcmp(opt, "--hdr") == 0 && i < argc - 1) {
                 options.hdrfile = argv[++i];
+            } else if (strcmp(opt, "--hdr_rot") == 0 && i < argc - 1) {
+                options.hdr_rot = static_cast<float>(atof(argv[++i]));
+                // wrap in case of negative input
+                // we don't want fmodf behavior for negative values
+                options.hdr_rot -= floorf(options.hdr_rot / 360.0f) * 360.f;
+                options.hdr_rot = fmodf(options.hdr_rot, 360.0f);
             } else if (strcmp(opt, "-o") == 0 && i < argc - 1) {
                 options.outputfile = argv[++i];
             } else if (strcmp(opt, "--spp") == 0 && i < argc - 1) {
@@ -1862,7 +2069,7 @@ int main(int argc, char* argv[])
                 options.light_intensity.y = static_cast<float>(atof(argv[++i]));
                 options.light_intensity.z = static_cast<float>(atof(argv[++i]));
             } else if (strcmp(opt, "--mdl_path") == 0 && i < argc - 1) {
-                options.mdl_paths.push_back(argv[++i]);
+                configure_options.additional_mdl_paths.push_back(argv[++i]);
             } else if (strcmp(opt, "--max_path_length") == 0 && i < argc - 1) {
                 options.max_path_length = std::min(std::max(atoi(argv[++i]), 2), 100);
             } else if (strcmp(opt, "--noaa") == 0) {
@@ -1871,8 +2078,11 @@ int main(int argc, char* argv[])
                 options.enable_derivatives = true;
             } else if (strcmp(opt, "--fold_ternary_on_df") == 0) {
                 options.fold_ternary_on_df = true;
+            } else if (strcmp(opt, "-v") == 0 || strcmp(opt, "--version") == 0) {
+                print_version_and_exit = true;
             } else {
-                std::cout << "Unknown option: \"" << opt << "\"" << std::endl;
+                if (strcmp(opt, "-h") != 0 && strcmp(opt, "--help") != 0)
+                    std::cout << "Unknown option: \"" << opt << "\"" << std::endl;
                 usage(argv[0]);
             }
         }
@@ -1880,39 +2090,88 @@ int main(int argc, char* argv[])
             options.material_names.push_back(std::string(opt));
     }
 
-    // Access the MDL SDK
-    mi::base::Handle<mi::neuraylib::INeuray> neuray(load_and_get_ineuray());
-    check_success(neuray.is_valid_interface());
-
-    // Access the MDL SDK compiler component
-    mi::base::Handle<mi::neuraylib::IMdl_compiler> mdl_compiler(
-        neuray->get_api_component<mi::neuraylib::IMdl_compiler>());
-
-    // Configure the MDL SDK
-    // Load plugin required for loading textures
-    check_success(mdl_compiler->load_plugin_library("nv_freeimage" MI_BASE_DLL_FILE_EXT) == 0);
-
-    // Set the MDL and texture search paths
-    const std::string root = get_samples_mdl_root();
-    check_success(mdl_compiler->add_module_path(root.c_str()) == 0);
-    check_success(mdl_compiler->add_resource_path(root.c_str()) == 0);
-
-    for (std::size_t i = 0; i < options.mdl_paths.size(); ++i) {
-        if (mdl_compiler->add_module_path(options.mdl_paths[i].c_str()) != 0) {
-            fprintf(
-                stderr,
-                "Error: Ignoring invalid module path '%s'\n",
-                options.mdl_paths[i].c_str());
-        }
-    }
-
     // Use default material, if none was provided via command line
     if (options.material_names.empty())
         options.material_names.push_back("::nvidia::sdk_examples::tutorials::example_df");
 
+    // Access the MDL SDK
+    mi::base::Handle<mi::neuraylib::INeuray> neuray(mi::examples::mdl::load_and_get_ineuray());
+    if (!neuray.is_valid_interface())
+        exit_failure("Failed to load the SDK.");
+
+    // Handle the --version flag
+    if (print_version_and_exit) {
+
+        // print library version information.
+        mi::base::Handle<const mi::neuraylib::IVersion> version(
+            neuray->get_api_component<const mi::neuraylib::IVersion>());
+        fprintf(stdout, "%s\n", version->get_string());
+
+        // free the handles and unload the MDL SDK
+        version = nullptr;
+        neuray = nullptr;
+        if (!mi::examples::mdl::unload())
+            exit_failure("Failed to unload the SDK.");
+
+        exit_success();
+    }
+
+    // Configure the MDL SDK
+    if (!mi::examples::mdl::configure(neuray.get(), configure_options))
+        exit_failure("Failed to initialize the SDK.");
+
     // Start the MDL SDK
-    mi::Sint32 result = neuray->start();
-    check_start_success(result);
+    mi::Sint32 ret = neuray->start();
+    if (ret != 0)
+        exit_failure("Failed to initialize the SDK. Result code: %d", ret);
+
+    // LPE state machine for rendering into multiple buffers
+    LPE_state_machine lpe_state_machine;
+    lpe_state_machine.handle_to_global_tag("point_light");  // register handles before building
+    lpe_state_machine.handle_to_global_tag("env");          // the state machine
+
+     // register other handles in the scene, e.g.: for object instances
+    lpe_state_machine.handle_to_global_tag("sphere");       // for illustration, not used currently
+
+    // Add some common and custom LPEs
+    lpe_state_machine.add_expression("Beauty", LPE::create_common(LPE::Common::Beauty));
+
+    lpe_state_machine.add_expression("Diffuse", LPE::create_common(LPE::Common::Diffuse));
+    lpe_state_machine.add_expression("Glossy", LPE::create_common(LPE::Common::Glossy));
+    lpe_state_machine.add_expression("Specular", LPE::create_common(LPE::Common::Specular));
+    lpe_state_machine.add_expression("SSS", LPE::create_common(LPE::Common::SSS));
+    lpe_state_machine.add_expression("Transmission", LPE::create_common(LPE::Common::Transmission));
+
+    lpe_state_machine.add_expression("Beauty-Env", LPE::sequence({
+        LPE::camera(),
+        LPE::zero_or_more(LPE::any_scatter()),
+        LPE::light("env") }));  // only light with the name 'env'
+
+    lpe_state_machine.add_expression("Beauty-PointLight", LPE::sequence({
+        LPE::camera(),
+        LPE::zero_or_more(LPE::any_scatter()),
+        LPE::light("point_light") })); // only light with the name 'point_light'
+
+    lpe_state_machine.add_expression("Beauty-Emission", LPE::sequence({
+        LPE::camera(),
+        LPE::zero_or_more(LPE::any_scatter()),
+        LPE::emission() })); // only emission
+
+
+    lpe_state_machine.add_expression("Beauty-Base", LPE::sequence({
+        LPE::camera(),
+        LPE::zero_or_more(LPE::any_scatter("base")),
+        LPE::light()})); // no emission
+
+    lpe_state_machine.add_expression("Beauty-Coat", LPE::sequence({
+        LPE::camera(),
+        LPE::zero_or_more(LPE::any_scatter("coat")),
+        LPE::light()})); // no emission
+
+    lpe_state_machine.add_expression("Beauty-^Coat", LPE::sequence({
+        LPE::camera(),
+        LPE::zero_or_more(LPE::any_scatter("coat", false)),
+        LPE::any_light()})); // emission or light source
 
     {
         // Create a transaction
@@ -1920,23 +2179,35 @@ int main(int argc, char* argv[])
             neuray->get_api_component<mi::neuraylib::IDatabase>());
         mi::base::Handle<mi::neuraylib::IScope> scope(database->get_global_scope());
         mi::base::Handle<mi::neuraylib::ITransaction> transaction(scope->create_transaction());
+
+        // Access needed API components
         mi::base::Handle<mi::neuraylib::IMdl_factory> mdl_factory(
             neuray->get_api_component<mi::neuraylib::IMdl_factory>());
+        mi::base::Handle<mi::neuraylib::IMdl_impexp_api> mdl_impexp_api(
+            neuray->get_api_component<mi::neuraylib::IMdl_impexp_api>());
+
+        mi::base::Handle<mi::neuraylib::IMdl_backend_api> mdl_backend_api(
+            neuray->get_api_component<mi::neuraylib::IMdl_backend_api>());
         {
             // Initialize the material compiler with 16 result buffer slots ("texture results")
             Material_compiler mc(
-                mdl_compiler.get(),
+                mdl_impexp_api.get(),
+                mdl_backend_api.get(),
                 mdl_factory.get(),
                 transaction.get(),
                 16,
                 options.enable_derivatives,
-                options.fold_ternary_on_df);
+                options.fold_ternary_on_df,
+                options.enable_auxiliary_output,
+                /*df_handle_mode=*/ "pointer");
 
             // List of materials in the scene
             std::vector<Df_cuda_material> material_bundle;
 
             // Select the functions to translate
             std::vector<mi::neuraylib::Target_function_description> descs;
+            descs.push_back(
+                mi::neuraylib::Target_function_description("init"));
             descs.push_back(
                 mi::neuraylib::Target_function_description("surface.scattering"));
             descs.push_back(
@@ -1947,58 +2218,86 @@ int main(int argc, char* argv[])
                 mi::neuraylib::Target_function_description("volume.absorption_coefficient"));
             descs.push_back(
                 mi::neuraylib::Target_function_description("thin_walled"));
+            descs.push_back(
+                mi::neuraylib::Target_function_description("hair"));
 
             // Generate code for all materials
             std::vector<std::string> used_material_names;
             for (size_t i = 0; i < options.material_names.size(); ++i) {
-                std::string material_name(options.material_names[i]);
-                if (!mc.is_mdle_name(material_name) && !starts_with(material_name, "::"))
-                    material_name = "::" + material_name;
+                std::string& opt_material_name = options.material_names[i];
 
-                // Is this a material name pattern?
-                if (material_name.size() > 1 && material_name.back() == '*') {
-                    std::string pattern = material_name.substr(0, material_name.size() - 1);
+                // split module and material name
+                std::string module_qualified_name, material_simple_name;
+                if (!mi::examples::mdl::parse_cmd_argument_material_name(
+                    opt_material_name, module_qualified_name, material_simple_name, true))
+                        exit_failure("Provided material name '%s' is invalid.",
+                            opt_material_name.c_str());
 
-                    std::vector<std::string> module_materials(mc.get_material_names(
-                        mc.get_module_name(material_name)));
+                // Is this a material name pattern? (not applicable to mdle)
+                if (!mi::examples::strings::ends_with(module_qualified_name, ".mdle") &&
+                    opt_material_name.size() > 1 &&
+                    opt_material_name.back() == '*') {
 
-                    for (size_t j = 0, n = module_materials.size(); j < n; ++j) {
-                        material_name = module_materials[j];
+                    // prepare the pattern for matching
+                    std::string pattern = opt_material_name.substr(0, opt_material_name.size() - 1);
+                    if (!starts_with(pattern, "::"))
+                        pattern = "::" + pattern;
 
-                        // remove database name prefix
-                        if (starts_with(material_name, "mdl::"))
-                            material_name = material_name.substr(3);
+                    // load the module
+                    std::string module_db_name = mc.load_module(module_qualified_name);
+
+                    // iterate over all materials in that module
+                    mi::base::Handle<const mi::neuraylib::IModule> loaded_module(
+                        transaction->access<const mi::neuraylib::IModule>(module_db_name.c_str()));
+
+                    for (mi::Size j = 0, n = loaded_module->get_material_count(); j < n; ++j) {
+
+                        // get the j`th material
+                        const char* material_db_name = loaded_module->get_material(j);
+                        mi::base::Handle<const mi::neuraylib::IMaterial_definition> mat_def(
+                            transaction->access<const mi::neuraylib::IMaterial_definition>(
+                                material_db_name));
 
                         // make sure the material name starts with the pattern
-                        if (!starts_with(material_name, pattern))
+                        std::string material_qualified_name = mat_def->get_mdl_name();
+                        if (!mi::examples::strings::starts_with(material_qualified_name, pattern))
                             continue;
 
-                        std::cout << "Adding material \"" << material_name << "\"..." << std::endl;
+                        std::cout << "Adding material \"" << material_qualified_name  << std::endl;
 
                         // Add functions of the material to the link unit
                         check_success(mc.add_material(
-                            material_name,
+                            module_qualified_name, mat_def->get_mdl_simple_name(),
                             descs.data(), descs.size(),
                             options.use_class_compilation));
 
+                        mi::base::Handle<const mi::neuraylib::ICompiled_material> compiled_material(
+                            mc.get_compiled_materials().back());
+
                         // Create application material representation
                         material_bundle.push_back(create_cuda_material(
-                            0, material_bundle.size(), descs));
-                        used_material_names.push_back(material_name);
+                            0, material_bundle.size(), descs,
+                            contains_hair_bsdf(compiled_material.get())));
+                        used_material_names.push_back(material_qualified_name);
                     }
                 } else {
-                    std::cout << "Adding material \"" << material_name << "\"..." << std::endl;
+                    std::string material_qualified_name = module_qualified_name + "::" + material_simple_name;
+                    std::cout << "Adding material \"" << material_qualified_name << std::endl;
 
                     // Add functions of the material to the link unit
                     check_success(mc.add_material(
-                        material_name,
+                        module_qualified_name, material_simple_name,
                         descs.data(), descs.size(),
                         options.use_class_compilation));
 
+                    mi::base::Handle<const mi::neuraylib::ICompiled_material> compiled_material(
+                        mc.get_compiled_materials().back());
+
                     // Create application material representation
                     material_bundle.push_back(create_cuda_material(
-                        0, material_bundle.size(), descs));
-                    used_material_names.push_back(material_name);
+                        0, material_bundle.size(), descs,
+                        contains_hair_bsdf(compiled_material.get())));
+                    used_material_names.push_back(material_qualified_name);
                 }
             }
 
@@ -2009,37 +2308,47 @@ int main(int argc, char* argv[])
             mi::base::Handle<const mi::neuraylib::ITarget_code> target_code(
                 mc.generate_cuda_ptx());
 
+            // convert handles to tag IDs
+            for (auto& mat : material_bundle)
+                create_cuda_material_handles(mat, target_code.get(), lpe_state_machine);
+
             // Acquire image API needed to prepare the textures
             mi::base::Handle<mi::neuraylib::IImage_api> image_api(
                 neuray->get_api_component<mi::neuraylib::IImage_api>());
+
+            // when all scene elements that have handles are loaded and all handles as well as
+            // light path expressions are registered, the state machine can be constructed.
+            lpe_state_machine.build();
 
             // Render
             render_scene(
                 options,
                 transaction,
                 image_api,
-                mdl_compiler,
+                mdl_impexp_api,
                 target_code,
                 mc.get_material_defs(),
                 mc.get_compiled_materials(),
                 mc.get_argument_block_indices(),
-                material_bundle);
+                material_bundle,
+                lpe_state_machine);
         }
 
         transaction->commit();
     }
 
-    // Free MDL compiler before shutting down MDL SDK
-    mdl_compiler = 0;
-
     // Shut down the MDL SDK
-    check_success(neuray->shutdown() == 0);
-    neuray = 0;
+    if (neuray->shutdown() != 0)
+        exit_failure("Failed to shutdown the SDK.");
 
     // Unload the MDL SDK
-    check_success(unload());
+    neuray = nullptr;
+    if (!mi::examples::mdl::unload())
+        exit_failure("Failed to unload the SDK.");
 
-    keep_console_open();
-    return EXIT_SUCCESS;
+    exit_success();
 }
+
+// Convert command line arguments to UTF8 on Windows
+COMMANDLINE_TO_UTF8
 

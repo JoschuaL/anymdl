@@ -1,5 +1,5 @@
 /***************************************************************************************************
- * Copyright (c) 2003-2019, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2003-2020, NVIDIA CORPORATION. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -116,12 +116,12 @@ std::string find_file_on_paths(
     std::string fullpath = find_file_on_path(file_name);
 
     if (fullpath.empty()) {
-	while (iter != end) {
-	    fullpath = find_file_on_path(file_name, *iter);
-	    if (!fullpath.empty())
-		break;
-	    ++iter;
-	}
+        while (iter != end) {
+            fullpath = find_file_on_path(file_name, *iter);
+            if (!fullpath.empty())
+                break;
+            ++iter;
+        }
     }
     return fullpath;
 }

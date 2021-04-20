@@ -1,5 +1,5 @@
 /******************************************************************************
- * Copyright (c) 2017-2019, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2017-2020, NVIDIA CORPORATION. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -26,7 +26,7 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *****************************************************************************/
 
-// examples/example_execution_cuda.cpp
+// examples/mdl_sdk/execution_cuda/example_execution_cuda.cpp
 //
 // Introduces execution of the generated code for compiled material sub-expressions
 // for the PTX backend with CUDA.
@@ -38,7 +38,6 @@
 // #define DUMP_PTX
 
 #include "example_cuda_shared.h"
-
 
 // Command line options structure.
 struct Options {
@@ -68,9 +67,6 @@ struct Options {
 
     // List of materials to use.
     std::vector<std::string> material_names;
-
-    // List of MDL module paths.
-    std::vector<std::string> mdl_paths;
 
     // The constructor.
     Options()
@@ -103,7 +99,7 @@ mi::neuraylib::ICanvas *bake_expression_cuda_ptx(
         "example_execution_cuda_derivatives.ptx" : "example_execution_cuda.ptx";
     CUmodule    cuda_module = build_linked_kernel(
         target_codes,
-        (get_executable_folder() + "/" + ptx_name).c_str(),
+        (mi::examples::io::get_executable_folder() + "/" + ptx_name).c_str(),
         "evaluate_mat_expr",
         &cuda_function);
 
@@ -169,14 +165,13 @@ void usage(char const *prog_name)
         << "  -o <outputfile>      image file to write result to\n"
         << "                       (default: example_cuda_<material_pattern>.png)\n"
         << "  --mdl_path <path>    mdl search path, can occur multiple times.\n"
-        << " --fold_ternary_on_df  fold all ternary operators on *df types\n"
+        << "  --fold_ternary_on_df fold all ternary operators on *df types\n"
         << "  <material_pattern>   a number from 1 to 2 ^ num_materials - 1 choosing which\n"
         << "                       material combination to use (default: 2 ^ num_materials - 1)\n"
         << "  <material_name*>     qualified name of materials to use. The example will try to\n"
         << "                       access the path \"surface.scattering.tint\"."
         << std::endl;
-    keep_console_open();
-    exit(EXIT_FAILURE);
+    exit_failure();
 }
 
 
@@ -186,11 +181,11 @@ void usage(char const *prog_name)
 //
 //------------------------------------------------------------------------------
 
-int main(int argc, char* argv[])
+int MAIN_UTF8(int argc, char* argv[])
 {
     // Parse command line options
     Options options;
-    options.mdl_paths.push_back(get_samples_mdl_root());
+    mi::examples::mdl::Configure_options configure_options;
 
     for (int i = 1; i < argc; ++i) {
         char const *opt = argv[i];
@@ -209,7 +204,7 @@ int main(int argc, char* argv[])
             } else if (strcmp(opt, "-d") == 0) {
                 options.enable_derivatives = true;
             } else if (strcmp(opt, "--mdl_path") == 0 && i < argc - 1) {
-                options.mdl_paths.push_back(argv[++i]);
+                configure_options.additional_mdl_paths.push_back(argv[++i]);
             } else if (strcmp(opt, "--fold_ternary_on_df") == 0) {
                 options.fold_ternary_on_df = true;
             } else {
@@ -241,23 +236,18 @@ int main(int argc, char* argv[])
         options.outputfile = "example_cuda_" + to_string(options.material_pattern) + ".png";
 
     // Access the MDL SDK
-    mi::base::Handle<mi::neuraylib::INeuray> neuray(load_and_get_ineuray());
-    check_success(neuray.is_valid_interface());
-
-    // Access the MDL SDK compiler component
-    mi::base::Handle<mi::neuraylib::IMdl_compiler> mdl_compiler(
-        neuray->get_api_component<mi::neuraylib::IMdl_compiler>());
+    mi::base::Handle<mi::neuraylib::INeuray> neuray(mi::examples::mdl::load_and_get_ineuray());
+    if (!neuray.is_valid_interface())
+        exit_failure("Failed to load the SDK.");
 
     // Configure the MDL SDK
-    // Load plugin required for loading textures
-    check_success(mdl_compiler->load_plugin_library("nv_freeimage" MI_BASE_DLL_FILE_EXT) == 0);
-    // Configure MDL search root
-    for (std::size_t i = 0; i < options.mdl_paths.size(); ++i)
-        check_success(mdl_compiler->add_module_path(options.mdl_paths[i].c_str()) == 0);
+    if (!mi::examples::mdl::configure(neuray.get(), configure_options))
+        exit_failure("Failed to initialize the SDK.");
 
     // Start the MDL SDK
-    mi::Sint32 result = neuray->start();
-    check_start_success(result);
+    mi::Sint32 ret = neuray->start();
+    if (ret != 0)
+        exit_failure("Failed to initialize the SDK. Result code: %d", ret);
 
     {
         // Create a transaction
@@ -266,26 +256,43 @@ int main(int argc, char* argv[])
         mi::base::Handle<mi::neuraylib::IScope> scope(database->get_global_scope());
         mi::base::Handle<mi::neuraylib::ITransaction> transaction(scope->create_transaction());
 
-        // Access mdl factory
+        // Access needed API components
         mi::base::Handle<mi::neuraylib::IMdl_factory> mdl_factory(
             neuray->get_api_component<mi::neuraylib::IMdl_factory>());
+
+        mi::base::Handle<mi::neuraylib::IMdl_impexp_api> mdl_impexp_api(
+            neuray->get_api_component<mi::neuraylib::IMdl_impexp_api>());
+
+        mi::base::Handle<mi::neuraylib::IMdl_backend_api> mdl_backend_api(
+            neuray->get_api_component<mi::neuraylib::IMdl_backend_api>());
+
         {
             // Generate code for material sub-expressions of different materials
             // according to the requested material pattern
             std::vector<mi::base::Handle<const mi::neuraylib::ITarget_code> > target_codes;
 
             Material_compiler mc(
-                mdl_compiler.get(),
+                mdl_impexp_api.get(),
+                mdl_backend_api.get(),
                 mdl_factory.get(),
                 transaction.get(),
                 /*num_texture_results=*/ 0,
                 options.enable_derivatives,
-                options.fold_ternary_on_df);
+                options.fold_ternary_on_df,
+                /*enable_axuiliary_output*/ false,
+                /*df_handle_mode*/ "none");
 
-            for (unsigned i = 0, n = unsigned(options.material_names.size()); i < n; ++i) {
+            for (std::size_t i = 0, n = options.material_names.size(); i < n; ++i) {
                 if ((options.material_pattern & (1 << i)) != 0) {
+                    // split module and material name
+                    std::string module_name, material_simple_name;
+                    if (!mi::examples::mdl::parse_cmd_argument_material_name(
+                        options.material_names[i], module_name, material_simple_name, true))
+                            continue;
+
+                    // add the sub expression
                     mc.add_material_subexpr(
-                        options.material_names[i],
+                        module_name, material_simple_name,
                         "surface.scattering.tint", ("tint_" + to_string(i)).c_str(),
                         options.use_class_compilation);
                 }
@@ -312,23 +319,24 @@ int main(int argc, char* argv[])
 
             // Export the canvas to an image on disk
             if (canvas)
-                mdl_compiler->export_canvas(options.outputfile.c_str(), canvas.get());
+                mdl_impexp_api->export_canvas(options.outputfile.c_str(), canvas.get());
         }
 
         transaction->commit();
     }
 
-    // Free MDL compiler before shutting down MDL SDK
-    mdl_compiler = 0;
-
     // Shut down the MDL SDK
-    check_success(neuray->shutdown() == 0);
-    neuray = 0;
+    if (neuray->shutdown() != 0)
+        exit_failure("Failed to shutdown the SDK.");
 
     // Unload the MDL SDK
-    check_success(unload());
+    neuray = nullptr;
+    if (!mi::examples::mdl::unload())
+        exit_failure("Failed to unload the SDK.");
 
-    keep_console_open();
-    return EXIT_SUCCESS;
+    exit_success();
 }
+
+// Convert command line arguments to UTF8 on Windows
+COMMANDLINE_TO_UTF8
 

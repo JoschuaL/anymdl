@@ -1,5 +1,5 @@
 /***************************************************************************************************
- * Copyright (c) 2015-2019, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2015-2020, NVIDIA CORPORATION. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -57,7 +57,7 @@ DB::Element_base* Material_instance_impl::create_db_element(
     const mi::base::IInterface* argv[])
 {
     if( argc != 0)
-        return 0;
+        return nullptr;
     return new MDL::Mdl_material_instance;
 }
 
@@ -67,7 +67,7 @@ mi::base::IInterface* Material_instance_impl::create_api_class(
     const mi::base::IInterface* argv[])
 {
     if( argc != 0)
-        return 0;
+        return nullptr;
     return (new Material_instance_impl())->cast_to_major();
 }
 
@@ -78,7 +78,9 @@ mi::neuraylib::Element_type Material_instance_impl::get_element_type() const
 
 const char* Material_instance_impl::get_material_definition() const
 {
-    DB::Tag tag = get_db_element()->get_material_definition();
+    DB::Tag tag = get_db_element()->get_material_definition(get_db_transaction());
+    if (!tag.is_valid())
+        return nullptr; // no valid definition
     return get_db_transaction()->tag_to_name( tag);
 }
 
@@ -176,25 +178,6 @@ mi::Sint32 Material_instance_impl::set_argument(
     return result;
 }
 
-mi::neuraylib::ICompiled_material* Material_instance_impl::deprecated_create_compiled_material(
-    mi::Uint32 flags,
-    mi::Float32 mdl_meters_per_scene_unit,
-    mi::Float32 mdl_wavelength_min,
-    mi::Float32 mdl_wavelength_max,
-    mi::Sint32* errors) const
-{
-    Mdl_execution_context_impl context;
-    context.set_option(MDL_CTX_OPTION_METERS_PER_SCENE_UNIT, mdl_meters_per_scene_unit);
-    context.set_option(MDL_CTX_OPTION_WAVELENGTH_MIN, mdl_wavelength_min);
-    context.set_option(MDL_CTX_OPTION_WAVELENGTH_MAX, mdl_wavelength_max);
-    
-    mi::neuraylib::ICompiled_material* cm = create_compiled_material(flags, &context);
-    if (errors)
-        *errors = context.get_context().get_result();
-
-    return cm;
-}
-
 mi::neuraylib::ICompiled_material* Material_instance_impl::create_compiled_material(
     mi::Uint32 flags,
     mi::neuraylib::IMdl_execution_context* context) const
@@ -203,8 +186,8 @@ mi::neuraylib::ICompiled_material* Material_instance_impl::create_compiled_mater
         return nullptr;
 
     MDL::Execution_context default_context;
-    NEURAY::Mdl_execution_context_impl* context_impl =
-        static_cast<NEURAY::Mdl_execution_context_impl*>(context);
+    Mdl_execution_context_impl* context_impl =
+        static_cast<Mdl_execution_context_impl*>(context);
 
     bool class_compilation = flags & CLASS_COMPILATION;
     boost::shared_ptr<MDL::Mdl_compiled_material> db_instance(
@@ -213,7 +196,7 @@ mi::neuraylib::ICompiled_material* Material_instance_impl::create_compiled_mater
             context_impl ? &context_impl->get_context() : &default_context));
 
     if (!db_instance)
-        return 0;
+        return nullptr;
     mi::neuraylib::ICompiled_material* api_instance
         = get_transaction()->create<mi::neuraylib::ICompiled_material>(
             "__Compiled_material");
@@ -225,6 +208,32 @@ mi::neuraylib::ICompiled_material* Material_instance_impl::create_compiled_mater
 bool Material_instance_impl::is_default() const
 {
     return get_db_element()->is_immutable();
+}
+
+bool Material_instance_impl::is_valid(mi::neuraylib::IMdl_execution_context* context) const
+{
+    MDL::Execution_context default_context;
+    MDL::Execution_context *mdl_context = unwrap_and_clear_context(context, default_context);
+
+    return get_db_element()->is_valid(get_db_transaction(), mdl_context);
+}
+
+mi::Sint32 Material_instance_impl::repair(
+    mi::Uint32 flags,
+    mi::neuraylib::IMdl_execution_context* context)
+{
+    MDL::Execution_context default_context;
+    MDL::Execution_context *mdl_context = unwrap_and_clear_context(context, default_context);
+
+    mi::Sint32 r = get_db_element()->repair(get_db_transaction(),
+        flags & mi::neuraylib::MDL_REPAIR_INVALID_ARGUMENTS,
+        flags & mi::neuraylib::MDL_REMOVE_INVALID_ARGUMENTS,
+       /*level=*/0,
+        mdl_context);
+
+    if (r == 0)
+        add_journal_flag(SCENE::JOURNAL_CHANGE_SHADER_ATTRIBUTE);
+    return r;
 }
 
 } // namespace NEURAY

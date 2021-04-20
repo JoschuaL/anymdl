@@ -1,5 +1,5 @@
 #*****************************************************************************
-# Copyright (c) 2018-2019, NVIDIA CORPORATION. All rights reserved.
+# Copyright (c) 2018-2020, NVIDIA CORPORATION. All rights reserved.
 #
 # Redistribution and use in source and binary forms, with or without
 # modification, are permitted provided that the following conditions
@@ -31,35 +31,35 @@ set(PROJECT_NAME prod-bin-mdlc)
 
 # collect sources
 set(PROJECT_HEADERS
-        "getopt.h"
-        "mdlc.h"
-        "search_path.h"
-        "ast_dumper.h"
-        "custom_assert.h"
-        "anydsl_transpiler.h"
-        )
+    "getopt.h"
+    "mdlc.h"
+    "search_path.h"
+    "ast_dumper.h"
+    "custom_assert.h"
+    "anydsl_transpiler.h"
+    )
 
 set(PROJECT_SOURCES
-        "mdlc.cpp"
-        "getopt.cpp"
-        "search_path.cpp"
-        "main.cpp"
-        "ast_dumper.cpp"
-        "anydsl_transpiler.cpp"
-        ${PROJECT_HEADERS}
-        )
+    "mdlc.cpp"
+    "getopt.cpp"
+    "search_path.cpp"
+    "main.cpp"
+    "ast_dumper.cpp"
+    "anydsl_transpiler.cpp"
+    ${PROJECT_HEADERS}
+    )
 
 # create target from template
 create_from_base_preset(
-        TARGET ${PROJECT_NAME}
-        TYPE EXECUTABLE
-        OUTPUT_NAME "mdlc"
-        SOURCES ${PROJECT_SOURCES}
+    TARGET ${PROJECT_NAME}
+    TYPE EXECUTABLE
+    OUTPUT_NAME "mdlc"
+    SOURCES ${PROJECT_SOURCES}
 )
 
 # add mdl and other dependencies
-target_add_dependencies(TARGET ${PROJECT_NAME}
-        DEPENDS
+target_add_dependencies(TARGET ${PROJECT_NAME} 
+    DEPENDS 
         boost
         llvm
         ${LINKER_START_GROUP}
@@ -74,5 +74,5 @@ target_add_dependencies(TARGET ${PROJECT_NAME}
         mdl::base-lib-zlib
         mdl::base-system-version
         ${LINKER_END_GROUP}
-        )
+    )
     

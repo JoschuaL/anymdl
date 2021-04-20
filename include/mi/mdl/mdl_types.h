@@ -1,5 +1,5 @@
 /******************************************************************************
- * Copyright (c) 2011-2019, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2011-2020, NVIDIA CORPORATION. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -487,7 +487,13 @@ public:
     static Kind const s_kind = TK_TEXTURE;
 
     /// The possible texture shapes.
-    enum Shape { TS_2D, TS_3D, TS_CUBE, TS_PTEX };
+    enum Shape {
+        TS_2D,         ///< A 2D texture.
+        TS_3D,         ///< A 3D texture.
+        TS_CUBE,       ///< A cube texture.
+        TS_PTEX,       ///< A PTEX texture.
+        TS_BSDF_DATA,  ///< A 3D texture representing a BSDF data table.
+    };
 
     /// Get the texture shape.
     virtual Shape get_shape() const = 0;

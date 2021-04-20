@@ -1,5 +1,5 @@
 #*****************************************************************************
-# Copyright (c) 2018-2019, NVIDIA CORPORATION. All rights reserved.
+# Copyright (c) 2018-2020, NVIDIA CORPORATION. All rights reserved.
 #
 # Redistribution and use in source and binary forms, with or without
 # modification, are permitted provided that the following conditions
@@ -69,6 +69,7 @@ set(PROJECT_HEADERS
     "compilercore_call_graph.h"
     "compilercore_cc_conf.h"
     "compilercore_checker.h"
+    "compilercore_code_cache.h"
     "compilercore_comparator.h"
     "compilercore_cstring_hash.h"
     "compilercore_debug_tools.h"
@@ -124,6 +125,7 @@ set(PROJECT_SOURCES
     "compilercore_builder.cpp"
     "compilercore_call_graph.cpp"
     "compilercore_checker.cpp"
+    "compilercore_code_cache.cpp"
     "compilercore_comparator.cpp"
     "compilercore_debug_tools.cpp"
     "compilercore_declarations.cpp"
@@ -223,6 +225,7 @@ set(_STANDARD_MDL
     ${CMAKE_CURRENT_SOURCE_DIR}/../stdmodule/tex.mdl
     ${CMAKE_CURRENT_SOURCE_DIR}/../stdmodule/noise.mdl
     ${CMAKE_CURRENT_SOURCE_DIR}/../stdmodule/df.mdl
+    ${CMAKE_CURRENT_SOURCE_DIR}/../stdmodule/scene.mdl
     ${CMAKE_CURRENT_SOURCE_DIR}/../stdmodule/builtins.mdl
     ${CMAKE_CURRENT_SOURCE_DIR}/../stdmodule/debug.mdl
     ${CMAKE_CURRENT_SOURCE_DIR}/../../../shaders/mdl/base/base.mdl

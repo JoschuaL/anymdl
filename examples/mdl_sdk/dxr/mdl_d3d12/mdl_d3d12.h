@@ -1,5 +1,5 @@
 /******************************************************************************
- * Copyright (c) 2019, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2019-2020, NVIDIA CORPORATION. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -38,6 +38,9 @@
 #include "descriptor_heap.h"
 #include "gltf.h"
 #include "mdl_material.h"
+#include "mdl_material_library.h"
+#include "mdl_material_target.h"
+#include "mdl_sdk.h"
 #include "raytracing_pipeline.h"
 #include "scene.h"
 #include "shader.h"

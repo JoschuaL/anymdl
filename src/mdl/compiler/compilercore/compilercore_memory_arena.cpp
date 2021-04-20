@@ -1,5 +1,5 @@
 /******************************************************************************
- * Copyright (c) 2011-2019, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2011-2020, NVIDIA CORPORATION. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -168,6 +168,8 @@ void Memory_arena::drop(void *obj)
         m_next = (Byte *)obj;
         m_curr_size = (char *)m_chunks + m_chunks->chunk_size - (char *)obj;
     } else {
+        MDL_ASSERT(!(m_chunks->load <= obj && obj < m_chunks->load + m_chunk_size));
+
         // try to find the old chunk
         Header *stop = NULL;
         do {

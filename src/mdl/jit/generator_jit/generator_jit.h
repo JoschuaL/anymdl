@@ -1,5 +1,5 @@
 /******************************************************************************
- * Copyright (c) 2012-2019, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2012-2020, NVIDIA CORPORATION. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -86,19 +86,20 @@ public:
     /// main DF function of \p dist_func suffixed with \c "_init", \c "_sample", \c "_evaluate"
     /// and \c "_pdf", respectively.
     ///
-    /// \param dist_func            the distribution function to compile
-    /// \param name_resolver        the call name resolver
-    /// \param arg_block_index      this variable will receive the index of the target argument
-    ///                             block used for this distribution function or ~0 if none is used
-    /// \param function_index       the index of the callable function in the created target code.
-    ///                             This parameter is option, provide NULL if not required.
-    ///
+    /// \param dist_func                  the distribution function to compile
+    /// \param name_resolver              the call name resolver
+    /// \param arg_block_index            variable receiving the index of the target argument block
+    ///                                   used for this distribution function or ~0 if none is used
+    /// \param main_function_indices      array receiving the (first) indices of the main functions.
+    ///                                   This parameter is optional, provide NULL if not required.
+    /// \param num_main_function_indices  the size of \p main_function_indices in number of entries
     /// \return true on success
     bool add(
         IDistribution_function const *dist_func,
         ICall_name_resolver const    *name_resolver,
         size_t                       *arg_block_index,
-        size_t                       *function_index) MDL_FINAL;
+        size_t                       *main_function_indices,
+        size_t                        num_main_function_indices) MDL_FINAL;
 
     /// Get the number of functions in this link unit.
     size_t get_function_count() const MDL_FINAL;
@@ -183,6 +184,11 @@ public:
     /// Get write access to the messages of the generated code.
     Messages_impl &access_messages();
 
+    typedef vector<Resource_tag_tuple>::Type Resource_tag_map;
+
+    /// Get the resource tag map of this unit.
+    Resource_tag_map const *get_resource_tag_map() const { return &m_resource_tag_map; }
+
 private:
     /// Constructor.
     ///
@@ -233,12 +239,39 @@ private:
     ///
     /// \param lambda  the current lambda function to be compiled
     void update_resource_attribute_map(
-        Lambda_function const *root_lambda);
+        Lambda_function const *lambda);
+
+    /// Update the resource to tag map for the current lambda function to be compiled.
+    ///
+    /// \param lambda  the current lambda function to be compiled
+    void update_resource_tag_map(
+        Lambda_function const *lambda);
+
+    /// Find the assigned tag for a resource in the resource map.
+    ///
+    /// \param kind     the kind of the resource
+    /// \param url      the url of the resource
+    int find_resource_tag(
+        Resource_tag_tuple::Kind kind,
+        char const               *url) const;
+
+    /// Add a new entry in the resource to tag map.
+    ///
+    /// \param kind     the kind of the resource
+    /// \param url      the url of the resource
+    /// \param tag      the assigned tag
+    void add_resource_tag_mapping(
+        Resource_tag_tuple::Kind kind,
+        char const               *url,
+        int                      tag);
 
     /// Get the LLVM context to use with this link unit.
     llvm::LLVMContext *get_llvm_context();
 
 private:
+    /// Memory arena for storing strings.
+    Memory_arena m_arena;
+
     /// The kind of targeted code.
     Target_kind m_target_kind;
 
@@ -267,6 +300,9 @@ private:
     /// The added distribution functions.
     /// Must be held to avoid invalid entries in the context data map of m_code_gen.
     vector<mi::base::Handle<IDistribution_function const> >::Type m_dist_funcs;
+
+    /// The resource to tag map for this link unit, mapping resource values to tags.
+    Resource_tag_map m_resource_tag_map;
 };
 
 ///
@@ -360,6 +396,7 @@ public:
     /// Compile a lambda switch function having several roots using the JIT into a
     /// function computing one of the root expressions for execution on the GPU.
     ///
+    /// \param code_cache           If non-NULL, a code cache
     /// \param lambda               the lambda function to compile
     /// \param name_resolver        the call name resolver
     /// \param num_texture_spaces   the number of supported texture spaces
@@ -368,6 +405,7 @@ public:
     ///
     /// \return the compiled function or NULL on compilation errors
     IGenerated_code_executable *compile_into_switch_function_for_gpu(
+        ICode_cache               *code_cache,
         ILambda_function const    *lambda,
         ICall_name_resolver const *name_resolver,
         unsigned                  num_texture_spaces,
@@ -502,6 +540,29 @@ public:
     /// \return the library as LLVM bitcode representation
     unsigned char const *get_libdevice_for_gpu(
         size_t   &size) MDL_FINAL;
+    
+    /// Get the resolution of the libbsdf multi-scattering lookup table data.
+    ///
+    /// \param bsdf_data_kind   the kind of the BSDF data, has to be a multiscatter kind
+    /// \param out_theta        will contain the number of theta values when data is available
+    /// \param out_roughness    will contain the number of roughness values when data is available
+    /// \param out_ior          will contain the number of IOR values when data is available
+    /// \returns                true if there is data for this semantic (BSDF)
+    bool get_libbsdf_multiscatter_data_resolution(
+        IValue_texture::Bsdf_data_kind bsdf_data_kind,
+        size_t &out_theta,
+        size_t &out_roughness,
+        size_t &out_ior) const MDL_FINAL;
+
+    /// Get access to the libbsdf multi-scattering lookup table data.
+    ///
+    /// \param bsdf_data_kind  the kind of the BSDF data, has to be a multiscatter kind
+    /// \param[out] size       the size of the data
+    ///
+    /// \returns               the lookup data if available for this semantic (BSDF), NULL otherwise
+    unsigned char const *get_libbsdf_multiscatter_data(
+        IValue_texture::Bsdf_data_kind bsdf_data_kind,
+        size_t                         &size) const MDL_FINAL;
 
     /// Create a link unit.
     ///
@@ -527,6 +588,9 @@ public:
     /// \return the compiled function or NULL on compilation errors
     IGenerated_code_executable *compile_unit(
         ILink_unit const *unit) MDL_FINAL;
+
+    /// Create a blank layout used for deserialization of target codes.
+    IGenerated_code_value_layout* create_value_layout() const MDL_FINAL;
 
 private:
     /// Calculate the state mapping mode from options.

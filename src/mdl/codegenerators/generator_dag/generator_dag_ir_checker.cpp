@@ -1,5 +1,5 @@
 /******************************************************************************
- * Copyright (c) 2017-2019, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2017-2020, NVIDIA CORPORATION. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -65,7 +65,7 @@ bool DAG_ir_checker::check_instance(Generated_code_dag::Material_instance const 
     Store<Type_factory const *>          type_fact(m_tf,        &inst->get_type_factory());
     Store<Value_factory const *>         value_fact(m_vf,       &inst->get_value_factory());
 
-    DAG_ir_walker walker(m_alloc);
+    DAG_ir_walker walker(m_alloc, /*as_tree=*/false);
 
     m_errors = 0;
 
@@ -194,12 +194,6 @@ size_t DAG_ir_checker::check_call(DAG_call const *call)
         def_is_uniform = true;
         n_params       = call->get_argument_count();
         break;
-    case IDefinition::DS_INTRINSIC_DAG_INDEX_ACCESS:
-        has_def        = false;
-        def_is_uniform = true;
-        n_params       = 2;
-//      names          = { "a", "i" };
-        break;
     case IDefinition::DS_INTRINSIC_DAG_ARRAY_LENGTH:
         has_def        = false;
         def_is_uniform = true;
@@ -225,6 +219,12 @@ size_t DAG_ir_checker::check_call(DAG_call const *call)
             def_is_uniform = true;
             n_params       = 3;
 //          names          = { "cond", "true_exp", "false_exp" };
+        } else if (sema == operator_to_semantic(IExpression::OK_ARRAY_INDEX)) {
+            // array index operator has no def
+            has_def = false;
+            def_is_uniform = true;
+            n_params = 2;
+//          names          = { "a", "i" };
         } else {
             MDL_ASSERT(!is_DAG_semantics(sema) && "DAG semantic not handled");
         }

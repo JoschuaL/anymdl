@@ -1,5 +1,655 @@
 Change Log
 ==========
+MDL SDK 2020.1.2 (334300.5582): 12 Nov 2020
+-----------------------------------------------
+
+ABI compatible with the MDL SDK 2020.1.2 (334300.5582) binary release
+(see [https://developer.nvidia.com/mdl-sdk](https://developer.nvidia.com/mdl-sdk))
+
+**Added and Changed Features**
+
+- MDL Compiler and Backends
+
+    - A new HLSL backend option `use_renderer_adapt_microfacet_roughness` has been added, which
+      allows a renderer to adapt the roughness values provided to microfacet BSDFs right before
+      using them. The prototype of the function the renderer has to provide is `float2
+      mdl_adapt_microfacet_roughness(Shading_state_material state, float2 roughness_uv)`.
+    - A new execution context option `ignore_noinline` has been added, which allows to ignore
+      `anno::noinline()` annotations, enabling inlining when creating a compiled material.
+      Previously this happened later when generating code for distribution functions. But
+      optimizing at this time could lead to a changed DAG which may not contain the nodes requested
+      by the user anymore.
+
+**Fixed Bugs**
+
+- General
+
+    - Fixed a crash in the `i18n` tool when accessing module annotations.
+
+- MDL Compiler and Backends
+
+    - Fixed wrong optimization for ternary operators selecting different vector elements in HLSL
+      always returning the true expression.
+    - Fixed wrong PTX version used for sm_86.
+    - In single-init mode, don't let a requested `geometry.normal` expression calculate the normal
+      again.
+    - Fixed analysis of derivative variants of functions not being recognized as depending on
+      `state::normal()`.
+    - Reduced number of texture result slots used in generated init functions.
+    - Do not generate HLSL code containing `min16int` to ensure compatibility to Slang.
+    - Fixed translation of conversion of an 8-bit to a 32-bit integer for HLSL.
+
+
+MDL SDK 2020.1.1 (334300.4226): 29 Sep 2020
+-------------------------------------------
+
+ABI compatible with the MDL SDK 2020.1.1 (334300.4226) binary release
+(see [https://developer.nvidia.com/mdl-sdk](https://developer.nvidia.com/mdl-sdk))
+
+**Added and Changed Features**
+
+- General
+
+    - Thumbnail paths are now resolved when they are requested. Before, the resolving was done
+      during the module loading.
+    - A new backend option `eval_dag_ternary_strictly` has been added, which enables strict
+      evaluation of ternary operators (?:) on the DAG to reduce code size. By default it is enabled.
+    - Improved generated code of compiled materials and lambda functions to benefit from CSE across
+      arguments of the root node.
+
+- MDL Compiler and Backends
+
+    - Added single-init mode for a set of functions added to a link unit, allowing all these
+      functions to reuse values calculated in the init function and stored in the texture results
+      field of the state struct. To enable this mode, the first path in the target function
+      description list given to `ILink_unit::add_material()` must be `"init"`. (Note: the init
+      function will not be marked as `ITarget_code::DK_BSDF` anymore.)
+
+- MDL SDK examples
+
+    - Examples Shared
+        - Enabled CMake option for linking MSVC dynamic runtime (/MD) instead of static (/MT) by
+          default.
+
+    - Example Code Generation
+        - Updated MaterialX support to incorporate latest changes from the MaterialX github
+          repository (branch 1.3.8).
+
+    - Example DXR
+        - Added `-e` option to specify which expressions to compile.
+
+**Fixed Bugs**
+
+- MDL Compiler and Backends
+
+    - Fixed `IFunction_call::get_arguments()` for the array constructor, such that it always
+      uses `"0"`, `"1"`, and so on as argument names.
+    - Fixed failing MDLE export if the `tex::gamma_mode` type is only referenced by an
+      annotation.
+    - Fixed storing matrices in texture results taking up all the space without much benefit.
+    - Fixed failure to add functions to link units when the path involves template-like
+      functions.
+
+
+MDL SDK 2020.1 (334300.2228): 11 Aug 2020
+-----------------------------------------
+
+ABI compatible with the MDL SDK 2020.1 (334300.2228) binary release
+(see [https://developer.nvidia.com/mdl-sdk](https://developer.nvidia.com/mdl-sdk))
+
+**Added and Changed Features**
+
+- MDL 1.6 Language Specification
+
+    - Hyperlinks have been added to the MDL Specification PDF document.
+
+- General
+
+    - Enabled support for MDL modules whose names contains parentheses, brackets, or commas.
+    - The interface `IMdl_entity_resolver` has been redesigned. Support for resolving resources has
+      been added.
+    - The new interface `IMdl_module_transformer` allows to apply certain transformations on MDL
+      modules.
+    - Various API methods have been added in order to reduce the error-prone parsing of MDL-related
+      names: To retrieve DB names from MDL names use `get_db_module_name()` and
+      `get_db_definition_name()` on `IMdl_factory`. To retrieve parts of the MDL name from the
+      corresponding DB element use `get_mdl_package_component_count()`,
+      `get_mdl_package_component_name()`, and `get_mdl_simple_name()` on `IModule`;
+      `get_mdl_module_name()`, `get_mdl_simple_name()` on `IMaterial_definition`; and
+      `get_mdl_module_name()`, `get_mdl_simple_name()`, and `get_mdl_parameter_type_name()` on
+      `IFunction_definition` and `IAnnotation_definition`.
+    - Added a new overload of `IModule::get_function_overloads()` that accepts a simple name
+      and an array of parameter type names instead of two strings. This avoids the ambiguity when
+      parsing parentheses and commas. The old overload is deprecated and still available if
+      `MI_NEURAYLIB_DEPRECATED_11_1` is defined.
+    - Improved recursive MDL module reloading: changed the traversal order from pre-order to
+      post-order traversal, avoid flagging a module as changed if it did not change at all.
+    - Improved `Definition_wrapper`: the creation of functions calls for template-like MDL
+      functions requires now an actual argument list since the dummy defaults for such functions
+      easily lead to function calls with the wrong types in the signature.
+    - Added more options to control the generation of compiled materials in class compilation mode:
+      Folding of enum and bool parameters, folding of individual parameters, folding of cutout
+      opacity, and folding of transparent layers.
+    - Added methods to retrieve the MDL version of modules, and the MDL version when a particular
+      function or material definition was added to (and, if applicable, removed from) the MDL
+      specification.
+    - Added methods to retrieve the MDL system and user paths.
+    - The legacy behavior of `df::simple_glossy_bsdf` can now be controlled via the interface
+      `IMdl_configuration`.
+    - The return type of `IFunction_definition::get_body()` has been changed from 
+      `const IExpression_direct_call*` to `const IExpression*`.
+
+- MDL Compiler and Backends
+
+    - Added support for target code serialization in the HLSL and PTX backends. See the new
+      methods `get_backend_kind()`, `supports_serialization()`, `serialize()`, and
+      `get_argument_layout_count()` on `ITarget_code`, and
+      `IMdl_backend::deserialize_target_code()`. The new context option
+      `"serialize_class_instance_data"` for `ITarget_code::serialize()` controls whether
+      per-instance data or only per-class data is serialized.
+    - Allow total internal reflection for glossy BSDFs with mode `df::scatter_transmit` (libbsdf).
+    - When derivatives are enabled, `state::position()` is now derivable. Thus, the `"position"`
+      field of `Shading_state_material_with_derivs` is now a derivative type.
+    - Added `"meters_per_scene_unit"` field to `Shading_state_material`. It is used, when folding
+      of `state::meters_per_scene_unit()` and `state::scene_units_per_meter()` has been disabled
+      via the new `IMdl_execution_context` `"fold_meters_per_scene_unit"` option.
+    - Added derivative support for matrices.
+    - Added derivative support for scene data functions. Requires new texture runtime functions
+      `scene_data_lookup_deriv_float`, `scene_data_lookup_deriv_float2`,
+      `scene_data_lookup_deriv_float3`, `scene_data_lookup_deriv_float4`, and
+      `scene_data_lookup_deriv_color` (see `texture_support_cuda.h` in the MDL SDK examples
+      for the prototypes).
+    - Added `mi::neuraylib::ICompiled_material::depends_on_uniform_scene_data()` analyzing
+      whether any `scene::data_lookup_uniform_*()` functions are called by a material instance.
+    - Implemented per function render state usage in `ITarget_code`.
+    - Avoid reporting deprecated warnings, if current entity is already deprecated.
+
+- MDL SDK examples
+
+    - Examples Shared
+        - Added utility headers for strings, enums, I/O, OS, and MDL specific tasks to be used in
+          the examples. Updated examples to make use of the new utility headers.
+        - Added GUI classes to illustrate MDL parameter editing and to unify user interfaces in
+          examples in the future.
+
+    - Example DXR
+        - Added a new more structured user interface with various new features including the
+          loading of scenes and environments from the menu, the replacement of materials,
+          compilation and parameter folding options, and parameter editing in instance compilation
+          mode.
+        - Integrated the MDL browser (if built) for the replacement of a selected material.
+        - Added shader caching to improve loading times (has to be enabled with option
+          `--enable_shader_cache`).
+
+    - GLTF Support
+        - Added `KHR_materials_clearcoat` support, also in Example DXR.
+
+    - MDL plugin for Arnold
+        - Added a new example to illustrate the integration of MDL into an existing advanced CPU
+          renderer.
+
+    - Example Code Generation
+        - Added a new example to illustrate HLSL and PTX code generation.
+
+    - Example OptiX 7
+        - Added a new example to illustrate the use MDL code as OptiX callable programs in a
+          closest hit shader, and alternatively, how to link the MDL code directly into a
+          per-material closest hit shader for better runtime performance.
+
+    - Example Native
+        - Added missing scene data functions of custom texture runtime.
+
+**Fixed Bugs**
+
+- General
+
+    - Fixed documentation of `Bsdf_evaluate_data` structs: eval function results are output-only,
+      not input/output.
+    - Fixed compilation of materials using the array length operator.
+    - Fixed crash on CentOS 7.1 when importing non-trivial MDL modules.
+    - Fixed incorrect behavior during function call creation when implicit casts were enabled.
+
+- MDL Compiler and Backends
+
+    - Fixed file resolution during re-export of MDLE modules.
+    - Fixed missing clearing of context messages when creating a link unit.
+    - Fixed detection of absolute file names on Windows for MDLEs on a network share.
+    - Fixed support for the read-only segment and resources inside function bodies when compiling
+      for the native target.
+    - Fixed rare crash/memory corruption than could occur on MDLE creation.
+    - Fixed possible crash when inlining a function containing a `for (i = ...)` loop statement.
+    - Fixed potential crash in the auto importer when imports of the current module are erroneous.
+    - Fixed handling of suppressed warnings if notes are attached to them, previously these were
+      attached to other messages.
+    - Fixed possible crash in generating MDLE when array types are involved.
+    - Fixed printing of initializers containing sequence expressions, it is `T v = (a,b);`, not `T
+      v = a, b;`.
+    - Improved AST optimizer:
+        - Write optimized `if` conditions back.
+        - Write optimized sub-expressions of binary expressions back.
+        - Handle `constant && x`, `constant || x`, `x && constant`, `x || constant`.
+    - Fixed folding of calls to `state::meters_per_scene_unit()` and
+      `state::scene_units_per_meter()` in non-inlined functions.
+    - Fixed wrong code generation for int to float conversions with derivatives.
+    - Fixed a bug in the generated HLSL code that caused wrong calculations because loads were
+      erroneously placed after calls modifying memory.
+    - Fixed checking of valid MDL identifiers (names starting with `"do"` were treated as keywords,
+      but not `"do"` itself).
+    - Fixed overload resolution for MDL operators.
+    - Fixed crash in MDL runtime when using nonexistent image files with MDL.
+    - Fixed invalid translation of `int` to `float` conversion with derivatives enabled.
+    - Fixed broken `math::sincos()` on vectors.
+    - Fixed failing MDLE creation due to several missing or non-exported entities (constants,
+      annotations).
+    - Fixed failing MDLE creation if the main module was < MDL 1.6, but imported an MDL 1.6 module.
+    - Fixed failing MDLE creation if non-absolute imports of `::base` were used.
+    - Fixed rare crashes occurring when the array constructor is used in annotations.
+    - Fixed lost enumeration of BSDF data textures used by the libbsdf multiscatter.
+
+- MDL SDK examples
+
+    - Examples Shared
+        - Fixed failing CUDA checks when minimizing application.
+
+MDL SDK 2020.0.2 (327300.6313): 28 May 2020
+-------------------------------------------
+
+ABI compatible with the MDL SDK 2020.0.2 (327300.6313) binary release
+(see [https://developer.nvidia.com/mdl-sdk](https://developer.nvidia.com/mdl-sdk))
+
+**Added and Changed Features**
+
+- MDL Compiler and Backends
+
+    - Reduced the minimum roughness threshold for microfacet BSDFs from 1e-3 to 1e-7 to
+      make them usable for mirrors and clear glass, which is inefficient but could be required by
+      ubershaders.
+    - Added `"ro_data_segment"` field to `Shading_state_environment` (`"ro_data_segment_offset"` for
+      HLSL).
+    - Use `"direction"` for the field name of `Shading_state_environment` (HLSL only).
+    - Made `state::position()` derivable.
+
+**Fixed Bugs**
+
+- MDL Compiler and Backends
+
+    - Fixed some rare cases were resources inside MDL functions got lost.
+    - Fixed crash in MDL code generators due to MDL core compiler missing some error messages when
+      a (wrong) member selection has the same name like an enum constant.
+    - Fixed rare NaN in microfacet sampling.
+    - Fixed error value of `ITarget_code::get_body_*()` functions.
+    - Fixed return value of `ITarget_code::create_argument_block()` when required resource callback
+      is missing.
+    - Fixed read-only data segment data not being set for native lambdas.
+    - Fixed resource enumeration when compiling multiple expressions in a link unit with
+      `add_material()`: ensure that resources in material bodies are enumerated first.
+
+
+MDL SDK 2020.0.1 (327300.3640): 30 Mar 2020
+-------------------------------------------
+
+ABI compatible with the MDL SDK 2020.0.1 (327300.3640) binary release
+(see [https://developer.nvidia.com/mdl-sdk](https://developer.nvidia.com/mdl-sdk))
+
+**Added and Changed Features**
+
+- General
+
+    - The standalone tools mdlm and i18n have been extended to support Unicode package/module
+      names.
+    - On Windows, we recommend Visual Studio 2017 or 2019. Visual Studio 2015 is still the minimum
+      requirement.
+
+- MDL SDK examples
+
+    - `example_dxr`:
+        - Enhanced dependency tracking when reloading materials to also update indirectly affected
+          materials.
+        - Only the compiled material hash is considered to detect reusable generated code which
+          allows to reuse existing materials for structurally equal instances.
+        - Skip format conversion for multi-scatter lookup data.
+        - Added support for larger glTF scenes up to 2GB.
+        - Improved cleanup when loading erroneous scenes.
+
+**Fixed Bugs**
+
+- General
+
+    - Fixed handling of resources inside function bodies. Previously, these resources were not
+      found under some conditions, causing black textures for instance.
+    - Fixed too strict error checks for creation of function calls of the array index operator, the
+      ternary operator, and the cast operator.
+    - Fixed creation of variants without specifying any annotations where the annotations of the
+      prototype were erroneously copied to the variants.
+    - Fixed loading of string-based modules with absolute file paths for resources.
+    - Fixed documentation of generated code interfaces: The results of eval functions are
+      output-only, not in/out.
+
+- MDL Compiler and Backends
+
+    - Fixed a subtle bug in one of the code caches, which caused ignored argument changes under
+      some complex conditions. Typically, boolean parameters were vulnerable, but could happen to
+      parameters of any type.
+    - Fixed MDL archive tool failures with Unicode package names. The MDL version of such archives
+      is now automatically set to MDL 1.6 as lowest necessary version.
+    - A bug in the resource handling was fixed that previously caused resources to be resolved and
+      loaded more that once, possibly leading to failures if search paths had been changed in
+      between.
+    - Fixed the MDL core compiler's analysis pass. Some analysis info was computed but not
+      annotated, causing JIT failures on functions that consists of a single expression body only.
+
+
+MDL SDK 2020 (327300.2022): 22 Feb 2020
+-----------------------------------------------
+
+ABI compatible with the MDL SDK 2020 (327300.2022) binary release
+(see [https://developer.nvidia.com/mdl-sdk](https://developer.nvidia.com/mdl-sdk))
+
+**Added and Changed Features**
+
+- General
+
+    - A new function `mi::neuraylib::IMdl_compiler::get_df_data_texture()` has been added.
+    - A new function `mi::neuraylib::ITarget_code::get_texture_df_data_kind()` has been
+      added.
+    - A new enum `mi::neuraylib::Df_data_kind` has been added.
+    - A new flag on `mi::neuraylib::IMdl_configuration` instructs the MDL compiler to keep the
+      names of let expressions and expose them as temporaries on MDL material and function definitions.
+      This brings the structure of the material/function definition presented in the API closer to the
+      one in the .mdl file.
+    - The FreeImage plugin is now based on FreeImage 3.18.0.
+
+- MDL Compiler and Backends
+
+    - Support for the chiang `hair_bsdf` has been added to the code generator for distribution
+      functions.
+
+    - Changes to the internal representation of builtin MDL operators.
+      MDL supports a variety of operators, potentially featuring an endless number of instances:
+      - array index `operator[]`
+      - array length symbol
+      - ternary operator `?:`
+
+      Previously, 'local' definitions were created for every used instance of these operators in an MDL
+      module:
+      - array index operator on type T in module M: `M::T@(T,int)`
+      - array length symbol on type T in module M: `M::T.len(T)`
+      - ternary operator on type T in module M: `M::operator?(bool,T,T)`
+
+      This representation had several drawbacks:
+      - there might be one definition for the same operator in every module
+      - if the operator was not used inside the source of a module, it was not created
+      
+      Especially the second point lead to several problems in the editing application. Hence, starting
+      with the 2020.0.0 release, the internal representation was changed and operators are now
+      represented by 'global' template-like definitions:
+      - array index operator: `operator[](<0>[],int)`
+      - array length operator: `operator_len(<0>[])`
+      - ternary operator: `operator?(bool,<0>,<0>)`
+
+      In addition, the name of the cast operator was changed from `operator_cast()` to
+      `operator_cast(<0>)`.
+
+      Drawback: When inspecting the types of the operators definition, 'int' is returned for the
+      template types, but this might be changed in the future by expanding the type system.
+
+    - Support for HLSL scene data renderer runtime functions has been added. See the 
+     `scene_data_*` functions in `mdl_renderer_runtime.hlsl` MDL SDK DXR example for an
+      example implementation.
+
+- MDL SDK examples
+
+    - `example_dxr`:
+        - The texture loading pipeline has been simplified and support for UDIM textures has been
+          added.
+        - Support for scene data introduced in MDL 1.6 (prim vars) has been added.
+    - `example_df_cuda`:
+        - Support for evaluation of hair-bsdfs on an analytical cylinder has been added.
+
+
+**Fixed Bugs**
+
+- MDL Compiler and Backends
+
+    - Support for multiple multiscatter textures in one target code object has been fixed.
+
+    - Support for multiscatter textures with disabled `resolve_resources` backend option has
+      been fixed.
+
+    - Multiple HLSL code generation problems leading to non-compilable code have been fixed.
+
+
+MDL SDK 2019.2 (325000.1814): 18 Dec 2019
+-----------------------------------------------
+
+ABI compatible with the MDL SDK 2019.2 (325000.1814) binary release
+(see [https://developer.nvidia.com/mdl-sdk](https://developer.nvidia.com/mdl-sdk))
+
+**Added and Changed Features**
+
+- MDL 1.6 Language Specification
+
+    - The file path resolution algorithm has been changed to treat weak relative
+      paths the same as strict relative paths if the referring MDL
+      module has an MDL version of 1.6 or higher. Furthermore,
+      the error checks have been simplified to only protect relative paths from
+      referring to files in other search paths.
+    - The import of standard library modules has been changed in all examples
+      to use absolute path imports.
+    - An additional way of defining functions has been added using an expression
+      instead of a procedural function body.
+    - Let-expression can also be applied to functions defined using an expression.
+    - The limitation has been removed that package names and module names can
+      only be identifiers.
+    - The new using `alias` declaration has been added to enable the use of Unicode
+      names for module names and package names.
+    - The description has been clarified that standard module names shadow only
+      modules of the same fully qualified name while modules in subpackages can have
+      a standard module name as their unqualified name.
+    - The new `scene` standard library module has been added with
+      `data_isvalid`, `data_lookup_ltype`, and
+      `data_lookup_uniform_ltype` functions.
+    - The new `multiscatter_tint` parameter has been added to all glossy BSDF
+      models to enable energy loss compensation at higher roughness values.
+    - The new `df::sheen_bsdf` bidirectional scattering distribution function has
+      been added.
+    - The new `df::tint` modifier overload has been added for the hair bidirectional
+      scattering distribution function.
+    - The new `df::tint` modifier overload has been added for the separate tinting
+      of the reflective and transmissive light paths of a base BSDF.
+
+- General
+
+    - The new API functions
+         - `mi::neuraylib::IModule::reload()`
+         - `mi::neuraylib::IModule::reload_from_string()`
+         - `mi::neuraylib::IModule::is_valid()`
+         - `mi::neuraylib::IMaterial_definition::is_valid()`
+         - `mi::neuraylib::IFunction_definition::is_valid()`
+         - `mi::neuraylib::IMaterial_instance::is_valid()`
+         - `mi::neuraylib::IMaterial_instance::repair()`
+         - `mi::neuraylib::IFunction_call::is_valid()`
+         - `mi::neuraylib::IFunction_call::repair()`
+         - `mi::neuraylib::ICompiled_material::is_valid()`
+      have been added to support reloading of MDL modules.
+    - The requirements on MDL module names have been relaxed according to the MDL 1.6
+      Specification to allow loading of modules with Unicode names.
+    - The new API functions
+        - `mi::neuraylib::ITarget_code::get_callable_function_df_handle_count()` and
+        - `mi::neuraylib::ITarget_code::get_callable_function_df_handle()`
+      have been added.
+    - The new API function `mi::neuraylib::ITarget_code::get_texture_df_data()`
+      has been added.
+    - `mi::neuraylib::IMdl_compiler::load_module()` can now be called from multiple
+      threads to allow loading modules in parallel. To support custom thread blocking
+      the new interfaces
+        - `mi::neuraylib::IMdl_loading_wait_handle ` and
+        - ` mi::neuraylib::IMdl_loading_wait_handle_factory`
+      have been added.
+    - The new API functions
+        - `mi::neuraylib::IMaterial_definition::get_body()`
+        - `mi::neuraylib::IMaterial_definition::get_temporary_count()`
+        - `mi::neuraylib::IMaterial_definition::get_temporary()`
+        - `mi::neuraylib::IFunction_definition::get_body()`
+        - `mi::neuraylib::IFunction_definition::get_temporary_count()`
+        - `mi::neuraylib::IFunction_definition::get_temporary()`
+      have been added.
+    - The signature of the function `mi::base::ILogger::message()` has been changed.
+    - The API function `mi::neuraylib::ITransaction::edit()` has been adapted to disallow
+      editing of database elements of type `mi::neuraylib::IMaterial_definition` and
+      `mi::neuraylib::IFunction_definition`.
+    - Support for multiple occurrence of the same annotation has been added to
+      `mi::neuraylib::Annotation_wrapper`.
+    - Support for deprecated features guarded by `MI_NEURAYLIB_DEPRECATED_8_1` and
+      `MI_NEURAYLIB_DEPRECATED_9_1` has been removed.
+
+- MDL Compiler and Backends
+
+    - Support for MDL 1.6 has been added to the MDL core compiler.
+    - Limited support for MDL 1.6 features has been added to the backends, in
+      particular, the `scene` module is supported, but currently no code is generated
+      for interrogating the renderer, hence always the default value is returned.
+    - Support for MDL 1.6 has been added to the generated code for distribution
+      functions, that is `df::tint(reflection_tint, transmission_tint)`,
+      `df::sheen_bsdf()`, the `multiscatter_tint` parameter of all BSDFs exposing this
+      in MDL 1.6 (note that this requires that all four dimensions of
+      `Bsdf_sample_data::xi` are set).
+    - For evaluating parts of distribution functions that are named by handles,
+      `Bsdf_evaluate_data` and `Bsdf_auxiliary_data` are adapted to select individual
+      handles.
+    - A new backend option `df_handle_slot_mode` to select how evaluate and auxiliary
+      data is passed between the generated code and the render has been added.
+    - The `bsdf` field of `Bsdf_evaluate_data` is split into `bsdf_diffuse` and
+      `bsdf_glossy`.
+    - The `Bsdf_sample_data` structure now requires a 4th uniform random number and
+      returns the handle of the sampled distribution part.
+    - Inlining of functions containing constant declarations into the DAG has been
+      implemented.
+    - Support for light-path-expressions in generated code for distribution functions
+      via handles has been added.
+    - Support for retrieving albedo and normal in generated code for distribution
+      functions via generated auxiliary functions has been added.
+    - The entity resolver has been sped up for built-in modules in some cases where it
+      is clear that the module can only be read from the MDL root.
+    - The memory size of the DAG representation has been slightly reduced by
+      internalizing all DAG signatures.
+    - The DAG representation now uses unsafe math operations, especially `x * 0 = 0`
+      for floating point values.
+
+- MDL SDK examples
+
+    - Example `df_cuda` has been adapted to illustrate how to evaluate parts of the
+      distribution functions named by handles via light path expressions (LPEs).
+    - All examples have been adapted to support processing of Unicode command line
+      arguments.
+
+**Fixed Bugs**
+
+- General
+
+    - An issue in the light profile parser has been fixed: For IESNA LM-63-2002 files
+     the `ballast-lamp` value incorrectly acted as multiplier for the intensity.
+
+- MDL Compiler and Backends
+
+    - Several issues in the generated code for distribution functions have been fixed:
+        - Bugs in the computation of the pdf and eval functions of
+          `df::ward_geisler_moroder_bsdf` have been fixed.
+        - Incorrect pdf computation (for `sample`, `eval`, and `pdf` functions) in
+          `df::ward_geisler_moroder_bsdf` and `df::backscattering_glossy_reflection_bsdf`
+          have been fixed.
+        - Fixed a missing re-scale of pseudorandom numbers for v-cavities based masking,
+          leading to biased results for `df::scatter_reflect_transmit`.
+        - Only use refraction-based half vector for Fresnel-layering, not for all curve
+          layering operations.
+        - Add simple inside/outside material support based on IOR comparison to determine
+          which IOR to override in Fresnel layering. This fixes incorrect rendering when
+          BSDFs of type `df::scatter_reflect` and `df::scatter_transmit` are layered using
+          `df::fresnel_layer`, in particular missing total internal reflection.
+    - The implementation of `math::isnan()` and `math::isfinite()` has been fixed for
+      vector types.
+    - Printing of quiet NaNs for HLSL has been fixed.
+    - A crash in the MDL core compiler that could occur if exported types contain errors
+      in their default initializers has been fixed.
+    - Wrong function names generated from `debug::assert()` calls when placed after a
+      while loop have been fixed.
+    - The name of the `anno::deprecated()` parameter has been fixed, it is `description`,
+      not `message`.
+    - The export of MDL modules containing relative imports has been fixed, access to
+      the imported entities is now generated correctly.
+
+
+MDL SDK 2019.1.4 (317500.5028): 27 Aug 2019
+-----------------------------------------------
+
+ABI compatible with the MDL SDK 2019.1.4 (317500.5028) binary release
+(see [https://developer.nvidia.com/mdl-sdk](https://developer.nvidia.com/mdl-sdk))
+
+**Added and Changed Features**
+
+- General
+
+    - A new function `mi::neuraylib::IValue_texture::get_gamma()` has been added.
+    - The following new functions have been added to the target code generation:
+        - `mi::neuraylib::ITarget_code::execute_bsdf_auxiliary()`
+        - `mi::neuraylib::ITarget_code::execute_edf_auxiliary()`
+    - A new function `mi::neuraylib::ICompiled_material::get_surface_opacity()`
+      has been added.
+
+- MDL Compiler and Backends
+
+    - Code generation for auxiliary methods has been added on distribution
+      functions for potential use in AI-denoising.
+    - The spectral color constructor `color(float[<N>],float[N])`,
+      `math::emission_color()`, and `math::blackboby()` are now supported in the
+      JIT backend.
+    - More optimizations regarding elemental constructors in the DAG
+      representation have been implemented.
+    - Map XOR operators on Boolean values to NOT-EQUAL in the HLSL backend to be
+      compatible to the SLANG compiler.
+
+- MDL SDK examples
+
+    - The example programs `example_dxr` and `example_df_cuda` have been extended
+      to illustrate the use of auxiliary functions.
+    - A modified version of `example_dxr` has been added to illustrate the usage
+      of MDL in a multi-threaded context.
+    - Camera controls have been improved and new options have been added to
+      the example program `example_dxr`.
+
+**Fixed Bugs**
+
+- General
+
+    - The export of MDLE files from in-memory MDL modules has been fixed.
+
+- MDL Compiler and Backends
+
+    - Temporary exponential creation of DAG nodes when using derivatives has
+      been fixed.
+    - Code generation of parameters reused multiple times in a derivative context
+      has been fixed.
+    - Relative imports including "." and ".." have been fixed.
+    - Duplicate global variables in generated HLSL code have been fixed.
+    - Invalid code generation for HLSL for special materials has been fixed.
+    - Indeterministic rare compilation errors regarding unknown functions have
+      been fixed.
+    - Indeterministic rare hangs during compilation with multiple threads have
+      been fixed.
+    - Under rare condition the code cache could return HLSL code instead of PTX
+      and vice versa. This has been fixed.
+    - The code cache that was not working under several conditions has been fixed.
+    - The handling of the `?:` operator on arrays inside the DAG representation
+      has been fixed such that it computes the right name now.
+    - The handling of unresolved resource paths in the target code has been fixed.
+      Previously all resources were mapped to index 1.
+    - A crash in the code generator when handling uniform matrix expressions with
+      automatic derivatives enabled has been fixed.
+    - A crash in the HLSL code generator for non-default optimization levels has
+      been fixed.
+    - A crash when adding distribution functions to a link unit after adding non-
+      distribution functions has been fixed.
+
 
 MDL SDK 2019.1.1 (317500.2554): 08 Jun 2019
 -----------------------------------------------
@@ -223,7 +873,7 @@ ABI compatible with the MDL SDK 2019 (314800.830) binary release
     - Wrong error messages `"varying call from uniform function"` have been fixed, which were generated by the MDL compiler under rare circumstances for struct declarations.
     - Wrong error messages `"function preset's return type must be 'uniform T' not 'T'"` have been fixed, which were generated by the MDL compiler for function variants if the original function always returns a uniform result but its return type was not declared as uniform T.
     - A discrepancy between code execution on CPU and GPU for constant folding of
-    `tt sqrt(c) (c < 0)` has been fixed. Now `NaN` is computed for both.
+    `sqrt(c)` for  `c < 0` has been fixed. Now `NaN` is computed for both.
 
 
 MDL SDK 2018.1.2 (312200.1281): 11 Dec 2018

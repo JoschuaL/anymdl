@@ -1,5 +1,5 @@
 /******************************************************************************
- * Copyright (c) 2013-2019, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2013-2020, NVIDIA CORPORATION. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -26,23 +26,25 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *****************************************************************************/
 
-// examples/example_modules.cpp
+// examples/mdl_sdk/modules/example_modules.cpp
 //
 // Loads an MDL module and inspects it contents.
 
 #include <iostream>
 #include <string>
 
-#include <mi/mdl_sdk.h>
-
 #include "example_shared.h"
+
+const char* material_definition_name = "mdl::nvidia::sdk_examples::tutorials::example_material";
+const char* function_definition_name =
+    "mdl::nvidia::sdk_examples::tutorials::example_function(color,float)";
 
 // Utility function to dump the parameters of a material or function definition.
 template <class T>
 void dump_definition(
     mi::neuraylib::ITransaction* transaction,
     mi::neuraylib::IMdl_factory* mdl_factory,
-    const T* material,
+    const T* definition,
     mi::Size depth,
     std::ostream& s)
 {
@@ -51,15 +53,15 @@ void dump_definition(
     mi::base::Handle<mi::neuraylib::IExpression_factory> expression_factory(
         mdl_factory->create_expression_factory( transaction));
 
-    mi::Size count = material->get_parameter_count();
-    mi::base::Handle<const mi::neuraylib::IType_list> types( material->get_parameter_types());
-    mi::base::Handle<const mi::neuraylib::IExpression_list> defaults( material->get_defaults());
+    mi::Size count = definition->get_parameter_count();
+    mi::base::Handle<const mi::neuraylib::IType_list> types( definition->get_parameter_types());
+    mi::base::Handle<const mi::neuraylib::IExpression_list> defaults( definition->get_defaults());
 
     for( mi::Size index = 0; index < count; index++) {
 
         mi::base::Handle<const mi::neuraylib::IType> type( types->get_type( index));
         mi::base::Handle<const mi::IString> type_text( type_factory->dump( type.get(), depth+1));
-        std::string name = material->get_parameter_name( index);
+        std::string name = definition->get_parameter_name( index);
         s << "    parameter " << type_text->get_c_str() << " " << name;
 
         mi::base::Handle<const mi::neuraylib::IExpression> default_(
@@ -73,6 +75,24 @@ void dump_definition(
         }
 
     }
+
+    mi::Size temporary_count = definition->get_temporary_count();
+    for( mi::Size i = 0; i < temporary_count; ++i) {
+        mi::base::Handle<const mi::neuraylib::IExpression> temporary( definition->get_temporary( i));
+        std::stringstream name;
+        name << i;
+        mi::base::Handle<const mi::IString> result(
+            expression_factory->dump( temporary.get(), name.str().c_str(), 1));
+        s << "    temporary " << result->get_c_str() << std::endl;
+    }
+
+    mi::base::Handle<const mi::neuraylib::IExpression> body( definition->get_body());
+    mi::base::Handle<const mi::IString> result( expression_factory->dump( body.get(), 0, 1));
+    if( result)
+        s << "    body " << result->get_c_str() << std::endl;
+    else
+        s << "    body not available for this function" << std::endl;
+
     s << std::endl;
 }
 
@@ -86,8 +106,8 @@ void load_module( mi::neuraylib::INeuray* neuray)
     mi::base::Handle<mi::neuraylib::ITransaction> transaction( scope->create_transaction());
 
     {
-        mi::base::Handle<mi::neuraylib::IMdl_compiler> mdl_compiler(
-            neuray->get_api_component<mi::neuraylib::IMdl_compiler>());
+        mi::base::Handle<mi::neuraylib::IMdl_impexp_api> mdl_impexp_api(
+            neuray->get_api_component<mi::neuraylib::IMdl_impexp_api>());
 
         mi::base::Handle<mi::neuraylib::IMdl_factory> mdl_factory(
             neuray->get_api_component<mi::neuraylib::IMdl_factory>());
@@ -96,7 +116,7 @@ void load_module( mi::neuraylib::INeuray* neuray)
             mdl_factory->create_execution_context());
 
         // Load the module "tutorials".
-        check_success( mdl_compiler->load_module(
+        check_success(mdl_impexp_api->load_module(
             transaction.get(), "::nvidia::sdk_examples::tutorials", context.get()) >= 0);
         print_messages( context.get());
 
@@ -136,9 +156,10 @@ void load_module( mi::neuraylib::INeuray* neuray)
         mi::base::Handle<const mi::neuraylib::IValue_list> constants( module->get_constants());
         std::cout << "The module contains the following constants: " << std::endl;
         for( mi::Size i = 0; i < constants->get_size(); ++i) {
+            const char* name = constants->get_name( i);
             mi::base::Handle<const mi::neuraylib::IValue> constant( constants->get_value( i));
             mi::base::Handle<const mi::IString> result( value_factory->dump( constant.get(), 0, 1));
-            std::cout << "    " << result->get_c_str() << std::endl;
+            std::cout << "    " << name << " = " << result->get_c_str() << std::endl;
         }
         std::cout << std::endl;
 
@@ -157,7 +178,6 @@ void load_module( mi::neuraylib::INeuray* neuray)
         std::cout << std::endl;
 
         // Dump a function definition from the module.
-        const char* function_definition_name = module->get_function( 0);
         std::cout << "Dumping function definition \"" << function_definition_name << "\":"
                   << std::endl;
         mi::base::Handle<const mi::neuraylib::IFunction_definition> function_definition(
@@ -166,7 +186,6 @@ void load_module( mi::neuraylib::INeuray* neuray)
             transaction.get(), mdl_factory.get(), function_definition.get(), 1, std::cout);
 
         // Dump a material definition from the module.
-        const char* material_definition_name = module->get_material( 0);
         std::cout << "Dumping material definition \"" << material_definition_name << "\":"
                   << std::endl;
         mi::base::Handle<const mi::neuraylib::IMaterial_definition> material_definition(
@@ -237,7 +256,7 @@ void load_module( mi::neuraylib::INeuray* neuray)
                     {
                         const char* system_file_path = mbsdf->get_filename();
                         std::cout << "    resolved_file_path:    " << system_file_path << std::endl;
-                    }                     
+                    }
                     break;
                 }
 
@@ -252,29 +271,36 @@ void load_module( mi::neuraylib::INeuray* neuray)
     transaction->commit();
 }
 
-int main( int /*argc*/, char* /*argv*/[])
+int MAIN_UTF8( int /*argc*/, char* /*argv*/[])
 {
     // Access the MDL SDK
-    mi::base::Handle<mi::neuraylib::INeuray> neuray( load_and_get_ineuray());
-    check_success( neuray.is_valid_interface());
+    mi::base::Handle<mi::neuraylib::INeuray> neuray(mi::examples::mdl::load_and_get_ineuray());
+    if (!neuray.is_valid_interface())
+        exit_failure("Failed to load the SDK.");
 
     // Configure the MDL SDK
-    configure( neuray.get());
+    if (!mi::examples::mdl::configure(neuray.get()))
+        exit_failure("Failed to initialize the SDK.");
 
     // Start the MDL SDK
-    mi::Sint32 result = neuray->start();
-    check_start_success( result);
+    mi::Sint32 ret = neuray->start();
+    if (ret != 0)
+        exit_failure("Failed to initialize the SDK. Result code: %d", ret);
 
     // Load an MDL module and dump its contents
     load_module( neuray.get());
 
     // Shut down the MDL SDK
-    check_success( neuray->shutdown() == 0);
-    neuray = 0;
+    if (neuray->shutdown() != 0)
+        exit_failure("Failed to shutdown the SDK.");
 
     // Unload the MDL SDK
-    check_success( unload());
+    neuray = nullptr;
+    if (!mi::examples::mdl::unload())
+        exit_failure("Failed to unload the SDK.");
 
-    keep_console_open();
-    return EXIT_SUCCESS;
+    exit_success();
 }
+
+// Convert command line arguments to UTF8 on Windows
+COMMANDLINE_TO_UTF8

@@ -1,5 +1,5 @@
 /******************************************************************************
- * Copyright (c) 2017-2019, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2017-2020, NVIDIA CORPORATION. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -39,9 +39,8 @@
 #define _USE_MATH_DEFINES
 #include <math.h>
 
-#include <mi/mdl_sdk.h>
-
 #include "example_shared.h"
+#include "compiled_material_traverser_base.h"
 
 #include <cuda.h>
 #ifdef OPENGL_INTEROP
@@ -196,6 +195,86 @@ std::string to_string(T val)
     return stream.str();
 }
 
+// Collects the handles in a compiled material
+class Handle_collector : public Compiled_material_traverser_base
+{
+public:
+    // add all handle appearing in the provided material to the collectors handle list.
+    explicit Handle_collector(
+        mi::neuraylib::ITransaction* transaction,
+        const mi::neuraylib::ICompiled_material* material)
+    : Compiled_material_traverser_base()
+    {
+        traverse(material, transaction);
+    }
+
+    // get the collected handles.
+    const std::vector<std::string>& get_handles() const { return m_handles; }
+
+private:
+    // Called when the traversal reaches a new element.
+    void visit_begin(const mi::neuraylib::ICompiled_material* material,
+                     const Compiled_material_traverser_base::Traversal_element& element,
+                     void* context) override
+    {
+        // look for direct calls
+        if (!element.expression ||
+            element.expression->get_kind() != mi::neuraylib::IExpression::EK_DIRECT_CALL)
+            return;
+
+        // check if it is a distribution function
+        auto transaction = static_cast<mi::neuraylib::ITransaction*>(context);
+
+        const mi::base::Handle<const mi::neuraylib::IExpression_direct_call> expr_dcall(
+            element.expression->get_interface<const mi::neuraylib::IExpression_direct_call
+            >());
+        const mi::base::Handle<const mi::neuraylib::IExpression_list> args(
+            expr_dcall->get_arguments());
+        const mi::base::Handle<const mi::neuraylib::IFunction_definition> func_def(
+            transaction->access<mi::neuraylib::IFunction_definition>(
+            expr_dcall->get_definition()));
+        const mi::neuraylib::IFunction_definition::Semantics semantic = func_def->
+            get_semantic();
+
+        if (semantic < mi::neuraylib::IFunction_definition::DS_INTRINSIC_DF_FIRST
+            || semantic > mi::neuraylib::IFunction_definition::DS_INTRINSIC_DF_LAST)
+            return;
+
+        // check if the last argument is a handle
+        const mi::base::Handle<const mi::neuraylib::IExpression_list> arguments(
+            expr_dcall->get_arguments());
+
+        mi::Size arg_count = arguments->get_size();
+        const char* name = arguments->get_name(arg_count - 1);
+        if (strcmp(name, "handle") != 0)
+            return;
+
+        // get the handle value
+        mi::base::Handle<const mi::neuraylib::IExpression> expr(
+            arguments->get_expression(arg_count - 1));
+
+        if (expr->get_kind() != mi::neuraylib::IExpression::EK_CONSTANT)
+            return; // is an error if 'handle' is a reserved parameter name
+
+        const mi::base::Handle<const mi::neuraylib::IExpression_constant> expr_const(
+            expr->get_interface<const mi::neuraylib::IExpression_constant>());
+
+        const mi::base::Handle<const mi::neuraylib::IValue> value(expr_const->get_value());
+        if (value->get_kind() != mi::neuraylib::IValue::VK_STRING)
+            return;
+
+        const mi::base::Handle<const mi::neuraylib::IValue_string> handle(
+            value->get_interface<const mi::neuraylib::IValue_string>());
+
+        std::string handle_value = handle->get_value() ? std::string(handle->get_value()) : "";
+
+        if (std::find(m_handles.begin(), m_handles.end(), handle_value) == m_handles.end())
+            m_handles.push_back(handle_value);
+    }
+
+    std::vector<std::string> m_handles;
+};
+
 
 //------------------------------------------------------------------------------
 //
@@ -205,6 +284,9 @@ std::string to_string(T val)
 
 // Helper macro. Checks whether the expression is cudaSuccess and if not prints a message and
 // resets the device and exits.
+
+#ifdef ENABLE_DEPRECATED_UTILIY_FUNCTIONS
+
 #define check_cuda_success(expr) \
     do { \
         int err = (expr); \
@@ -217,6 +299,18 @@ std::string to_string(T val)
         } \
     } while (false)
 
+#else
+
+#define check_cuda_success(expr) \
+    do { \
+        int err = (expr); \
+        if (err != 0) { \
+            cudaDeviceReset(); \
+            exit_failure( "Error in file %s, line %u: \"%s\".\n", __FILE__, __LINE__, #expr); \
+        } \
+    } while (false)
+
+#endif
 
 // Initialize CUDA.
 CUcontext init_cuda(
@@ -567,12 +661,11 @@ void Material_gpu_context::copy_canvas_to_cuda_array(
 {
     mi::base::Handle<const mi::neuraylib::ITile> tile(canvas->get_tile(0, 0));
     mi::Float32 const *data = static_cast<mi::Float32 const *>(tile->get_data());
-    check_cuda_success(cudaMemcpyToArray(
-        device_array,
-        /*wOffset=*/ 0,
-        /*hOffset=*/ 0,
-        data,
-        canvas->get_resolution_x() * canvas->get_resolution_y() * sizeof(float) * 4,
+    check_cuda_success(cudaMemcpy2DToArray(
+        device_array, 0, 0, data,
+        canvas->get_resolution_x() * sizeof(float) * 4,
+        canvas->get_resolution_x() * sizeof(float) * 4,
+        canvas->get_resolution_y(),
         cudaMemcpyHostToDevice));
 }
 
@@ -630,7 +723,8 @@ bool Material_gpu_context::prepare_texture(
     mi::neuraylib::ITarget_code::Texture_shape texture_shape =
         code_ptx->get_texture_shape(texture_index);
     if (texture_shape == mi::neuraylib::ITarget_code::Texture_shape_cube ||
-        texture_shape == mi::neuraylib::ITarget_code::Texture_shape_3d) {
+        texture_shape == mi::neuraylib::ITarget_code::Texture_shape_3d ||
+        texture_shape == mi::neuraylib::ITarget_code::Texture_shape_bsdf_data) {
         // Cubemap and 3D texture objects require 3D CUDA arrays
 
         if (texture_shape == mi::neuraylib::ITarget_code::Texture_shape_cube &&
@@ -1102,8 +1196,9 @@ bool Material_gpu_context::prepare_lightprofile(
 
     // 2D texture objects use CUDA arrays
     check_cuda_success(cudaMallocArray(&device_lightprofile_data, &channel_desc, res.x, res.y));
-    check_cuda_success(cudaMemcpyToArray(device_lightprofile_data, 0, 0, data,
-                       res.x * res.y * sizeof(float), cudaMemcpyHostToDevice));
+    check_cuda_success(cudaMemcpy2DToArray(
+        device_lightprofile_data, 0, 0, data,
+        res.x * sizeof(float), res.x * sizeof(float), res.y, cudaMemcpyHostToDevice));
 
     // Create filtered texture object
     cudaResourceDesc res_desc;
@@ -1261,33 +1356,26 @@ class Material_compiler {
 public:
     // Constructor.
     Material_compiler(
-        mi::neuraylib::IMdl_compiler* mdl_compiler,
+        mi::neuraylib::IMdl_impexp_api* mdl_impexp_api,
+        mi::neuraylib::IMdl_backend_api* mdl_backend_api,
         mi::neuraylib::IMdl_factory* mdl_factory,
         mi::neuraylib::ITransaction* transaction,
         unsigned num_texture_results,
         bool enable_derivatives,
-        bool fold_ternary_on_df);
+        bool fold_ternary_on_df,
+        bool enable_auxiliary,
+        const std::string& df_handle_mode);
 
-    // Helper function that checks if the provided name describes an MDLe element.
-    static bool is_mdle_name(const std::string& name);
-
-    // Helper function to extract the module name from a fully-qualified material name or a
-    // fully-qualified MDLE material name.
-    static std::string get_module_name(const std::string& material_name);
-
-    // Helper function to extract the material name from a fully-qualified material name or a
-    // fully-qualified MDLE material name.
-    static std::string get_material_name(const std::string& material_name);
-
-    // Return the list of all material names in the given MDL module.
-    std::vector<std::string> get_material_names(const std::string& module_name);
+    // Loads an MDL module and returns the module DB.
+    std::string load_module(const std::string& mdl_module_name);
 
     // Add a subexpression of a given material to the link unit.
     // path is the path of the sub-expression.
     // fname is the function name in the generated code.
     // If class_compilation is true, the material will use class compilation.
     bool add_material_subexpr(
-        const std::string& material_name,
+        const std::string& qualified_module_name,
+        const std::string& material_simple_name,
         const char* path,
         const char* fname,
         bool class_compilation=false);
@@ -1297,7 +1385,8 @@ public:
     // fname is the function name in the generated code.
     // If class_compilation is true, the material will use class compilation.
     bool add_material_df(
-        const std::string& material_name,
+        const std::string& qualified_module_name,
+        const std::string& material_simple_name,
         const char* path,
         const char* base_fname,
         bool class_compilation=false);
@@ -1310,10 +1399,11 @@ public:
     // the list will contain information for later usage in the application,
     // e.g., the \c argument_block_index and the \c function_index.
     bool add_material(
-        const std::string& material_name,
+        const std::string& qualified_module_name,
+        const std::string& material_simple_name,
         mi::neuraylib::Target_function_description* function_descriptions,
         mi::Size description_count,
-        bool class_compilation = false);
+        bool class_compilation);
 
     // Generates CUDA PTX target code for the current link unit.
     mi::base::Handle<const mi::neuraylib::ITarget_code> generate_cuda_ptx();
@@ -1343,10 +1433,17 @@ public:
         return m_arg_block_indexes;
     }
 
+    /// Get the set of handles present in added materials.
+    /// Only available after calling 'add_material' at least once.
+    const std::vector<std::string>& get_handles() const {
+        return m_handles;
+    }
+
 private:
     // Creates an instance of the given material.
     mi::neuraylib::IMaterial_instance* create_material_instance(
-        const std::string& material_name);
+        const std::string& qualified_module_name,
+        const std::string& material_simple_name);
 
     // Compiles the given material instance in the given compilation modes.
     mi::neuraylib::ICompiled_material* compile_material_instance(
@@ -1354,9 +1451,10 @@ private:
         bool class_compilation);
 
 private:
-    mi::base::Handle<mi::neuraylib::IMdl_compiler> m_mdl_compiler;
-    mi::base::Handle<mi::neuraylib::IMdl_backend>  m_be_cuda_ptx;
-    mi::base::Handle<mi::neuraylib::ITransaction>  m_transaction;
+    mi::base::Handle<mi::neuraylib::IMdl_impexp_api> m_mdl_impexp_api;
+    mi::base::Handle<mi::neuraylib::IMdl_backend>    m_be_cuda_ptx;
+    mi::base::Handle<mi::neuraylib::IMdl_factory>    m_mdl_factory;
+    mi::base::Handle<mi::neuraylib::ITransaction>    m_transaction;
 
     mi::base::Handle<mi::neuraylib::IMdl_execution_context> m_context;
     mi::base::Handle<mi::neuraylib::ILink_unit>             m_link_unit;
@@ -1364,19 +1462,24 @@ private:
     Material_definition_list  m_material_defs;
     Compiled_material_list    m_compiled_materials;
     std::vector<size_t>       m_arg_block_indexes;
+    std::vector<std::string>  m_handles;
 };
 
 // Constructor.
 Material_compiler::Material_compiler(
-        mi::neuraylib::IMdl_compiler* mdl_compiler,
+        mi::neuraylib::IMdl_impexp_api* mdl_impexp_api,
+        mi::neuraylib::IMdl_backend_api* mdl_backend_api,
         mi::neuraylib::IMdl_factory* mdl_factory,
         mi::neuraylib::ITransaction* transaction,
         unsigned num_texture_results,
         bool enable_derivatives,
-        bool fold_ternary_on_df)
-    : m_mdl_compiler(mi::base::make_handle_dup(mdl_compiler))
-    , m_be_cuda_ptx(mdl_compiler->get_backend(mi::neuraylib::IMdl_compiler::MB_CUDA_PTX))
-    , m_transaction(mi::base::make_handle_dup(transaction))
+        bool fold_ternary_on_df,
+        bool enable_auxiliary,
+        const std::string& df_handle_mode)
+    : m_mdl_impexp_api(mdl_impexp_api, mi::base::DUP_INTERFACE)
+    , m_be_cuda_ptx(mdl_backend_api->get_backend(mi::neuraylib::IMdl_backend_api::MB_CUDA_PTX))
+    , m_mdl_factory(mdl_factory, mi::base::DUP_INTERFACE)
+    , m_transaction(transaction, mi::base::DUP_INTERFACE)
     , m_context(mdl_factory->create_execution_context())
     , m_link_unit()
 {
@@ -1403,6 +1506,29 @@ Material_compiler::Material_compiler(
         "num_texture_results",
         to_string(num_texture_results).c_str()) == 0);
 
+    if (enable_auxiliary) {
+        // Option "enable_auxiliary": Default is disabled.
+        // We enable it to create an additional 'auxiliary' function that can be called on each
+        // distribution function to fill an albedo and normal buffer e.g. for denoising.
+        check_success(m_be_cuda_ptx->set_option("enable_auxiliary", "on") == 0);
+    }
+
+
+    // Option "df_handle_slot_mode": Default is "none".
+    // When using light path expressions, individual parts of the distribution functions can be
+    // selected using "handles". The contribution of each of those parts has to be evaluated during
+    // rendering. This option controls how many parts are evaluated with each call into the
+    // generated "evaluate" and "auxiliary" functions and how the data is passed.
+    // The CUDA backend supports pointers, which means an externally managed buffer of arbitrary 
+    // size is used to transport the contributions of each part.
+    check_success(m_be_cuda_ptx->set_option("df_handle_slot_mode", df_handle_mode.c_str()) == 0);
+
+    // Option "scene_data_names": Default is "".
+    // Uncomment the line below to enable calling the scene data runtime functions
+    // for any scene data names or specify a comma-separated list of names for which
+    // you may provide scene data. The example runtime functions always return the
+    // default values, which is the same as not supporting any scene data.
+    //     m_be_cuda_ptx->set_option("scene_data_names", "*");
 
     // force experimental to true for now
     m_context->set_option("experimental", true);
@@ -1413,104 +1539,56 @@ Material_compiler::Material_compiler(
     m_link_unit = mi::base::make_handle(m_be_cuda_ptx->create_link_unit(transaction, m_context.get()));
 }
 
-bool Material_compiler::is_mdle_name(const std::string& name)
+std::string Material_compiler::load_module(const std::string& mdl_module_name)
 {
-    size_t l = name.length();
-    if (l > 5 &&
-        name[l - 5] == '.' &&
-        name[l - 4] == 'm' &&
-        name[l - 3] == 'd' &&
-        name[l - 2] == 'l' &&
-        name[l - 1] == 'e') 
-        return true;
+    // load module
+    m_mdl_impexp_api->load_module(m_transaction.get(), mdl_module_name.c_str(), m_context.get());
+    if (!print_messages(m_context.get()))
+        exit_failure("Failed to load module: %s", mdl_module_name.c_str());
 
-    return name.find(".mdle:") != std::string::npos;
-}
-
-// Helper function to extract the module name from a fully-qualified material name.
-std::string Material_compiler::get_module_name(const std::string& material_name)
-{
-    std::string module_name = material_name;
-
-    if (is_mdle_name(module_name)) {
-        // for MDLE, the module name is not supposed to have a leading "::", strip it gracefully.
-        if (module_name[0] == ':' && module_name[1] == ':')
-            module_name = module_name.substr(2);
-        std::replace(module_name.begin(), module_name.end(), '\\', '/');
-    }
-   
-    // strip away the material name
-    size_t p = module_name.rfind("::");
-    if (p != std::string::npos)
-        module_name = module_name.substr(0, p);
-
-    return module_name;
-}
-
-// Helper function to extract the material name from a fully-qualified material name.
-std::string Material_compiler::get_material_name(const std::string& material_name)
-{
-    size_t p = material_name.rfind("::");
-    if (p == std::string::npos)
-        return material_name;
-    return material_name.substr(p + 2, material_name.size() - p);
-}
-
-// Return the list of all material names in the given MDL module.
-std::vector<std::string> Material_compiler::get_material_names(const std::string& module_name)
-{
-    check_success(!is_mdle_name(module_name));
-    check_success(m_mdl_compiler->load_module(m_transaction.get(), module_name.c_str()) >= 0);
-
-    const char *prefix = (module_name.find("::") == 0) ? "mdl" : "mdl::";
-
-    mi::base::Handle<const mi::neuraylib::IModule> module(
-        m_transaction->access<mi::neuraylib::IModule>((prefix + module_name).c_str()));
-
-    mi::Size num_materials = module->get_material_count();
-    std::vector<std::string> material_names(num_materials);
-    for (mi::Size i = 0; i < num_materials; ++i) {
-        material_names[i] = module->get_material(i);
-    }
-    return material_names;
+    // get and return the DB name
+    mi::base::Handle<const mi::IString> db_module_name(
+        m_mdl_factory->get_db_module_name(mdl_module_name.c_str()));
+    return db_module_name->get_c_str();
 }
 
 // Creates an instance of the given material.
 mi::neuraylib::IMaterial_instance* Material_compiler::create_material_instance(
-    const std::string& material_name)
+    const std::string& qualified_module_name,
+    const std::string& material_simple_name)
 {
-    std::string module_name;
-    std::string function_name;
-
-    if (is_mdle_name(material_name)) {
-        module_name = material_name;
-        function_name = "main";
-    }
-    else {
-        // strip away the material name
-        size_t p = material_name.rfind("::");
-        check_success(p != std::string::npos && p != 0 && "provided material name is invalid");
-        module_name = material_name.substr(0, p);
-        function_name = material_name.substr(p + 2);
-    }
-
     // Load mdl module.
-    check_success(m_mdl_compiler->load_module(m_transaction.get(), module_name.c_str(), m_context.get()) >= 0);
-    print_messages(m_context.get());
+    m_mdl_impexp_api->load_module(
+        m_transaction.get(), qualified_module_name.c_str(), m_context.get());
+    if (!print_messages(m_context.get())) {
+        // module has errors
+        return nullptr;
+    }
 
     // get db name
-    const char* module_db_name = m_mdl_compiler->get_module_db_name(
-        m_transaction.get(), module_name.c_str(), m_context.get());
-    print_messages(m_context.get());
+    mi::base::Handle<const mi::IString> module_db_name(
+        m_mdl_factory->get_db_module_name(qualified_module_name.c_str()));
 
-    std::string material_db_name = std::string(module_db_name) + "::" + function_name;
+    std::string material_db_name =
+        std::string(module_db_name->get_c_str()) + "::" + material_simple_name;
 
     // Create a material instance from the material definition
     // with the default arguments.
     mi::base::Handle<const mi::neuraylib::IMaterial_definition> material_definition(
         m_transaction->access<mi::neuraylib::IMaterial_definition>(
             material_db_name.c_str()));
-    check_success(material_definition);
+    if (!material_definition) {
+        // material with given name does not exists
+        print_message(
+            mi::base::details::MESSAGE_SEVERITY_ERROR,
+            mi::neuraylib::IMessage::MSG_COMPILER_DAG,
+            (
+                "Material '" +
+                material_simple_name +
+                "' does not exists in '" +
+                qualified_module_name + "'").c_str());
+        return nullptr;
+    }
 
     m_material_defs.push_back(material_definition);
 
@@ -1561,7 +1639,8 @@ mi::base::Handle<const mi::neuraylib::ITarget_code> Material_compiler::generate_
 // path is the path of the sub-expression.
 // fname is the function name in the generated code.
 bool Material_compiler::add_material_subexpr(
-    const std::string& material_name,
+    const std::string& qualified_module_name,
+    const std::string& material_simple_name,
     const char* path,
     const char* fname,
     bool class_compilation)
@@ -1569,7 +1648,7 @@ bool Material_compiler::add_material_subexpr(
     mi::neuraylib::Target_function_description desc;
     desc.path = path;
     desc.base_fname = fname;
-    add_material(material_name, &desc, 1, class_compilation);
+    add_material(qualified_module_name, material_simple_name, &desc, 1, class_compilation);
     return desc.return_code == 0;
 }
 
@@ -1577,7 +1656,8 @@ bool Material_compiler::add_material_subexpr(
 // path is the path of the sub-expression.
 // fname is the function name in the generated code.
 bool Material_compiler::add_material_df(
-    const std::string& material_name,
+    const std::string& qualified_module_name,
+    const std::string& material_simple_name,
     const char* path,
     const char* base_fname,
     bool class_compilation)
@@ -1585,7 +1665,7 @@ bool Material_compiler::add_material_df(
     mi::neuraylib::Target_function_description desc;
     desc.path = path;
     desc.base_fname = base_fname;
-    add_material(material_name, &desc, 1, class_compilation);
+    add_material(qualified_module_name, material_simple_name, &desc, 1, class_compilation);
     return desc.return_code == 0;
 }
 
@@ -1597,7 +1677,8 @@ bool Material_compiler::add_material_df(
 // the list will contain information for later usage in the application,
 // e.g., the \c argument_block_index and the \c function_index.
 bool Material_compiler::add_material(
-    const std::string& material_name,
+    const std::string& qualified_module_name,
+    const std::string& material_simple_name,
     mi::neuraylib::Target_function_description* function_descriptions,
     mi::Size description_count,
     bool class_compilation)
@@ -1607,7 +1688,9 @@ bool Material_compiler::add_material(
 
     // Load the given module and create a material instance
     mi::base::Handle<mi::neuraylib::IMaterial_instance> material_instance(
-        create_material_instance(material_name.c_str()));
+        create_material_instance(qualified_module_name, material_simple_name));
+    if (!material_instance)
+        return false;
 
     // Compile the material instance in instance compilation mode
     mi::base::Handle<mi::neuraylib::ICompiled_material> compiled_material(
@@ -1815,7 +1898,9 @@ CUmodule build_linked_kernel(
         check_cuda_success(link_result);
     }
 
-    std::cout << "CUDA link completed. Linker output:\n" << info_log << std::endl;
+    std::cout << "CUDA link completed." << std::endl;
+    if (info_log[0])
+        std::cout << "Linker output:\n" << info_log << std::endl;
 
     // Load the result and get the entrypoint of our kernel
     check_cuda_success(cuModuleLoadData(&cuda_module, linked_cubin));
@@ -1828,7 +1913,8 @@ CUmodule build_linked_kernel(
     int lmem = 0;
     check_cuda_success(
         cuFuncGetAttribute(&lmem, CU_FUNC_ATTRIBUTE_LOCAL_SIZE_BYTES, *out_kernel_function));
-    std::cout << "kernel uses " << regs << " registers and " << lmem << " lmem" << std::endl;
+    std::cout << "Kernel uses " << regs << " registers and " << lmem << " lmem and has a size of "
+        << linked_cubin_size << " bytes." << std::endl;
 
     // Cleanup
     check_cuda_success(cuLinkDestroy(cuda_link_state));

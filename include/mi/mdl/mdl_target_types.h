@@ -1,5 +1,5 @@
 /******************************************************************************
- * Copyright (c) 2018-2019, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2018-2020, NVIDIA CORPORATION. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -152,6 +152,15 @@ typedef tct_traits<true>::tct_derivable_float3 tct_deriv_float3;
 /// A float4 with derivatives.
 typedef tct_traits<true>::tct_derivable_float4 tct_deriv_float4;
 
+/// A float[2] with derivatives (needed to avoid problems with wrong alignment).
+typedef tct_deriv<float[2]> tct_deriv_arr_float_2;
+
+/// A float[3] with derivatives (needed to avoid problems with wrong alignment).
+typedef tct_deriv<float[3]> tct_deriv_arr_float_3;
+
+/// A float[4] with derivatives (needed to avoid problems with wrong alignment).
+typedef tct_deriv<float[4]> tct_deriv_arr_float_4;
+
 
 /// The MDL environment state structure inside MDL Core is a representation of the renderer
 /// state in the context of an environment lookup as defined in section 19 "Renderer state" in the
@@ -170,6 +179,21 @@ struct Shading_state_environment {
     /// The result of state::direction().
     /// It represents the lookup direction for the environment lookup.
     tct_float3            direction;
+
+    /// A pointer to a read-only data segment.
+    /// For "PTX", "LLVM-IR" and "native" JIT backend:
+    /// - If the MDL code contains large data arrays, compilation time may increase noticeably,
+    ///   as a lot of source code will be generated for the arrays.
+    ///   To avoid this, you can set the \c "jit_enable_ro_segment" option to \c "true" via the
+    ///   #mi::mdl::ICode_generator::access_options() method. Then, data of arrays larger than 1024
+    ///   bytes will be stored in a read-only data segment, which is accessible as the first
+    ///   segment (index 0) returned by #mi::mdl::IGenerated_code_executable::get_ro_data_segment().
+    ///   The generated code will expect, that you make this data available via the
+    ///   \c ro_data_segment field of the MDL material state. Depending on the target platform
+    ///   this may require copying the data to the GPU.
+    ///
+    /// For other backends, this should be NULL.
+    char const           *ro_data_segment;
 };
 
 
@@ -214,7 +238,7 @@ struct Shading_state_material_impl {
 
     /// The result of state::position().
     /// It represents the position where the material should be evaluated.
-    tct_float3            position;
+    typename traits::tct_derivable_float3 position;
 
     /// The result of state::animation_time().
     /// It represents the time of the current sample in seconds.
@@ -245,7 +269,7 @@ struct Shading_state_material_impl {
     tct_float4           *text_results;
 
     /// A pointer to a read-only data segment.
-    /// For "PTX" and "native" JIT backend:
+    /// For "PTX", "LLVM-IR" and "native" JIT backend:
     /// - If the MDL code contains large data arrays, compilation time may increase noticeably,
     ///   as a lot of source code will be generated for the arrays.
     ///   To avoid this, you can set the \c "jit_enable_ro_segment" option to \c "true" via the
@@ -280,6 +304,11 @@ struct Shading_state_material_impl {
     /// It can be used to make instanced objects look different in spite of the same used material.
     /// This field is only used if the uniform state is included.
     tct_int               object_id;
+
+    /// The result of state::meters_per_scene_unit().
+    /// The field is only used if the \c "fold_meters_per_scene_unit" option is set to false.
+    /// Otherwise, the value of the \c "meters_per_scene_unit" option will be used in the code.
+    tct_float             meters_per_scene_unit;
 };
 
 /// The MDL material state structure.
@@ -386,6 +415,12 @@ struct Shading_state_material_bitangent {
     /// It can be used to make instanced objects look different in spite of the same used material.
     /// This field is only used if the uniform state is included.
     tct_int              object_id;
+
+    /// The result of state::meters_per_scene_unit().
+    /// The field is only used if the \c "fold_meters_per_scene_unit" parameter was false, during
+    /// material instance initialization. Otherwise the value of the \c "mdl_meters_per_scene_unit"
+    /// parameter will be used in the code.
+    tct_float            meters_per_scene_unit;
 };
 
 
@@ -588,6 +623,141 @@ struct Texture_handler_vtable_impl {
         Texture_handler_base const  *self,
         tct_uint                    bsdf_measurement_index,
         tct_float const             theta_phi[2]);      //!< theta in [0, pi/2] and phi in [-pi, pi]
+
+    /// Implementation of \c scene_data_isvalid().
+    tct_bool (*m_scene_data_isvalid)(
+        Texture_handler_base const            *self_base,
+        Shading_state_material                *state,
+        tct_uint                               scene_data_id);
+
+    /// Implementation of \c scene_data_lookup_float().
+    tct_float (*m_scene_data_lookup_float)(
+        Texture_handler_base const            *self_base,
+        Shading_state_material                *state,
+        tct_uint                               scene_data_id,
+        tct_float                              default_value,
+        tct_bool                               uniform_lookup);
+
+    /// Implementation of scene_data_lookup_float2().
+    void (*m_scene_data_lookup_float2)(
+        tct_float                              result[2],
+        Texture_handler_base const            *self_base,
+        Shading_state_material                *state,
+        tct_uint                               scene_data_id,
+        tct_float const                        default_value[2],
+        tct_bool                               uniform_lookup);
+
+    /// Implementation of scene_data_lookup_float3().
+    void (*m_scene_data_lookup_float3)(
+        tct_float                              result[3],
+        Texture_handler_base const            *self_base,
+        Shading_state_material                *state,
+        tct_uint                               scene_data_id,
+        tct_float const                        default_value[3],
+        tct_bool                               uniform_lookup);
+
+    /// Implementation of scene_data_lookup_float4().
+    void (*m_scene_data_lookup_float4)(
+        tct_float                              result[4],
+        Texture_handler_base const            *self_base,
+        Shading_state_material                *state,
+        tct_uint                               scene_data_id,
+        tct_float const                        default_value[4],
+        tct_bool                               uniform_lookup);
+
+    /// Implementation of \c scene_data_lookup_int().
+    tct_int (*m_scene_data_lookup_int)(
+        Texture_handler_base const            *self_base,
+        Shading_state_material                *state,
+        tct_uint                               scene_data_id,
+        tct_int                                default_value,
+        tct_bool                               uniform_lookup);
+
+    /// Implementation of scene_data_lookup_int2().
+    void (*m_scene_data_lookup_int2)(
+        tct_int                                result[2],
+        Texture_handler_base const            *self_base,
+        Shading_state_material                *state,
+        tct_uint                               scene_data_id,
+        tct_int const                          default_value[2],
+        tct_bool                               uniform_lookup);
+
+    /// Implementation of scene_data_lookup_int3().
+    void (*m_scene_data_lookup_int3)(
+        tct_int                                result[3],
+        Texture_handler_base const            *self_base,
+        Shading_state_material                *state,
+        tct_uint                               scene_data_id,
+        tct_int const                          default_value[3],
+        tct_bool                               uniform_lookup);
+
+    /// Implementation of scene_data_lookup_int4().
+    void (*m_scene_data_lookup_int4)(
+        tct_int                                result[4],
+        Texture_handler_base const            *self_base,
+        Shading_state_material                *state,
+        tct_uint                               scene_data_id,
+        tct_int const                          default_value[4],
+        tct_bool                               uniform_lookup);
+
+    /// Implementation of scene_data_lookup_color().
+    void (*m_scene_data_lookup_color)(
+        tct_float                              result[3],
+        Texture_handler_base const            *self_base,
+        Shading_state_material                *state,
+        tct_uint                               scene_data_id,
+        tct_float const                        default_value[3],
+        tct_bool                               uniform_lookup);
+
+    //
+    // The following functions are only used in the derivative variant,
+    // and can be nullptr in the non-derivative variant
+    //
+
+    /// Implementation of \c scene_data_lookup_float() with derivatives.
+    void (*m_scene_data_lookup_deriv_float)(
+        tct_deriv_float                       *result,
+        Texture_handler_base const            *self_base,
+        Shading_state_material_with_derivs     *state,
+        tct_uint                               scene_data_id,
+        tct_deriv_float const                 *default_value,
+        tct_bool                               uniform_lookup);
+
+    /// Implementation of scene_data_lookup_float2() with derivatives.
+    void (*m_scene_data_lookup_deriv_float2)(
+        tct_deriv_arr_float_2                 *result,
+        Texture_handler_base const            *self_base,
+        Shading_state_material_with_derivs    *state,
+        tct_uint                               scene_data_id,
+        tct_deriv_arr_float_2 const           *default_value,
+        tct_bool                               uniform_lookup);
+
+    /// Implementation of scene_data_lookup_float3() with derivatives.
+    void (*m_scene_data_lookup_deriv_float3)(
+        tct_deriv_arr_float_3                 *result,
+        Texture_handler_base const            *self_base,
+        Shading_state_material_with_derivs    *state,
+        tct_uint                               scene_data_id,
+        tct_deriv_arr_float_3 const           *default_value,
+        tct_bool                               uniform_lookup);
+
+    /// Implementation of scene_data_lookup_float4() with derivatives.
+    void (*m_scene_data_lookup_deriv_float4)(
+        tct_deriv_arr_float_4                 *result,
+        Texture_handler_base const            *self_base,
+        Shading_state_material_with_derivs    *state,
+        tct_uint                               scene_data_id,
+        tct_deriv_arr_float_4 const           *default_value,
+        tct_bool                               uniform_lookup);
+
+    /// Implementation of scene_data_lookup_color() with derivatives.
+    void (*m_scene_data_lookup_deriv_color)(
+        tct_deriv_arr_float_3                 *result,
+        Texture_handler_base const            *self_base,
+        Shading_state_material_with_derivs    *state,
+        tct_uint                               scene_data_id,
+        tct_deriv_arr_float_3 const           *default_value,
+        tct_bool                               uniform_lookup);
 };
 
 /// The texture handler vtable struct.
@@ -649,44 +819,128 @@ enum Bsdf_event_type {
 
 /// Input and output structure for BSDF sampling data.
 struct Bsdf_sample_data {
-    // Input fields
-    tct_float3       ior1;           ///< IOR current medium
-    tct_float3       ior2;           ///< IOR other side
-    tct_float3       k1;             ///< outgoing direction
-    tct_float3       xi;             ///< pseudo-random sample number
+    tct_float3       ior1;           ///< mutual input: IOR current medium
+    tct_float3       ior2;           ///< mutual input: IOR other side
+    tct_float3       k1;             ///< mutual input: outgoing direction
 
-    // Output fields
-    tct_float3       k2;             ///< incoming direction
-    tct_float        pdf;            ///< pdf (non-projected hemisphere)
-    tct_float3       bsdf_over_pdf;  ///< bsdf * dot(normal, k2) / pdf
-    Bsdf_event_type  event_type;     ///< the type of event for the generated sample
+    tct_float3       k2;             ///< output: incoming direction
+    tct_float4       xi;             ///< input: pseudo-random sample numbers
+    tct_float        pdf;            ///< output: pdf (non-projected hemisphere)
+    tct_float3       bsdf_over_pdf;  ///< output: bsdf * dot(normal, k2) / pdf
+    Bsdf_event_type  event_type;     ///< output: the type of event for the generated sample
+    tct_int          handle;         ///< output: handle of the sampled elemental BSDF (lobe)
+};
+
+/// Type of Bsdf_evaluate_data variants, depending on the backend and its configuration.
+enum Df_handle_slot_mode
+{
+    DF_HSM_POINTER = -2,    ///< Uses renderer defined buffers; not supported by all backends
+    DF_HSM_NONE    = -1,    ///< No slots, handles are ignored completely
+    DF_HSM_FIXED_1 =  1,    ///< fixed size array for processing 1 handle at a time
+    DF_HSM_FIXED_2 =  2,    ///< fixed size array for processing 2 handle at a time
+    DF_HSM_FIXED_4 =  4,    ///< fixed size array for processing 4 handle at a time
+    DF_HSM_FIXED_8 =  8,    ///< fixed size array for processing 8 handle at a time
 };
 
 /// Input and output structure for BSDF evaluation data.
-struct Bsdf_evaluate_data {
-    // Input fields
-    tct_float3       ior1;           ///< IOR current medium
-    tct_float3       ior2;           ///< IOR other side
-    tct_float3       k1;             ///< outgoing direction
-    tct_float3       k2;             ///< incoming direction
+struct Bsdf_evaluate_data_base {};
 
-    // Output fields
-    tct_float3       bsdf;           ///< bsdf * dot(normal, k2)
-    tct_float        pdf;            ///< pdf (non-projected hemisphere)
+template<Df_handle_slot_mode N>
+struct Bsdf_evaluate_data : public Bsdf_evaluate_data_base
+{
+    tct_float3       ior1;           ///< mutual input: IOR current medium
+    tct_float3       ior2;           ///< mutual input: IOR other side
+    tct_float3       k1;             ///< mutual input: outgoing direction
+
+    tct_float3       k2;             ///< input: incoming direction
+    tct_int          handle_offset;  ///< input: handle offset to allow the evaluation of more then  
+                                     ///  DF_HANDLE_SLOTS handles, calling 'evaluate' multiple times
+    tct_float3       bsdf_diffuse[static_cast<size_t>(N)]; ///< output: (diffuse part of the)
+                                                           ///  bsdf * dot(normal, k2)
+    tct_float3       bsdf_glossy[static_cast<size_t>(N)];  ///< output: (glossy part of the)
+                                                           ///  bsdf * dot(normal, k2)
+    tct_float        pdf;            ///< output: pdf (non-projected hemisphere)
+};
+
+template<>
+struct Bsdf_evaluate_data<DF_HSM_POINTER> : public Bsdf_evaluate_data_base
+{
+    tct_float3       ior1;           ///< mutual input: IOR current medium
+    tct_float3       ior2;           ///< mutual input: IOR other side
+    tct_float3       k1;             ///< mutual input: outgoing direction
+
+    tct_float3       k2;             ///< input: incoming direction
+    tct_int          handle_offset;  ///< input: handle offset to allow the evaluation of many 
+                                     ///  handles using in multiple steps
+    tct_int          handle_count;   ///< input: number of elements of 'bsdf_diffuse', 'bsdf_glossy'
+    tct_float3*      bsdf_diffuse;   ///< output: (diffuse part of the) bsdf * dot(normal, k2)
+    tct_float3*      bsdf_glossy;    ///< output: (glossy part of the) bsdf * dot(normal, k2)
+    tct_float        pdf;            ///< output: pdf (non-projected hemisphere)
+};
+
+template<>
+struct Bsdf_evaluate_data<DF_HSM_NONE> : public Bsdf_evaluate_data_base
+{
+    tct_float3       ior1;           ///< mutual input: IOR current medium
+    tct_float3       ior2;           ///< mutual input: IOR other side
+    tct_float3       k1;             ///< mutual input: outgoing direction
+
+    tct_float3       k2;             ///< input: incoming direction
+    tct_float3       bsdf_diffuse;   ///< output: (diffuse part of the) bsdf * dot(normal, k2)
+    tct_float3       bsdf_glossy;    ///< output: (glossy part of the) bsdf * dot(normal, k2)
+    tct_float        pdf;            ///< output: pdf (non-projected hemisphere)
 };
 
 /// Input and output structure for BSDF PDF calculation data.
 struct Bsdf_pdf_data {
-    // Input fields
-    tct_float3       ior1;           ///< IOR current medium
-    tct_float3       ior2;           ///< IOR other side
-    tct_float3       k1;             ///< outgoing direction
-    tct_float3       k2;             ///< incoming direction
+    tct_float3       ior1;           ///< mutual input: IOR current medium
+    tct_float3       ior2;           ///< mutual input: IOR other side
+    tct_float3       k1;             ///< mutual input: outgoing direction
 
-    // Output fields
-    tct_float        pdf;            ///< pdf (non-projected hemisphere)
+    tct_float3       k2;             ///< input: incoming direction
+    tct_float        pdf;            ///< output: pdf (non-projected hemisphere)
 };
 
+/// Input and output structure for BSDF auxiliary calculation data.
+struct Bsdf_auxiliary_data_base {};
+
+template<Df_handle_slot_mode N>
+struct Bsdf_auxiliary_data : public Bsdf_auxiliary_data_base
+{
+    tct_float3       ior1;           ///< mutual input: IOR current medium
+    tct_float3       ior2;           ///< mutual input: IOR other side
+    tct_float3       k1;             ///< mutual input: outgoing direction
+
+    tct_int          handle_offset;  ///< input: handle offset to allow the evaluation of more then  
+                                     ///  DF_HANDLE_SLOTS handles, calling 'auxiliary' multiple times
+    tct_float3       albedo[static_cast<size_t>(N)];    ///< output: albedo
+    tct_float3       normal[static_cast<size_t>(N)];    ///< output: normal
+};
+
+template<>
+struct Bsdf_auxiliary_data<DF_HSM_POINTER> : public Bsdf_auxiliary_data_base
+{
+    tct_float3       ior1;           ///< mutual input: IOR current medium
+    tct_float3       ior2;           ///< mutual input: IOR other side
+    tct_float3       k1;             ///< mutual input: outgoing direction
+    
+    tct_int          handle_offset;  ///< input: handle offset to allow the evaluation of more then  
+                                     ///  DF_HANDLE_SLOTS handles, calling 'auxiliary' multiple times
+    tct_int          handle_count;   ///< input: number of elements of 'albedo' and 'normal'
+    tct_float3*      albedo;         ///< output: albedo
+    tct_float3*      normal;         ///< output: normal
+};
+
+template<>
+struct Bsdf_auxiliary_data<DF_HSM_NONE> : public Bsdf_auxiliary_data_base
+{
+    tct_float3       ior1;           ///< mutual input: IOR current medium
+    tct_float3       ior2;           ///< mutual input: IOR other side
+    tct_float3       k1;             ///< mutual input: outgoing direction
+
+    tct_float3       albedo;         ///< output: albedo
+    tct_float3       normal;         ///< output: normal
+};
 
 // Signatures for generated target code functions.
 
@@ -868,11 +1122,11 @@ typedef void (Bsdf_sample_function_with_derivs)(
 /// \param exception_state  unused, should be NULL
 /// \param arg_block_data   the target argument block data, if class compilation was used
 typedef void (Bsdf_evaluate_function)(
-    Bsdf_evaluate_data            *data,
-    Shading_state_material const  *state,
-    Resource_data const           *res_data,
-    void const                    *exception_state,
-    char const                    *arg_block_data);
+    Bsdf_evaluate_data_base               *data,
+    Shading_state_material const          *state,
+    Resource_data const                   *res_data,
+    void const                            *exception_state,
+    char const                            *arg_block_data);
 
 
 /// Signature of the evaluation function for material distribution functions created via
@@ -886,11 +1140,11 @@ typedef void (Bsdf_evaluate_function)(
 /// \param exception_state  unused, should be NULL
 /// \param arg_block_data   the target argument block data, if class compilation was used
 typedef void (Bsdf_evaluate_function_with_derivs)(
-    Bsdf_evaluate_data                        *data,
-    Shading_state_material_with_derivs const  *state,
-    Resource_data const                       *res_data,
-    void const                                *exception_state,
-    char const                                *arg_block_data);
+    Bsdf_evaluate_data_base                    *data,
+    Shading_state_material_with_derivs const    *state,
+    Resource_data const                         *res_data,
+    void const                                  *exception_state,
+    char const                                  *arg_block_data);
 
 
 /// Signature of the probability density function for material distribution functions created via
@@ -928,8 +1182,6 @@ typedef void (Bsdf_pdf_function_with_derivs)(
     void const                                *exception_state,
     char const                                *arg_block_data);
 
-
-
 /// The type of events created by EDF importance sampling.
 enum Edf_event_type
 {
@@ -939,42 +1191,89 @@ enum Edf_event_type
     EDF_EVENT_FORCE_32_BIT = 0xffffffffU
 };
 
-
 /// Input and output structure for EDF sampling data.
 struct Edf_sample_data
 {
-    // Input fields
-    tct_float3      xi;             ///< pseudo-random sample number
-
-    // Output fields
-    tct_float3      k1;             ///< outgoing direction
-    tct_float       pdf;            ///< pdf (non-projected hemisphere)
-    tct_float3      edf_over_pdf;   ///< edf * dot(normal,k1) / pdf
-    Edf_event_type  event_type;     ///< the type of event for the generated sample
+    tct_float4      xi;             ///< input: pseudo-random sample number
+    tct_float3      k1;             ///< output: outgoing direction
+    tct_float       pdf;            ///< output: pdf (non-projected hemisphere)
+    tct_float3      edf_over_pdf;   ///< output: edf * dot(normal,k1) / pdf
+    Edf_event_type  event_type;     ///< output: the type of event for the generated sample
+    tct_int         handle;         ///< output: handle of the sampled elemental EDF (lobe)
 };
 
 /// Input and output structure for EDF evaluation data.
-struct Edf_evaluate_data
-{
-    // Input fields
-    tct_float3      k1;             ///< outgoing direction
+struct Edf_evaluate_data_base {};
 
-    // Output fields
-    tct_float       cos;            ///< dot(normal, k1)
-    tct_float3      edf;            ///< edf
-    tct_float       pdf;            ///< pdf (non-projected hemisphere)
+template<Df_handle_slot_mode N>
+struct Edf_evaluate_data : public Edf_evaluate_data_base
+{
+    tct_float3      k1;             ///< input: outgoing direction
+    tct_int         handle_offset;  ///< input: handle offset to allow the evaluation of more then  
+                                    ///  DF_HANDLE_SLOTS handles, calling 'evaluate' multiple times
+    tct_float       cos;                            ///< output: dot(normal, k1)
+    tct_float3      edf[static_cast<size_t>(N)];    ///< output: edf
+    tct_float       pdf;                            ///< output: pdf (non-projected hemisphere)
+};
+
+template<>
+struct Edf_evaluate_data<DF_HSM_POINTER> : public Edf_evaluate_data_base
+{
+    tct_float3      k1;             ///< input: outgoing direction
+    tct_int         handle_offset;  ///< input: handle offset to allow the evaluation of more then  
+                                    ///  DF_HANDLE_SLOTS handles, calling 'evaluate' multiple times
+    tct_int         handle_count;   ///< input: number of elements of 'edf'
+    tct_float       cos;            ///< output: dot(normal, k1)
+    tct_float3*     edf;            ///< output: edf
+    tct_float       pdf;            ///< output: pdf (non-projected hemisphere)
+};
+
+template<>
+struct Edf_evaluate_data<DF_HSM_NONE> : public Edf_evaluate_data_base
+{
+    tct_float3      k1;             ///< input: outgoing direction
+    tct_float       cos;            ///< output: dot(normal, k1)
+    tct_float3      edf;            ///< output: edf
+    tct_float       pdf;            ///< output: pdf (non-projected hemisphere)
 };
 
 /// Input and output structure for EDF PDF calculation data.
 struct Edf_pdf_data
 {
-    // Input fields
-    tct_float3      k1;             ///< outgoing direction
-
-    // Output fields
-    tct_float       pdf;            ///< pdf (non-projected hemisphere)
+    tct_float3      k1;             ///< input: outgoing direction
+    tct_float       pdf;            ///< output: pdf (non-projected hemisphere)
 };
 
+/// Input and output structure for EDF auxiliary calculation data.
+struct Edf_auxiliary_data_base {};
+
+template<Df_handle_slot_mode N>
+struct Edf_auxiliary_data : public Edf_auxiliary_data_base
+{
+    tct_float3      k1;             ///< input: outgoing direction
+    tct_int         handle_offset;  ///< input: handle offset to allow the evaluation of more then  
+                                    ///  DF_HANDLE_SLOTS handles, calling 'auxiliary' multiple times
+    // reserved for future use
+};
+
+template<>
+struct Edf_auxiliary_data<DF_HSM_POINTER> : public Edf_auxiliary_data_base
+{
+    tct_float3      k1;             ///< input: outgoing direction
+    tct_int         handle_offset;  ///< input: handle offset to allow the evaluation of more then  
+                                    ///  DF_HANDLE_SLOTS handles, calling 'auxiliary' multiple times
+    tct_int         handle_count;   ///< number of elements of 'edf'
+
+    // reserved for future use
+};
+
+template<>
+struct Edf_auxiliary_data<DF_HSM_NONE> : public Edf_auxiliary_data_base
+{
+    tct_float3      k1;             ///< input: outgoing direction
+
+    // reserved for future use
+};
 
 /// Signature of the initialization function for material distribution functions created via
 /// #mi::mdl::ICode_generator_jit::compile_distribution_function_cpu(),
@@ -1063,7 +1362,7 @@ typedef void (Edf_sample_function_with_derivs)(
 /// \param exception_state  unused, should be NULL
 /// \param arg_block_data   the target argument block data, if class compilation was used
 typedef void (Edf_evaluate_function)(
-    Edf_evaluate_data             *data,
+    Edf_evaluate_data_base        *data,
     Shading_state_material const  *state,
     Resource_data const           *res_data,
     void const                    *exception_state,
@@ -1081,7 +1380,7 @@ typedef void (Edf_evaluate_function)(
 /// \param exception_state  unused, should be NULL
 /// \param arg_block_data   the target argument block data, if class compilation was used
 typedef void (Edf_evaluate_function_with_derivs)(
-    Edf_evaluate_data                         *data,
+    Edf_evaluate_data_base                    *data,
     Shading_state_material_with_derivs const  *state,
     Resource_data const                       *res_data,
     void const                                *exception_state,

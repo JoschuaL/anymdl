@@ -1,5 +1,5 @@
 /******************************************************************************
- * Copyright (c) 2018-2019, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2018-2020, NVIDIA CORPORATION. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -31,13 +31,6 @@
 #include <string>
 #include <vector>
 
-namespace mi
-{
-    namespace base
-    {
-        enum Message_severity;
-    }
-}
 namespace mdlm
 {
     /// Some utility routines
@@ -141,6 +134,8 @@ namespace mdlm
 
         /// Valid MDL identifier
         static bool is_valid_mdl_identifier(const std::string & identifier);
+        static bool is_valid_module_name(const std::string & identifier);
+        static bool is_valid_archive_name(const std::string & identifier);
 
         static bool equivalent(const std::string & file1, const std::string & file2);
         static std::string path_appends(const std::string & path, const std::string & end);
@@ -153,12 +148,25 @@ namespace mdlm
         static std::string unique_file_in_folder(const std::string & folder);
 
         static std::string temp_directory_path();
+
+        static std::vector<std::string> split(const std::string &s, char delim);
     };
+
     template<class T> std::string to_string(const T & value)
     {
         std::stringstream str;
         str << value;
         return str.str();
+    }
+
+    template<typename Out>
+    void split(const std::string &s, char delim, Out result)
+    {
+        std::stringstream ss(s);
+        std::string item;
+        while (std::getline(ss, item, delim)) {
+            *(result++) = item;
+        }
     }
 
 } // namespace mdlm

@@ -1,5 +1,5 @@
 /***************************************************************************************************
- * Copyright (c) 2008-2019, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2008-2020, NVIDIA CORPORATION. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -51,7 +51,7 @@ class IPlugin_api; class ITile;
 */
 
 /// Type of image plugins
-#define MI_NEURAY_IMAGE_PLUGIN_TYPE "image v23"
+#define MI_NEURAY_IMAGE_PLUGIN_TYPE "image v27"
 
 /// Abstract interface for image plugins.
 ///

@@ -1,5 +1,5 @@
 /***************************************************************************************************
- * Copyright (c) 2012-2019, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2012-2020, NVIDIA CORPORATION. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -38,8 +38,11 @@
 #include <mi/mdl/mdl_generated_dag.h>
 
 #include <string>
+#include <set>
 
-#include "i_mdl_elements_expression.h" // needed by Visual Studio
+#include "i_mdl_elements_expression.h"
+#include "i_mdl_elements_resource_map.h"
+#include "i_mdl_elements_module.h"
 
 namespace mi { namespace mdl { class IGenerated_code_lambda_function; } }
 
@@ -62,7 +65,6 @@ class Mdl_compiled_material
   : public SCENE::Scene_element<Mdl_compiled_material, ID_MDL_COMPILED_MATERIAL>
 {
 public:
-
     /// Default constructor.
     ///
     /// Does not create a valid instance, to be used by the deserializer only.
@@ -88,6 +90,8 @@ public:
         mi::Float32 mdl_wavelength_max,
         bool        load_resources);
 
+    Mdl_compiled_material& operator=( const Mdl_compiled_material&) = delete;
+
     // methods corresponding to mi::neuraylib::ICompiled_material
 
     const IExpression_direct_call* get_body() const;
@@ -110,6 +114,12 @@ public:
 
     bool depends_on_global_distribution() const;
 
+    bool depends_on_uniform_scene_data() const;
+
+    mi::Size get_referenced_scene_data_count() const;
+
+    char const *get_referenced_scene_data_name( mi::Size index) const;
+
     mi::Size get_parameter_count() const;
 
     char const* get_parameter_name( mi::Size index) const;
@@ -129,9 +139,23 @@ public:
 
     mi::mdl::IGenerated_code_dag::IMaterial_instance::Opacity get_opacity() const;
 
+    mi::mdl::IGenerated_code_dag::IMaterial_instance::Opacity get_surface_opacity() const;
+
     bool get_cutout_opacity(mi::Float32 *cutout_opacity) const;
 
     // internal methods
+
+    /// Get the number of resource map entries.
+    size_t get_resource_entries_count() const;
+
+    /// Get the i'th resource table entry.
+    const Resource_tag_tuple *get_resource_entry(size_t index) const;
+
+    // Adds a tag for a given resource url.
+    void add_resource_tag(
+        mi::mdl::Resource_tag_tuple::Kind kind,
+        char const                        *url,
+        int                               tag);
 
     const IExpression_list* get_temporaries() const;
 
@@ -143,26 +167,12 @@ public:
 
     /// Looks up a sub-expression of the compiled material.
     ///
-    /// \param transaction     The DB transaction used to access the parameter types of direct
-    ///                        calls.
     /// \param path            The path to follow in the body of this compiled material. The path
     ///                        may contain dots or bracket pairs as separators. The path component
     ///                        up to the next separator is used to select struct fields or direct
     ///                        call arguments by name or other compound elements by index.
-    /// \param type_factory    The type factory. Used to obtain the initial material struct type.
-    /// \param[out] sub_type   The address to store the MDL type corresponding to the
-    ///                        return value.
     /// \return                A sub-expression for \p expr according to \p path, or \c NULL in case
     ///                        of errors.
-    const IExpression* lookup_sub_expression(
-        DB::Transaction* transaction,
-        const char* path,
-        mi::mdl::IType_factory* type_factory,
-        const mi::mdl::IType** sub_type) const;
-
-    /// Looks up a sub-expression of the compiled material.
-    ///
-    /// Same as overload above, but without the sub-type computation.
     const IExpression* lookup_sub_expression( const char* path) const;
 
     /// Improved version of SERIAL::Serializable::dump().
@@ -170,13 +180,17 @@ public:
     /// \param transaction   The DB transaction (for name lookups and tag versions). Can be \c NULL.
     void dump( DB::Transaction* transaction) const;
 
+    bool is_valid(
+        DB::Transaction* transaction,
+        Execution_context* context) const;
+
     // methods of SERIAL::Serializable
 
     const SERIAL::Serializable* serialize( SERIAL::Serializer* serializer) const;
 
     SERIAL::Serializable* deserialize( SERIAL::Deserializer* deserializer);
 
-    void dump() const { dump( /*transaction*/ 0); }
+    void dump() const { dump( /*transaction*/ nullptr); }
 
     // methods of DB::Element_base
 
@@ -203,6 +217,8 @@ private:
     mi::base::Handle<IExpression_list> m_temporaries; ///< The temporaries.
     mi::base::Handle<IValue_list> m_arguments;        ///< The arguments.
 
+    Resource_tag_map m_resource_tag_map;              ///< The resource map.
+
     mi::base::Uuid m_hash;                            ///< The hash value.
                                                       ///  The hash values for the slots.
     mi::base::Uuid m_slot_hashes[mi::mdl::IGenerated_code_dag::IMaterial_instance::MS_LAST+1];
@@ -214,13 +230,20 @@ private:
     mi::mdl::IGenerated_code_dag::IMaterial_instance::Properties
         m_properties;                                 ///< Instance properties.
 
+    std::vector<std::string> m_referenced_scene_data; ///< Referenced scene data attribute names.
+
     std::string m_internal_space;                     ///< Internal space.
 
-    mi::mdl::IGenerated_code_dag::IMaterial_instance::Opacity 
+    mi::mdl::IGenerated_code_dag::IMaterial_instance::Opacity
         m_opacity;                                    ///< Material opacity.
+
+    mi::mdl::IGenerated_code_dag::IMaterial_instance::Opacity
+        m_surface_opacity;                                    ///< Material surface opacity.
 
     mi::Float32 m_cutout_opacity;                     ///< Material cutout opacity.
     bool m_has_cutout_opacity;                        ///< True if the cutout opacity is known.
+
+    std::set<Mdl_tag_ident> m_module_idents;           ///< module identifiers of all used expressions.
 };
 
 } // namespace MDL

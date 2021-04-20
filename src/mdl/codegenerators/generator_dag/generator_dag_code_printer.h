@@ -1,5 +1,5 @@
 /******************************************************************************
- * Copyright (c) 2012-2019, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2012-2020, NVIDIA CORPORATION. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -57,7 +57,7 @@ public:
     void print(Printer *printer, mi::base::IInterface const *code) const MDL_FINAL;
 
 private:
-    /// Print a DAG IR node inside a material definition.
+    /// Print a DAG IR node inside a material or function definition.
     ///
     /// \param depth            The indentation depth.
     /// \param dag              The generated code dag this expression belongs to.
@@ -69,7 +69,7 @@ private:
     void print_exp(
         int                       depth,
         IGenerated_code_dag const *dag,
-        int                       def_index,
+        size_t                    def_index,
         DAG_node const            *node) const;
 
     /// Print the semantics if known as a comment.

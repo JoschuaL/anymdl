@@ -1,5 +1,5 @@
 /***************************************************************************************************
- * Copyright (c) 2004-2019, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2004-2020, NVIDIA CORPORATION. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -51,14 +51,14 @@ MI_INLINE bool Type::operator==(
         return false;                           // toplevel arraysize mismatch
 
     if (m_typecode == TYPE_ENUM) {
-        if ((m_enum && !other.m_enum) || (!m_enum && other.m_enum))
+        if (bool(m_enum) != bool(other.m_enum))
             return false;                       // only one has an enum collections
         if (!m_enum)
             return true;
         return compare_enum_collections(*m_enum, *other.m_enum);
     }
 
-    if ((m_child && !other.m_child) || (!m_child && other.m_child))
+    if (bool(m_child) != bool(other.m_child))
         return false;                           // only one has a child
 
     if (!m_child)

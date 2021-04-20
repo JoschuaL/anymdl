@@ -1,5 +1,5 @@
 /******************************************************************************
- * Copyright (c) 2013-2019, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2013-2020, NVIDIA CORPORATION. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -42,6 +42,7 @@
 #include <mi/mdl/mdl_definitions.h>
 #include <mi/mdl/mdl_positions.h>
 
+#include "generator_jit.h"
 #include "generator_jit_context.h"
 #include "generator_jit_llvm.h"
 #include "generator_jit_type_map.h"
@@ -318,7 +319,7 @@ Function_context::~Function_context()
 
     // optimize function to improve inlining, if requested
     if (m_optimize_on_finalize)
-        m_code_gen.m_func_pass_manager->run(*m_function);
+        m_code_gen.optimize(m_function);
 }
 
 // Get the first (real) parameter of the current function.
@@ -378,7 +379,7 @@ llvm::Value *Function_context::get_exec_ctx_parameter()
 // Get the state parameter of the current function.
 llvm::Value *Function_context::get_state_parameter(llvm::Value *exec_ctx)
 {
-    MDL_ASSERT(m_flags & LLVM_context_data::FL_HAS_STATE);
+    MDL_ASSERT(m_flags & (LLVM_context_data::FL_HAS_STATE | LLVM_context_data::FL_HAS_EXEC_CTX));
 
     llvm::Function::arg_iterator arg_it = m_function->arg_begin();
     if (m_flags & LLVM_context_data::FL_SRET) {
@@ -395,7 +396,7 @@ llvm::Value *Function_context::get_state_parameter(llvm::Value *exec_ctx)
 // Get the resource_data parameter of the current function.
 llvm::Value *Function_context::get_resource_data_parameter(llvm::Value *exec_ctx)
 {
-    MDL_ASSERT(m_flags & LLVM_context_data::FL_HAS_RES);
+    MDL_ASSERT(m_flags & (LLVM_context_data::FL_HAS_RES | LLVM_context_data::FL_HAS_EXEC_CTX));
 
     llvm::Function::arg_iterator arg_it = m_function->arg_begin();
     if (m_flags & LLVM_context_data::FL_SRET) {
@@ -415,7 +416,7 @@ llvm::Value *Function_context::get_resource_data_parameter(llvm::Value *exec_ctx
 // Get the exc_state parameter of the current function.
 llvm::Value *Function_context::get_exc_state_parameter(llvm::Value *exec_ctx)
 {
-    MDL_ASSERT(m_flags & LLVM_context_data::FL_HAS_EXC);
+    MDL_ASSERT(m_flags & (LLVM_context_data::FL_HAS_EXC | LLVM_context_data::FL_HAS_EXEC_CTX));
 
     llvm::Function::arg_iterator arg_it = m_function->arg_begin();
     if (m_flags & LLVM_context_data::FL_SRET) {
@@ -438,7 +439,7 @@ llvm::Value *Function_context::get_exc_state_parameter(llvm::Value *exec_ctx)
 // Get the cap_args parameter of the current function.
 llvm::Value *Function_context::get_cap_args_parameter(llvm::Value *exec_ctx)
 {
-    MDL_ASSERT(m_flags & LLVM_context_data::FL_HAS_CAP_ARGS);
+    MDL_ASSERT(m_flags & (LLVM_context_data::FL_HAS_CAP_ARGS | LLVM_context_data::FL_HAS_EXEC_CTX));
 
     llvm::Function::arg_iterator arg_it = m_function->arg_begin();
     if (m_flags & LLVM_context_data::FL_SRET) {
@@ -469,7 +470,7 @@ llvm::Value *Function_context::get_lambda_results_parameter(llvm::Value *exec_ct
     if (m_lambda_results_override)
         return m_lambda_results_override;
 
-    MDL_ASSERT(m_flags & LLVM_context_data::FL_HAS_LMBD_RES);
+    MDL_ASSERT(m_flags & (LLVM_context_data::FL_HAS_LMBD_RES | LLVM_context_data::FL_HAS_EXEC_CTX));
 
     llvm::Function::arg_iterator arg_it = m_function->arg_begin();
     if (m_flags & LLVM_context_data::FL_SRET) {
@@ -496,6 +497,7 @@ llvm::Value *Function_context::get_lambda_results_parameter(llvm::Value *exec_ct
     }
     return arg_it;
 }
+
 
 // Get the wavelength_min() value of the current function.
 llvm::Value *Function_context::get_wavelength_min_value()
@@ -2167,11 +2169,26 @@ llvm::BasicBlock *Function_context::get_unreachable_bb()
 // Register a resource value and return its index.
 size_t Function_context::get_resource_index(mi::mdl::IValue_resource const *resource)
 {
-    if (m_res_manager != NULL)
-        return m_res_manager->get_resource_index(resource);
+    int tag_value = resource->get_tag_value();
+    if (tag_value == 0) {
+        tag_value = m_code_gen.find_resource_tag(resource);
+    }
+
+    if (m_res_manager != NULL) {
+        IType_texture::Shape shape            = IType_texture::TS_2D;
+        IValue_texture::gamma_mode gamma_mode = IValue_texture::gamma_default;
+
+        if (IValue_texture const *tex = as<IValue_texture>(resource)) {
+            shape      = tex->get_type()->get_shape();
+            gamma_mode = tex->get_gamma_mode();
+        }
+
+        return m_res_manager->get_resource_index(
+            kind_from_value(resource), resource->get_string_value(), tag_value, shape, gamma_mode);
+    }
 
     // no resource manager, leave it "as is"
-    return resource->get_tag_value();
+    return tag_value;
 }
 
 // Get the array base address of an deferred-sized array.
@@ -2877,6 +2894,150 @@ llvm::Value *Function_context::get_tex_lookup_func(
         unsigned light_profile_index, \
         float const theta_phi[2])
 
+#define ARGS_sdata_isvalid \
+    ARGS3( \
+        Core_tex_handler const *self, \
+        Shading_state_material *state, \
+        unsigned scene_data_id)
+
+#define ARGS_sdata_lookup_float \
+    ARGS5( \
+        Core_tex_handler const *self, \
+        Shading_state_material *state, \
+        unsigned scene_data_id, \
+        float default_value, \
+        bool uniform_lookup \
+    )
+
+#define ARGS_sdata_lookup_float2 \
+    ARGS6( \
+        float result[2], \
+        Core_tex_handler const *self, \
+        Shading_state_material *state, \
+        unsigned scene_data_id, \
+        float default_value[2], \
+        bool uniform_lookup \
+    )
+
+#define ARGS_sdata_lookup_float3 \
+    ARGS6( \
+        float result[3], \
+        Core_tex_handler const *self, \
+        Shading_state_material *state, \
+        unsigned scene_data_id, \
+        float default_value[3], \
+        bool uniform_lookup \
+    )
+
+#define ARGS_sdata_lookup_float4 \
+    ARGS6( \
+        float result[4], \
+        Core_tex_handler const *self, \
+        Shading_state_material *state, \
+        unsigned scene_data_id, \
+        float default_value, \
+        bool uniform_lookup \
+    )
+
+#define ARGS_sdata_lookup_int \
+    ARGS5( \
+        Core_tex_handler const *self, \
+        Shading_state_material *state, \
+        unsigned scene_data_id, \
+        int default_value, \
+        bool uniform_lookup \
+    )
+
+#define ARGS_sdata_lookup_int2 \
+    ARGS6( \
+        int result[2], \
+        Core_tex_handler const *self, \
+        Shading_state_material *state, \
+        unsigned scene_data_id, \
+        int default_value, \
+        bool uniform_lookup \
+    )
+
+#define ARGS_sdata_lookup_int3 \
+    ARGS6( \
+        int result[3], \
+        Core_tex_handler const *self, \
+        Shading_state_material *state, \
+        unsigned scene_data_id, \
+        int default_value, \
+        bool uniform_lookup \
+    )
+
+#define ARGS_sdata_lookup_int4 \
+    ARGS6( \
+        int result[4], \
+        Core_tex_handler const *self, \
+        Shading_state_material *state, \
+        unsigned scene_data_id, \
+        int default_value, \
+        bool uniform_lookup \
+    )
+
+#define ARGS_sdata_lookup_color \
+    ARGS6( \
+        float result[3], \
+        Core_tex_handler const *self, \
+        Shading_state_material *state, \
+        unsigned scene_data_id, \
+        float default_value[3], \
+        bool uniform_lookup \
+    )
+
+#define ARGS_sdata_lookup_deriv_float \
+    ARGS6( \
+        tct_deriv_float *result, \
+        Core_tex_handler const *self, \
+        Shading_state_material *state, \
+        unsigned scene_data_id, \
+        tct_deriv_float const *default_value, \
+        bool uniform_lookup \
+    )
+
+#define ARGS_sdata_lookup_deriv_float2 \
+    ARGS6( \
+        tct_deriv_float2 *result, \
+        Core_tex_handler const *self, \
+        Shading_state_material *state, \
+        unsigned scene_data_id, \
+        tct_deriv_float2 const *default_value, \
+        bool uniform_lookup \
+    )
+
+#define ARGS_sdata_lookup_deriv_float3 \
+    ARGS6( \
+        tct_deriv_float3 *result, \
+        Core_tex_handler const *self, \
+        Shading_state_material *state, \
+        unsigned scene_data_id, \
+        tct_deriv_float3 const *default_value, \
+        bool uniform_lookup \
+    )
+
+#define ARGS_sdata_lookup_deriv_float4 \
+    ARGS6( \
+        tct_deriv_float4 *result, \
+        Core_tex_handler const *self, \
+        Shading_state_material *state, \
+        unsigned scene_data_id, \
+        tct_deriv_float4 const *default_value, \
+        bool uniform_lookup \
+    )
+
+#define ARGS_sdata_lookup_deriv_color \
+    ARGS6( \
+        tct_deriv_float3 *result, \
+        Core_tex_handler const *self, \
+        Shading_state_material *state, \
+        unsigned scene_data_id, \
+        tct_deriv_float3 const *default_value, \
+        bool uniform_lookup \
+    )
+
     typedef struct {
         const char *name;
         const char *optix_typename;
@@ -2905,7 +3066,17 @@ llvm::Value *Function_context::get_tex_lookup_func(
         { "df_bsdf_measurement_evaluate",       OCP(ARGS_mbsdf_evaluate) },
         { "df_bsdf_measurement_sample",         OCP(ARGS_mbsdf_sample) },
         { "df_bsdf_measurement_pdf",            OCP(ARGS_mbsdf_pdf) },
-        { "df_bsdf_measurement_albedos",        OCP(ARGS_mbsdf_albedos) }
+        { "df_bsdf_measurement_albedos",        OCP(ARGS_mbsdf_albedos) },
+        { "scene_data_isvalid",                 OCP(ARGS_sdata_isvalid) },
+        { "scene_data_lookup_float",            OCP(ARGS_sdata_lookup_float) },
+        { "scene_data_lookup_float2",           OCP(ARGS_sdata_lookup_float2) },
+        { "scene_data_lookup_float3",           OCP(ARGS_sdata_lookup_float3) },
+        { "scene_data_lookup_float4",           OCP(ARGS_sdata_lookup_float4) },
+        { "scene_data_lookup_int",              OCP(ARGS_sdata_lookup_int) },
+        { "scene_data_lookup_int2",             OCP(ARGS_sdata_lookup_int2) },
+        { "scene_data_lookup_int3",             OCP(ARGS_sdata_lookup_int3) },
+        { "scene_data_lookup_int4",             OCP(ARGS_sdata_lookup_int4) },
+        { "scene_data_lookup_color",            OCP(ARGS_sdata_lookup_color) },
     };
 
     static Runtime_functions names_deriv[] = {
@@ -2931,7 +3102,22 @@ llvm::Value *Function_context::get_tex_lookup_func(
         { "df_bsdf_measurement_evaluate",       OCP(ARGS_mbsdf_evaluate) },
         { "df_bsdf_measurement_sample",         OCP(ARGS_mbsdf_sample) },
         { "df_bsdf_measurement_pdf",            OCP(ARGS_mbsdf_pdf) },
-        { "df_bsdf_measurement_albedos",        OCP(ARGS_mbsdf_albedos) }
+        { "df_bsdf_measurement_albedos",        OCP(ARGS_mbsdf_albedos) },
+        { "scene_data_isvalid",                 OCP(ARGS_sdata_isvalid) },
+        { "scene_data_lookup_float",            OCP(ARGS_sdata_lookup_float) },
+        { "scene_data_lookup_float2",           OCP(ARGS_sdata_lookup_float2) },
+        { "scene_data_lookup_float3",           OCP(ARGS_sdata_lookup_float3) },
+        { "scene_data_lookup_float4",           OCP(ARGS_sdata_lookup_float4) },
+        { "scene_data_lookup_int",              OCP(ARGS_sdata_lookup_int) },
+        { "scene_data_lookup_int2",             OCP(ARGS_sdata_lookup_int2) },
+        { "scene_data_lookup_int3",             OCP(ARGS_sdata_lookup_int3) },
+        { "scene_data_lookup_int4",             OCP(ARGS_sdata_lookup_int4) },
+        { "scene_data_lookup_color",            OCP(ARGS_sdata_lookup_color) },
+        { "scene_data_lookup_deriv_float",      OCP(ARGS_sdata_lookup_deriv_float) },
+        { "scene_data_lookup_deriv_float2",     OCP(ARGS_sdata_lookup_deriv_float2) },
+        { "scene_data_lookup_deriv_float3",     OCP(ARGS_sdata_lookup_deriv_float3) },
+        { "scene_data_lookup_deriv_float4",     OCP(ARGS_sdata_lookup_deriv_float4) },
+        { "scene_data_lookup_deriv_color",      OCP(ARGS_sdata_lookup_deriv_color) },
     };
 
     Runtime_functions *names = m_code_gen.is_texruntime_with_derivs()
@@ -3286,3 +3472,4 @@ bool Function_context::is_constant_value(llvm::Value *val, int int_val)
 
 }  // mdl
 }  // mi
+

@@ -1,5 +1,5 @@
 /***************************************************************************************************
- * Copyright (c) 2008-2019, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2008-2020, NVIDIA CORPORATION. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -44,7 +44,7 @@
  */
 
 // The current copyright year string.
-#define MI_COPYRIGHT_YEARS_STRING "2019"
+#define MI_COPYRIGHT_YEARS_STRING "2020"
 
 // The NVIDIA company name string for copyrights etc.
 #define MI_COPYRIGHT_COMPANY_STRING "NVIDIA Corporation"
@@ -206,6 +206,19 @@
 #define MI_COMPILER_ICC __ICC
 #endif // !defined(MI_COMPILER_ICC)
 
+
+#elif defined(__GNUC__) && defined(__clang__) // #elif defined(__clang__)
+
+#ifndef MI_SKIP_COMPILER_VERSION_CHECK
+#if !defined(MI_COMPILER_CLANG)
+#define MI_COMPILER_CLANG __clang__ 
+#endif // !defined(MI_COMPILER_CLANG)
+
+#if !defined(MI_COMPILER_GCC)
+#define MI_COMPILER_GCC __GNUC__
+#endif // !defined(MI_COMPILER_GCC)
+#endif // MI_SKIP_COMPILER_VERSION_CHECK
+
 #elif defined(__GNUC__) && !defined(__ICC) // #elif defined(__ICC)
 
 #ifndef MI_SKIP_COMPILER_VERSION_CHECK
@@ -256,7 +269,7 @@
 
 #if !defined(MI_ARCH_POWERPC_64)
 #define MI_ARCH_POWERPC_64
-#endif // !defined( MI_ARCH_ARCH_POWERPC_64)
+#endif // !defined( MI_ARCH_POWERPC_64)
 
 #if !defined(__LITTLE_ENDIAN__)
 #error Architecture POWERPC_64 is only supported in little endian mode.
@@ -266,9 +279,23 @@
 #define MI_ARCH_LITTLE_ENDIAN
 #endif // !defined(MI_ARCH_LITTLE_ENDIAN)
 
+#elif defined(__aarch64__)
+
+#if !defined(MI_ARCH_ARM_64)
+#define MI_ARCH_ARM_64
+#endif // !defined( MI_ARCH_ARM_64)
+
+#if !defined(__AARCH64EL__)
+#error Architecture ARM_64 is only supported in little endian mode.
 #endif
 
-#if defined(MI_ARCH_X86_64) || defined(MI_ARCH_SPARC_64) || defined(MI_ARCH_POWERPC_64)
+#if !defined(MI_ARCH_LITTLE_ENDIAN)
+#define MI_ARCH_LITTLE_ENDIAN
+#endif // !defined(MI_ARCH_LITTLE_ENDIAN)
+
+#endif
+
+#if defined(MI_ARCH_X86_64) || defined(MI_ARCH_SPARC_64) || defined(MI_ARCH_POWERPC_64) || defined(MI_ARCH_ARM_64)
 #define MI_ARCH_64BIT
 #endif // defined(MI_ARCH_X86_64) ...
 
@@ -307,6 +334,15 @@
 #  endif
 #endif
 
+#ifdef __CUDACC__
+#define MI_HOST_DEVICE_INLINE __device__ __forceinline__
+#else
+#ifdef __cplusplus
+#define MI_HOST_DEVICE_INLINE MI_FORCE_INLINE
+#else
+#define MI_HOST_DEVICE_INLINE
+#endif
+#endif
 
 #ifdef MI_PLATFORM_WINDOWS
 /// The operating system specific default filename extension for shared libraries (DLLs)

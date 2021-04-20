@@ -1,5 +1,5 @@
 /***************************************************************************************************
- * Copyright (c) 2007-2019, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2007-2020, NVIDIA CORPORATION. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -27,6 +27,8 @@
  **************************************************************************************************/
 /// \file
 /// \brief 
+
+#include <type_traits>
 
 namespace MI {
 
@@ -62,6 +64,20 @@ inline void Serializer::write(const CONT::Array<T*>& array)
         serialize(array[i]);
 }
 
+template <typename T, typename SWO>
+inline void Serializer::write(const std::set<T, SWO>& set)
+{
+    write_size_t(set.size());
+    write_range(*this, set.begin(), set.end());
+}
+
+template <typename T1, typename T2> 
+inline void Serializer::write(const std::pair<T1, T2>& pair)
+{
+    write(pair.first);
+    write(pair.second);
+}
+
 template <typename T>
 inline void Deserializer::read(CONT::Array<T>* array)
 {
@@ -87,18 +103,40 @@ inline void Deserializer::read(std::vector< std::vector<T, A1>, A2>* array)
     size_t size;
     this->read_size_t(&size);
     array->resize(size);
-    for (Uint32 i = 0u; i != size; ++i) {
+    for (size_t i = 0u; i != size; ++i) {
         std::vector<T, A1> &inner = (*array)[i];
 
         size_t isize;
         this->read_size_t(&isize);
         inner.resize(isize);
-        for (Uint32 j = 0u; j != isize; ++j) {
+        for (size_t j = 0u; j != isize; ++j) {
             T temp;
             this->read(&temp);
             inner[j] = temp;
         }
     }
+}
+
+template <typename T, typename SWO>
+inline void Deserializer::read(std::set<T, SWO>* set)
+{
+    size_t size;
+    set->clear();
+    read_size_t(&size);
+    T value;
+    for (size_t i(0); i != size; ++i) {
+        read(&value);
+        // Values were serialized in sequence, so we can use end position as hint.
+        // This should amount to an O(n) complexity for deserialization.
+        set->insert(set->end(), value);
+    }
+}
+
+template <typename T1, typename T2>
+inline void Deserializer::read(std::pair<T1, T2>* pair)
+{
+    read(&pair->first);
+    read(&pair->second);
 }
 
 template <typename T, typename A1, typename A2>
@@ -161,6 +199,11 @@ inline void write(Serializer* serial, const char* value)
 }
 
 inline void write(Serializer* serial,  const std::string& value)
+{
+    serial->write( value );
+}
+
+inline void write(Serializer* serial, const mi::base::Uuid& value)
 {
     serial->write( value );
 }
@@ -250,6 +293,11 @@ inline void read(Deserializer* deser, mi::math::Color* value_pointer)
     deser->read( value_pointer );
 }
 
+inline void read(Deserializer* deser, mi::base::Uuid* value_pointer)
+{
+    deser->read( value_pointer );
+}
+
 template <typename T, Size DIM>
 inline void read(Deserializer* deser, mi::math::Vector<T,DIM>* value)
 {
@@ -285,11 +333,23 @@ inline void read_range(Deserializer& deserializer, Iterator begin, Iterator end)
         read(&deserializer, &(*(begin++)));
 }
 
+template <typename T, size_t N>
+inline void read_range(Deserializer& deserializer, T (&arr)[N])
+{
+    read_range(deserializer,arr+0,arr+N);
+}
+
 template <class Iterator>
 inline void write_range(Serializer& serializer, Iterator begin, Iterator end)
 {
     while (begin != end)
         write(&serializer, *begin++);
+}
+
+template <typename T, size_t N>
+inline void write_range(Serializer& serializer, const T (&arr)[N])
+{
+    write_range(serializer,arr+0,arr+N);
 }
 
 template <typename T>
@@ -477,6 +537,21 @@ void read(Deserializer* deser, std::multimap<K,V,C,A>* map)
 }
 
 
+
+template <typename Enum_type>
+void write_enum(Serializer* serializer, Enum_type enum_value )
+{
+    write(serializer,static_cast<typename std::underlying_type<Enum_type>::type>(enum_value));
+}
+
+
+template <typename Enum_type>
+void read_enum(Deserializer* deserializer, Enum_type* enum_value )
+{
+    typename std::underlying_type<Enum_type>::type v;
+    read(deserializer,&v);
+    *enum_value = static_cast<Enum_type>(v);
+}
 
 } // namespace SERIAL
 

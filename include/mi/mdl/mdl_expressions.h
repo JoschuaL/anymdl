@@ -1,5 +1,5 @@
 /******************************************************************************
- * Copyright (c) 2011-2019, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2011-2020, NVIDIA CORPORATION. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -48,7 +48,7 @@ class IQualified_name;
 class ISimple_name;
 class IExpression;
 class IConst_fold_handler;
-
+class IValue_factory;
 
 /// The generic interface to expressions inside the MDL AST.
 class IExpression : public Interface_owned
@@ -160,12 +160,14 @@ public:
 
     /// Fold this expression into a constant value if possible.
     ///
-    /// \param module   The module of this expression.
+    /// \param module   The owner module of this expression.
+    /// \param factory  The factory to be used to create new values if any.
     /// \param handler  The const fold handler, may be NULL.
     ///
     /// \return IValue_bad if this expression could not be folded.
     virtual IValue const *fold(
         IModule const       *module,
+        IValue_factory      *factory,
         IConst_fold_handler *handler) const = 0;
 
     /// Return the number of sub expressions of this expression.
@@ -447,7 +449,7 @@ T *as(IArgument *arg) {
 /// Cast to subtype or return NULL if types do not match.
 template<typename T>
 T const *as(IArgument const *arg) {
-    return (arg->get_kind() == T::s_kind) ? static_cast<T const *>(arg) : NULL;
+    return (arg->get_kind() == T::s_kind) ? static_cast<T const *>(arg) : 0;
 }
 
 /// Check if a value is of a certain type.

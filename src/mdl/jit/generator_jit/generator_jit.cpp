@@ -1,5 +1,5 @@
 /******************************************************************************
- * Copyright (c) 2012-2019, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2012-2020, NVIDIA CORPORATION. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -43,6 +43,7 @@
 #include "generator_jit_generated_code.h"
 #include "generator_jit_llvm.h"
 #include "generator_jit_opt_pass_gate.h"
+#include "generator_jit_libbsdf_data.h"
 
 
 namespace mi {
@@ -82,6 +83,14 @@ Code_generator_jit::Code_generator_jit(
         "true",
         "Enables unsafe math optimizations of the JIT code generator");
     m_options.add_option(
+        MDL_JIT_OPTION_INLINE_AGGRESSIVELY,
+        "false",
+        "Instructs the JIT code generator to aggressively inline functions");
+    m_options.add_option(
+        MDL_JIT_OPTION_EVAL_DAG_TERNARY_STRICTLY,
+        "true",
+        "Enable strict evaluation of the ternary operator on the DAG");
+    m_options.add_option(
         MDL_JIT_OPTION_DISABLE_EXCEPTIONS,
         "false",
         "Disable exception handling in the generated code");
@@ -98,6 +107,10 @@ Code_generator_jit::Code_generator_jit(
         "true",
         "Link libdevice into PTX module");
     m_options.add_option(
+        MDL_JIT_OPTION_LINK_LIBBSDF_DF_HANDLE_SLOT_MODE,
+        "none",
+        "Defines the libbsdf version to link into the ouput.");    
+    m_options.add_option(
         MDL_JIT_OPTION_USE_BITANGENT,
         "false",
         "Use bitangent instead of tangent_u, tangent_v in the generated MDL core state");
@@ -109,9 +122,6 @@ Code_generator_jit::Code_generator_jit(
         MDL_JIT_OPTION_TEX_LOOKUP_CALL_MODE,
         "vtable",
         "The mode for texture lookup functions on GPU (vtable, direct_call or optix_cp)");
-    m_options.add_binary_option(
-        MDL_JIT_BINOPTION_LLVM_STATE_MODULE,
-        "Use this user-specified LLVM implementation for the MDL state module");
     m_options.add_option(
         MDL_JIT_OPTION_MAP_STRINGS_TO_IDS,
         "false",
@@ -129,6 +139,31 @@ Code_generator_jit::Code_generator_jit(
         MDL_JIT_OPTION_HLSL_USE_RESOURCE_DATA,
         "false",
         "HLSL: Pass an extra user defined resource data struct to resource callbacks");
+    m_options.add_option(
+        MDL_JIT_OPTION_USE_RENDERER_ADAPT_MICROFACET_ROUGHNESS,
+        "false",
+        "Use a renderer provided function to adapt microfacet roughness");
+    m_options.add_option(
+        MDL_JIT_OPTION_ENABLE_AUXILIARY,
+        "false",
+        "Enable code generation for auxiliary functions on DFs");
+    m_options.add_option(
+        MDL_JIT_OPTION_SCENE_DATA_NAMES,
+        "",
+        "Comma-separated list of names for which scene data may be available in the renderer "
+        "(use \"*\" to enforce that the renderer runtime is asked for all scene data names)");
+    m_options.add_option(
+        MDL_JIT_OPTION_VISIBLE_FUNCTIONS,
+        "",
+        "Comma-separated list of names of functions which will be visible in the generated code "
+        "(empty string means no special restriction).");
+
+    m_options.add_binary_option(
+        MDL_JIT_BINOPTION_LLVM_STATE_MODULE,
+        "Use this user-specified LLVM implementation for the MDL state module");
+    m_options.add_binary_option(
+        MDL_JIT_BINOPTION_LLVM_RENDERER_MODULE,
+        "Link and optimize this user-specified LLVM renderer module with the generated code");
 }
 
 // Get the name of the target language.
@@ -173,65 +208,12 @@ IGenerated_code_lambda_function *Code_generator_jit::compile_into_environment(
     ILambda_function const    *ilambda,
     ICall_name_resolver const *resolver)
 {
-    Lambda_function const *lambda = impl_cast<Lambda_function>(ilambda);
-    if (lambda == NULL)
-        return NULL;
-
-    if (lambda->get_body() == NULL || lambda->get_root_expr_count() != 0) {
-        // not a simple lambda
-        return NULL;
-    }
-
-    IAllocator        *alloc = get_allocator();
-    Allocator_builder builder(alloc);
-
-    Generated_code_lambda_function *code =
-        builder.create<Generated_code_lambda_function>(m_jitted_code.get());
-
-    Generated_code_lambda_function::Lambda_res_manag res_manag(*code, /*resource_map=*/NULL);
-
-    mi::base::Handle<MDL> compiler(lambda->get_compiler());
-
-    // environment is executed on CPU only
-    LLVM_code_generator code_gen(
-        m_jitted_code.get(), compiler.get(), code->access_messages(), code->get_llvm_context(),
-        LLVM_code_generator::TL_NATIVE,
-        Type_mapper::TM_NATIVE_X86,
-        /*sm_version=*/0,
-        /*has_texture_handler=*/m_options.get_bool_option(MDL_JIT_USE_BUILTIN_RESOURCE_HANDLER_CPU),
-        Type_mapper::SSM_ENVIRONMENT,
-        /*num_texture_spaces=*/0,
-        /*num_texture_results=*/0,
-        m_options,
-        /*incremental=*/false,
-        get_state_mapping(),
-        &res_manag, /*enable_debug=*/false);
-
-    llvm::Function *func = code_gen.compile_environment_lambda(
-        /*incremental=*/false, *lambda, resolver);
-    if (func != NULL) {
-        llvm::Module *module = func->getParent();
-
-        MDL_JIT_module_key module_key = code_gen.jit_compile(module);
-        code->set_llvm_module(module_key, module);
-        code_gen.fill_function_info(code);
-
-        // gen the entry point
-        void *entry_point = code_gen.get_entry_point(module_key, func);
-        code->add_entry_point(entry_point);
-
-        // copy the render state usage
-        code->set_render_state_usage(code_gen.get_render_state_usage());
-
-        // copy the string constant table.
-        for (size_t i = 0, n = code_gen.get_string_constant_count(); i < n; ++i) {
-            code->add_mapped_string(code_gen.get_string_constant(i), i);
-        }
-    } else if (code->access_messages().get_error_message_count() == 0) {
-        // on failure, ensure that the code contains an error message
-        code_gen.error(INTERNAL_JIT_BACKEND_ERROR, "Compiling environment function failed");
-    }
-    return code;
+    return compile_into_generic_function(
+        ilambda,
+        resolver,
+        /*num_texture_spaces=*/ 0,
+        /*num_texture_results=*/ 0,
+        /*transformer=*/ NULL);
 }
 
 namespace {
@@ -257,13 +239,43 @@ public:
     /// Called for a texture resource.
     ///
     /// \param v  the texture resource or an invalid ref
-    void texture(IValue const *v) MDL_FINAL
+    void texture(IValue const *v, Texture_usage tex_usage) MDL_FINAL
     {
-        bool valid = false;
-        int width = 0, height = 0, depth = 0;
-        if (IValue_resource const *r = as<IValue_resource>(v))
-            m_attr->get_texture_attributes(r, valid, width, height, depth);
-        m_lambda.map_tex_resource(v, m_tex_idx++, valid, width, height, depth);
+        if (IValue_texture const *tex = as<IValue_texture>(v)) {
+            bool valid = false;
+            int width = 0, height = 0, depth = 0;
+            int tag_value = tex->get_tag_value();
+            IType_texture::Shape shape = tex->get_type()->get_shape();
+
+            // FIXME: map the tag value using lambda's resource tag table
+            m_attr->get_texture_attributes(tex, valid, width, height, depth);
+
+            m_lambda.map_tex_resource(
+                tex->get_kind(),
+                tex->get_string_value(),
+                tex->get_gamma_mode(),
+                tex->get_bsdf_data_kind(),
+                shape,
+                tag_value,
+                m_tex_idx++,
+                valid,
+                width,
+                height,
+                depth);
+        } else {
+            m_lambda.map_tex_resource(
+                v->get_kind(),
+                NULL,
+                IValue_texture::gamma_default,
+                IValue_texture::BDK_NONE,
+                IType_texture::TS_2D,
+                0,
+                m_tex_idx++,
+                /*valid=*/false,
+                0,
+                0,
+                0);
+        }
     }
 
     /// Called for a light profile resource.
@@ -271,11 +283,32 @@ public:
     /// \param v  the light profile resource or an invalid ref
     void light_profile(IValue const *v) MDL_FINAL
     {
-        bool valid = false;
-        float power = 0.0f, maximum = 0.0f;
-        if (IValue_resource const *r = as<IValue_resource>(v))
+        if (IValue_resource const *r = as<IValue_resource>(v)) {
+            bool valid = false;
+            float power = 0.0f, maximum = 0.0f;
+            int tag_value  = r->get_tag_value();
+
+            // FIXME: map the tag value using lambda's resource tag table
             m_attr->get_light_profile_attributes(r, valid, power, maximum);
-        m_lambda.map_lp_resource(v, m_lp_idx++, valid, power, maximum);
+
+            m_lambda.map_lp_resource(
+                r->get_kind(),
+                r->get_string_value(),
+                tag_value,
+                m_lp_idx++,
+                valid,
+                power,
+                maximum);
+        } else {
+            m_lambda.map_lp_resource(
+                v->get_kind(),
+                NULL,
+                0,
+                m_lp_idx++,
+                /*valid=*/false,
+                0.0f,
+                0.0f);
+        }
     }
 
     /// Called for a bsdf measurement resource.
@@ -283,10 +316,22 @@ public:
     /// \param v  the bsdf measurement resource or an invalid_ref
     void bsdf_measurement(IValue const *v) MDL_FINAL
     {
-        bool valid = false;
-        if (IValue_resource const *r = as<IValue_resource>(v))
+        if (IValue_resource const *r = as<IValue_resource>(v)) {
+            bool valid = false;
+            int tag_value = r->get_tag_value();
+
+            // FIXME: map the tag value using lambda's resource tag table
             m_attr->get_bsdf_measurement_attributes(r, valid);
-        m_lambda.map_bm_resource(v, m_bm_idx++, valid);
+
+            m_lambda.map_bm_resource(
+                r->get_kind(),
+                r->get_string_value(),
+                tag_value,
+                m_bm_idx++,
+                valid);
+        } else {
+            m_lambda.map_bm_resource(v->get_kind(), NULL, 0, m_bm_idx++, /*valid=*/false);
+        }
     }
 
 private:
@@ -342,7 +387,7 @@ IGenerated_code_lambda_function *Code_generator_jit::compile_into_const_function
     // FIXME: ugly, but ok for now: request all resource meta data through the attr interface
     // a better solution would be to do this outside this compile call
     Const_function_enumerator enumerator(attr, *const_cast<Lambda_function *>(lambda));
-    lambda->enumerate_resources(enumerator, body);
+    lambda->enumerate_resources(*resolver, enumerator, body);
 
     IAllocator        *alloc = get_allocator();
     Allocator_builder builder(alloc);
@@ -452,6 +497,8 @@ IGenerated_code_lambda_function *Code_generator_jit::compile_into_switch_functio
     // Enable the read-only data segment
     code_gen.enable_ro_data_segment();
 
+    code_gen.set_resource_tag_map(&lambda->get_resource_tag_map());
+
     llvm::Function *func = code_gen.compile_switch_lambda(
         /*incremental=*/false, *lambda, resolver, /*next_arg_block_index=*/0);
     if (func != NULL) {
@@ -494,6 +541,7 @@ IGenerated_code_lambda_function *Code_generator_jit::compile_into_switch_functio
 // Compile a lambda switch function having several roots using the JIT into a
 // function computing one of the root expressions for execution on the GPU.
 IGenerated_code_executable *Code_generator_jit::compile_into_switch_function_for_gpu(
+    ICode_cache               *code_cache,
     ILambda_function const    *ilambda,
     ICall_name_resolver const *resolver,
     unsigned                  num_texture_spaces,
@@ -520,6 +568,55 @@ IGenerated_code_executable *Code_generator_jit::compile_into_switch_function_for
     Generated_code_source *code = builder.create<Generated_code_source>(
         alloc, IGenerated_code_executable::CK_PTX);
 
+    unsigned char cache_key[16];
+
+    if (code_cache != NULL) {
+        MD5_hasher hasher;
+
+        DAG_hash const *hash = lambda->get_hash();
+
+        // set the generators name
+        hasher.update("JIT");
+        hasher.update(code->get_kind());
+
+        hasher.update(lambda->get_name());
+        hasher.update(hash->data(), hash->size());
+
+        hasher.update(num_texture_spaces);
+        hasher.update(num_texture_results);
+        hasher.update(sm_version);
+
+        // Beware: the selected options change the generated code, hence we must include them into
+        // the key
+        hasher.update(lambda->get_execution_context() == ILambda_function::LEC_ENVIRONMENT ?
+            Type_mapper::SSM_ENVIRONMENT : Type_mapper::SSM_CORE);
+        hasher.update(m_options.get_string_option(MDL_CG_OPTION_INTERNAL_SPACE));
+        hasher.update(m_options.get_bool_option(MDL_CG_OPTION_FOLD_METERS_PER_SCENE_UNIT));
+        hasher.update(m_options.get_float_option(MDL_CG_OPTION_METERS_PER_SCENE_UNIT));
+        hasher.update(m_options.get_float_option(MDL_CG_OPTION_WAVELENGTH_MIN));
+        hasher.update(m_options.get_float_option(MDL_CG_OPTION_WAVELENGTH_MAX));
+        hasher.update(m_options.get_int_option(MDL_JIT_OPTION_OPT_LEVEL));
+        hasher.update(m_options.get_bool_option(MDL_JIT_OPTION_FAST_MATH));
+        hasher.update(m_options.get_bool_option(MDL_JIT_OPTION_INLINE_AGGRESSIVELY));
+        hasher.update(m_options.get_bool_option(MDL_JIT_OPTION_EVAL_DAG_TERNARY_STRICTLY));
+        hasher.update(m_options.get_bool_option(MDL_JIT_OPTION_DISABLE_EXCEPTIONS));
+        hasher.update(m_options.get_bool_option(MDL_JIT_OPTION_ENABLE_RO_SEGMENT));
+        hasher.update(m_options.get_bool_option(MDL_JIT_OPTION_LINK_LIBDEVICE));
+        hasher.update(m_options.get_string_option(MDL_JIT_OPTION_TEX_LOOKUP_CALL_MODE));
+        hasher.update(m_options.get_bool_option(MDL_JIT_OPTION_MAP_STRINGS_TO_IDS));
+        hasher.update(m_options.get_string_option(MDL_JIT_OPTION_SCENE_DATA_NAMES));
+
+        hasher.final(cache_key);
+
+        ICode_cache::Entry const *entry = code_cache->lookup(cache_key);
+
+        if (entry != NULL) {
+            // found a hit
+            fill_code_from_cache(code, entry);
+            return code;
+        }
+    }
+
     Generated_code_source::Source_res_manag res_manag(alloc, &lambda->get_resource_attribute_map());
 
     llvm::LLVMContext llvm_context;
@@ -542,6 +639,8 @@ IGenerated_code_executable *Code_generator_jit::compile_into_switch_function_for
 
     // Enable the read-only data segment
     code_gen.enable_ro_data_segment();
+
+    code_gen.set_resource_tag_map(&lambda->get_resource_tag_map());
 
     llvm::Function *func = code_gen.compile_switch_lambda(
         /*incremental=*/false, *lambda, resolver, /*next_arg_block_index=*/0);
@@ -572,6 +671,10 @@ IGenerated_code_executable *Code_generator_jit::compile_into_switch_function_for
         // copy the string constant table.
         for (size_t i = 0, n = code_gen.get_string_constant_count(); i < n; ++i) {
             code->add_mapped_string(code_gen.get_string_constant(i), i);
+        }
+
+        if (code_cache != NULL) {
+            enter_code_into_cache(code, code_cache, cache_key);
         }
     } else if (code->access_messages().get_error_message_count() == 0) {
         // on failure, ensure that the code contains an error message
@@ -621,7 +724,8 @@ IGenerated_code_lambda_function *Code_generator_jit::compile_into_generic_functi
         Type_mapper::TM_NATIVE_X86,
         /*sm_version=*/0,
         /*has_tex_handler=*/m_options.get_bool_option(MDL_JIT_USE_BUILTIN_RESOURCE_HANDLER_CPU),
-        Type_mapper::SSM_CORE,
+        lambda->get_execution_context() == ILambda_function::LEC_ENVIRONMENT ?
+            Type_mapper::SSM_ENVIRONMENT : Type_mapper::SSM_CORE,
         num_texture_spaces,
         num_texture_results,
         m_options,
@@ -629,13 +733,23 @@ IGenerated_code_lambda_function *Code_generator_jit::compile_into_generic_functi
         get_state_mapping(),
         &res_manag, /*enable_debug=*/false);
 
-    llvm::Function *func = code_gen.compile_generic_lambda(
+    // Enable the read-only data segment
+    code_gen.enable_ro_data_segment();
+
+    code_gen.set_resource_tag_map(&lambda->get_resource_tag_map());
+
+    llvm::Function *func = code_gen.compile_lambda(
         /*incremental=*/false, *lambda, resolver, transformer, /*next_arg_block_index=*/0);
     if (func != NULL) {
         llvm::Module *module = func->getParent();
         MDL_JIT_module_key module_key = code_gen.jit_compile(module);
         code->set_llvm_module(module_key, module);
         code_gen.fill_function_info(code.get());
+
+        size_t data_size = 0;
+        char const *data = reinterpret_cast<char const *>(code_gen.get_ro_segment(data_size));
+
+        code->set_ro_segment(data, data_size);
 
         // gen the entry point
         void *entry_point = code_gen.get_entry_point(module_key, func);
@@ -657,7 +771,11 @@ IGenerated_code_lambda_function *Code_generator_jit::compile_into_generic_functi
         }
     } else if (code->access_messages().get_error_message_count() == 0) {
         // on failure, ensure that the code contains an error message
-        code_gen.error(INTERNAL_JIT_BACKEND_ERROR, "Compiling generic function failed");
+        code_gen.error(
+            INTERNAL_JIT_BACKEND_ERROR,
+            lambda->get_execution_context() == ILambda_function::LEC_ENVIRONMENT
+                ? "Compiling environment function failed"
+                : "Compiling generic function failed");
     }
     code->retain();
     return code.get();
@@ -718,7 +836,7 @@ IGenerated_code_executable *Code_generator_jit::compile_into_llvm_ir(
 
     llvm::Function *func = NULL;
     if (body != NULL) {
-        func = code_gen.compile_generic_lambda(
+        func = code_gen.compile_lambda(
             /*incremental=*/false,
             *lambda,
             resolver,
@@ -776,9 +894,6 @@ IGenerated_code_executable *Code_generator_jit::compile_distribution_function_cp
 {
     Distribution_function const *dist_func = impl_cast<Distribution_function>(idist_func);
 
-    mi::base::Handle<ILambda_function> root_lambda_handle(dist_func->get_main_df());
-    Lambda_function const *root_lambda = impl_cast<Lambda_function>(root_lambda_handle.get());
-
     // always expect the uniform state to be part of the MDL SDK state structure
     m_options.set_option(MDL_JIT_OPTION_INCLUDE_UNIFORM_STATE, "true");
 
@@ -791,7 +906,7 @@ IGenerated_code_executable *Code_generator_jit::compile_distribution_function_cp
     Generated_code_lambda_function::Lambda_res_manag res_manag(*code, /*resource_map=*/NULL);
 
     // make sure, all registered resources are also known to the Lambda_res_manag
-    res_manag.import_from_resource_attribute_map(&root_lambda->get_resource_attribute_map());
+    res_manag.import_from_resource_attribute_map(&dist_func->get_resource_attribute_map());
 
     mi::base::Handle<MDL> compiler(dist_func->get_compiler());
 
@@ -811,7 +926,12 @@ IGenerated_code_executable *Code_generator_jit::compile_distribution_function_cp
 
     LLVM_code_generator::Function_vector llvm_funcs(get_allocator());
     llvm::Module *module = code_gen.compile_distribution_function(
-        /*incremental=*/false, *dist_func, resolver, llvm_funcs, /*next_arg_block_index=*/0);
+        /*incremental=*/false,
+        *dist_func,
+        resolver,
+        llvm_funcs,
+        /*next_arg_block_index=*/0,
+        /*main_function_indices=*/NULL);
 
     if (module != NULL) {
         MDL_JIT_module_key module_key = code_gen.jit_compile(module);
@@ -853,9 +973,6 @@ IGenerated_code_executable *Code_generator_jit::compile_distribution_function_gp
 {
     Distribution_function const *dist_func = impl_cast<Distribution_function>(idist_func);
 
-    mi::base::Handle<ILambda_function> root_lambda_handle(dist_func->get_main_df());
-    Lambda_function const *root_lambda = impl_cast<Lambda_function>(root_lambda_handle.get());
-
     // always expect the uniform state to be part of the MDL SDK state structure
     m_options.set_option(MDL_JIT_OPTION_INCLUDE_UNIFORM_STATE, "true");
 
@@ -877,7 +994,7 @@ IGenerated_code_executable *Code_generator_jit::compile_distribution_function_gp
     Generated_code_source *code = builder.create<Generated_code_source>(alloc, code_kind);
 
     Generated_code_source::Source_res_manag res_manag(
-        alloc, &root_lambda->get_resource_attribute_map());
+        alloc, &dist_func->get_resource_attribute_map());
 
     llvm::LLVMContext llvm_context;
     HLSLOptPassGate opt_pass_gate;
@@ -911,7 +1028,12 @@ IGenerated_code_executable *Code_generator_jit::compile_distribution_function_gp
 
     LLVM_code_generator::Function_vector llvm_funcs(get_allocator());
     llvm::Module *module = code_gen.compile_distribution_function(
-        /*incremental=*/false, *dist_func, resolver, llvm_funcs, /*next_arg_block_index=*/0);
+        /*incremental=*/false,
+        *dist_func,
+        resolver,
+        llvm_funcs,
+        /*next_arg_block_index=*/0,
+        /*main_function_indices=*/NULL);
 
     if (module != NULL) {
         if (llvm_ir_output) {
@@ -991,7 +1113,7 @@ void Code_generator_jit::fill_code_from_cache(
     for (size_t i = 0; i < entry->func_info_size; ++i) {
         ICode_cache::Entry::Func_info const &info = entry->func_infos[i];
         size_t index = code->add_function_info(
-            info.name, info.dist_kind, info.func_kind, info.arg_block_index);
+            info.name, info.dist_kind, info.func_kind, info.arg_block_index, info.state_usage);
 
         for (int j = 0 ; j < int(IGenerated_code_executable::PL_NUM_LANGUAGES); ++j) {
             char const *prototype = info.prototypes[j];
@@ -1017,6 +1139,16 @@ void Code_generator_jit::enter_code_into_cache(
         mapped_strings[i] = code->get_string_constant(i);
     }
 
+    size_t n_total_handles = 0;
+    for (size_t i = 0, n = code->get_function_count(); i < n; ++i) {
+        n_total_handles += code->get_function_df_handle_count(i);
+    }
+
+    // for simplicity, allocate at least one element
+    Small_VLA<char const *, 8> handle_list(
+        get_allocator(), n_total_handles > 0 ? n_total_handles : 1);
+    size_t next_handle_index = 0;
+
     char const *empty_str = "";
     Small_VLA<ICode_cache::Entry::Func_info, 8> func_infos(
         get_allocator(), code->get_function_count());
@@ -1031,6 +1163,12 @@ void Code_generator_jit::enter_code_into_cache(
             char const *prototype = code->get_function_prototype(
                 i, IGenerated_code_executable::Prototype_language(j));
             info.prototypes[j] = prototype != NULL ? prototype : empty_str;
+        }
+        info.num_df_handles = code->get_function_df_handle_count(i);
+        info.df_handles = &handle_list[next_handle_index];
+        next_handle_index += info.num_df_handles;
+        for (size_t j = 0; j < info.num_df_handles; ++j) {
+            info.df_handles[j] = code->get_function_df_handle(i, j);
         }
     }
 
@@ -1105,6 +1243,7 @@ IGenerated_code_executable *Code_generator_jit::compile_into_source(
 
         // set the generators name
         hasher.update("JIT");
+        hasher.update(code->get_kind());
 
         hasher.update(lambda->get_name());
         hasher.update(hash->data(), hash->size());
@@ -1119,14 +1258,24 @@ IGenerated_code_executable *Code_generator_jit::compile_into_source(
         hasher.update(num_texture_spaces);
         hasher.update(num_texture_results);
         hasher.update(m_options.get_string_option(MDL_CG_OPTION_INTERNAL_SPACE));
+        hasher.update(m_options.get_bool_option(MDL_CG_OPTION_FOLD_METERS_PER_SCENE_UNIT));
+        hasher.update(m_options.get_float_option(MDL_CG_OPTION_METERS_PER_SCENE_UNIT));
+        hasher.update(m_options.get_float_option(MDL_CG_OPTION_WAVELENGTH_MIN));
+        hasher.update(m_options.get_float_option(MDL_CG_OPTION_WAVELENGTH_MAX));
         hasher.update(m_options.get_int_option(MDL_JIT_OPTION_OPT_LEVEL));
         hasher.update(m_options.get_bool_option(MDL_JIT_OPTION_FAST_MATH));
+        hasher.update(m_options.get_bool_option(MDL_JIT_OPTION_INLINE_AGGRESSIVELY));
+        hasher.update(m_options.get_bool_option(MDL_JIT_OPTION_EVAL_DAG_TERNARY_STRICTLY));
         hasher.update(m_options.get_bool_option(MDL_JIT_OPTION_DISABLE_EXCEPTIONS));
         hasher.update(m_options.get_bool_option(MDL_JIT_OPTION_ENABLE_RO_SEGMENT));
         hasher.update(m_options.get_bool_option(MDL_JIT_OPTION_LINK_LIBDEVICE));
         hasher.update(m_options.get_string_option(MDL_JIT_OPTION_TEX_LOOKUP_CALL_MODE));
         hasher.update(m_options.get_bool_option(MDL_JIT_OPTION_MAP_STRINGS_TO_IDS));
-        hasher.update(m_options.get_bool_option(MDL_JIT_OPTION_HLSL_USE_RESOURCE_DATA));
+        hasher.update(m_options.get_string_option(MDL_JIT_OPTION_SCENE_DATA_NAMES));
+
+        if (code_kind == IGenerated_code_executable::CK_HLSL) {
+            hasher.update(m_options.get_bool_option(MDL_JIT_OPTION_HLSL_USE_RESOURCE_DATA));
+        }
 
         hasher.final(cache_key);
 
@@ -1178,7 +1327,7 @@ IGenerated_code_executable *Code_generator_jit::compile_into_source(
 
     llvm::Function *func = NULL;
     if (body != NULL) {
-        func = code_gen.compile_generic_lambda(
+        func = code_gen.compile_lambda(
             /*incremental=*/false,
             *lambda,
             resolver,
@@ -1254,6 +1403,25 @@ unsigned char const *Code_generator_jit::get_libdevice_for_gpu(
     return LLVM_code_generator::get_libdevice(size, min_ptx_version);
 }
 
+// Get the resolution of the libbsdf multi-scattering lookup table data.
+bool Code_generator_jit::get_libbsdf_multiscatter_data_resolution(
+    IValue_texture::Bsdf_data_kind bsdf_data_kind,
+    size_t &out_theta,
+    size_t &out_roughness,
+    size_t &out_ior) const
+{
+    return libbsdf_data::get_libbsdf_multiscatter_data_resolution(
+        bsdf_data_kind, out_theta, out_roughness, out_ior);
+}
+
+// Get access to the libbsdf multi-scattering lookup table data.
+unsigned char const *Code_generator_jit::get_libbsdf_multiscatter_data(
+    IValue_texture::Bsdf_data_kind bsdf_data_kind,
+    size_t                         &size) const
+{
+    return libbsdf_data::get_libbsdf_multiscatter_data(bsdf_data_kind, size);
+}
+
 // Create a link unit.
 Link_unit_jit *Code_generator_jit::create_link_unit(
     Compilation_mode mode,
@@ -1311,14 +1479,19 @@ Link_unit_jit *Code_generator_jit::create_link_unit(
 IGenerated_code_executable *Code_generator_jit::compile_unit(
     ILink_unit const *iunit)
 {
+    if (iunit == NULL)
+        return NULL;
     size_t num_funcs = iunit->get_function_count();
-    if (iunit == NULL || num_funcs == 0)
+    if (num_funcs == 0)
         return NULL;
 
     Link_unit_jit const &unit = *impl_cast<Link_unit_jit>(iunit);
 
     IAllocator        *alloc = get_allocator();
     Allocator_builder builder(alloc);
+
+    // pass the resource to tag map to the code generator
+    unit->set_resource_tag_map(unit.get_resource_tag_map());
 
     // now finalize the module
     llvm::Module *module = unit->finalize_module();
@@ -1397,6 +1570,13 @@ IGenerated_code_executable *Code_generator_jit::compile_unit(
     return code_obj.get();
 }
 
+/// Create a blank layout used for deserialization of target codes.
+IGenerated_code_value_layout *Code_generator_jit::create_value_layout() const
+{
+    return m_builder.create<mi::mdl::Generated_code_value_layout>(
+        this->get_allocator());
+}
+
 // Calculate the state mapping mode from options.
 unsigned Code_generator_jit::get_state_mapping() const
 {
@@ -1438,6 +1618,7 @@ Link_unit_jit::Link_unit_jit(
     unsigned           state_mapping,
     bool               enable_debug)
 : Base(alloc)
+, m_arena(alloc)
 , m_target_kind(target_kind)
 , m_source_only_llvm_context()
 , m_code(create_code_object(jitted_code))
@@ -1464,6 +1645,7 @@ Link_unit_jit::Link_unit_jit(
 , m_arg_block_layouts(alloc)
 , m_lambdas(alloc)
 , m_dist_funcs(alloc)
+, m_resource_tag_map(alloc)
 {
     // For native code, we don't need mangling and read-only data segments
     if (m_target_kind != TK_NATIVE) {
@@ -1576,10 +1758,55 @@ void Link_unit_jit::update_resource_attribute_map(
             Generated_code_source::Source_res_manag *res_manag =
                 static_cast<Generated_code_source::Source_res_manag *>(m_res_manag);
 
-            res_manag->set_resource_attribute_map(&lambda->get_resource_attribute_map());
+            res_manag->import_resource_attribute_map(&lambda->get_resource_attribute_map());
         }
         break;
     }
+
+    // also ensure that the tags are handled right
+    update_resource_tag_map(lambda);
+}
+
+// Update the resource map for the current lambda function to be compiled.
+void Link_unit_jit::update_resource_tag_map(
+    Lambda_function const *lambda)
+{
+    for (size_t i = 0, n = lambda->get_resource_entries_count(); i < n; ++i) {
+        Resource_tag_tuple const *e = lambda->get_resource_entry(i);
+
+        int old_tag = find_resource_tag(e->m_kind, e->m_url);
+        if (old_tag == 0) {
+            add_resource_tag_mapping(e->m_kind, e->m_url, e->m_tag);
+        } else {
+            MDL_ASSERT(old_tag == e->m_tag && "Tag mismatch in resource table");
+        }
+    }
+}
+
+// Find the assigned tag for a resource in the resource map.
+int Link_unit_jit::find_resource_tag(
+    Resource_tag_tuple::Kind kind,
+    char const               *url) const
+{
+    // linear search
+    for (size_t i = 0, n = m_resource_tag_map.size(); i < n; ++i) {
+        Resource_tag_tuple const &e = m_resource_tag_map[i];
+
+        if (e.m_kind== kind && strcmp(e.m_url, url) == 0)
+            return e.m_tag;
+    }
+    return 0;
+}
+
+// Add a new entry in the resource map.
+void Link_unit_jit::add_resource_tag_mapping(
+    Resource_tag_tuple::Kind kind,
+    char const               *url,
+    int                      tag)
+{
+    url = url != NULL ? Arena_strdup(m_arena, url) : NULL;
+
+    m_resource_tag_map.push_back(Resource_tag_tuple(kind, url, tag));
 }
 
 // Access messages.
@@ -1672,7 +1899,7 @@ bool Link_unit_jit::add(
     size_t next_arg_block_index =
         *arg_block_index != ~0 ? *arg_block_index : m_arg_block_layouts.size();
     if (body != NULL) {
-        func = m_code_gen.compile_generic_lambda(
+        func = m_code_gen.compile_lambda(
             /*incremental=*/true, *lambda, resolver, /*transformer=*/NULL, next_arg_block_index);
     } else {
         func = m_code_gen.compile_switch_lambda(
@@ -1704,13 +1931,19 @@ bool Link_unit_jit::add(
     IDistribution_function const *idist_func,
     ICall_name_resolver const    *resolver,
     size_t                       *arg_block_index,
-    size_t                       *function_index)
+    size_t                       *main_function_indices,
+    size_t                        num_main_function_indices)
 {
     Distribution_function const *dist_func = impl_cast<Distribution_function>(idist_func);
     if (dist_func == NULL)
         return false;
 
-    mi::base::Handle<ILambda_function> root_lambda_handle(dist_func->get_main_df());
+    // wrong size of main_function_indices array?
+    if (main_function_indices != NULL &&
+            num_main_function_indices != dist_func->get_main_function_count())
+        return false;
+
+    mi::base::Handle<ILambda_function> root_lambda_handle(dist_func->get_root_lambda());
     Lambda_function const *root_lambda = impl_cast<Lambda_function>(root_lambda_handle.get());
 
     // we compile a new lambda, do an update of the resource attribute map
@@ -1719,32 +1952,31 @@ bool Link_unit_jit::add(
     // Add to distribution function list, as m_code_gen will see it
     m_dist_funcs.push_back(mi::base::make_handle_dup(idist_func));
 
-    size_t init_func_index = m_code_gen.get_current_exported_function_count();
-
     size_t next_arg_block_index =
         *arg_block_index != ~0 ? *arg_block_index : m_arg_block_layouts.size();
     LLVM_code_generator::Function_vector llvm_funcs(get_allocator());
     llvm::Module *module = m_code_gen.compile_distribution_function(
-        /*incremental=*/true, *dist_func, resolver, llvm_funcs, next_arg_block_index);
+        /*incremental=*/ true,
+        *dist_func,
+        resolver,
+        llvm_funcs,
+        next_arg_block_index,
+        main_function_indices);
 
-    if (module != NULL) {
-        if (m_code_gen.get_captured_arguments_llvm_type() != NULL && *arg_block_index == ~0) {
-            IAllocator        *alloc = get_allocator();
-            Allocator_builder builder(alloc);
-            m_arg_block_layouts.push_back(
-                mi::base::make_handle(
-                    builder.create<Generated_code_value_layout>(alloc, &m_code_gen)));
-            MDL_ASSERT(next_arg_block_index == m_arg_block_layouts.size() - 1);
-            *arg_block_index = next_arg_block_index;
-        }
+    if (module == NULL)
+        return false;
 
-        // pass out the function index of the init function
-        if (function_index != NULL)
-            *function_index = init_func_index;
-
-        return true;
+    if (m_code_gen.get_captured_arguments_llvm_type() != NULL && *arg_block_index == ~0) {
+        IAllocator        *alloc = get_allocator();
+        Allocator_builder builder(alloc);
+        m_arg_block_layouts.push_back(
+            mi::base::make_handle(
+                builder.create<Generated_code_value_layout>(alloc, &m_code_gen)));
+        MDL_ASSERT(next_arg_block_index == m_arg_block_layouts.size() - 1);
+        *arg_block_index = next_arg_block_index;
     }
-    return false;
+
+    return true;
 }
 
 // Get the number of functions in this link unit.

@@ -1,5 +1,5 @@
 /******************************************************************************
- * Copyright (c) 2012-2019, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2012-2020, NVIDIA CORPORATION. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -88,6 +88,7 @@ static const Tag_t INVALID_TAG = Tag_t(0);
 class Base_pointer_serializer
 {
 public:
+    typedef ptr_hash_map<void, Tag_t>::Type::value_type     value_type;
     typedef ptr_hash_map<void, Tag_t>::Type::const_iterator const_iterator;
 
 public:
@@ -420,10 +421,11 @@ public:
     ~Buffer_serializer();
 
 private:
-    enum { LOAD_SIZE = 4096 };
+    enum { LOAD_SIZE = 8 * 1024 };
 
     struct Header {
-        Header *next;
+        size_t size;      ///< The size load section.
+        Header *next;     ///< Point to the next header.
 
         Byte load[LOAD_SIZE];
     };
@@ -432,16 +434,16 @@ private:
     IAllocator *m_alloc;
 
     /// Points to the first header.
-    Header *m_first;
+    mutable Header *m_first;
 
     /// Points to the current header.
-    Header *m_curr;
+    mutable Header *m_curr;
 
     /// Points to the next byte written.
-    Byte *m_next;
+    mutable Byte *m_next;
 
     /// Points to the end byte of the current Header.
-    Byte *m_end;
+    mutable Byte *m_end;
 
     // Current size of the buffer.
     size_t m_size;
@@ -1261,6 +1263,11 @@ public:
         unsigned char b = m_deserializer->read();
         MDL_ASSERT(b == 0 || b == 1);
         return b != 0;
+    }
+
+    /// Read an size_t value.
+    size_t read_size_t() {
+        return m_deserializer->read_encoded_tag();
     }
 
     /// Read an unsigned value.

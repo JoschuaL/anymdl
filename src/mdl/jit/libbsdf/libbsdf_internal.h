@@ -1,5 +1,5 @@
 /***************************************************************************************************
- * Copyright (c) 2017-2019, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2017-2020, NVIDIA CORPORATION. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -29,27 +29,27 @@
 #ifndef MDL_LIBBSDF_INTERNAL_H
 #define MDL_LIBBSDF_INTERNAL_H
 
+#include "../../../mdl/compiler/stdmodule/enums.h"
+
+using namespace mi::mdl::df;
+
 #define BSDF_API extern "C"
 #define BSDF_PARAM extern "C"
 
 #ifdef _MSC_VER
     #define __align__(n) __declspec(align(n))
     #define BSDF_INLINE __forceinline
+    #define BSDF_NOINLINE __declspec(noinline)
 #else
     #define __align__(n) __attribute__((aligned(n)))
     #define BSDF_INLINE __attribute__((always_inline)) inline
+    #define BSDF_NOINLINE __attribute__((noinline))
 #endif
 
 #ifndef M_PI
     #define M_PI            3.14159265358979323846
 #endif
 #define M_ONE_OVER_PI       0.318309886183790671538
-
-enum scatter_mode {
-    scatter_reflect,
-    scatter_transmit,
-    scatter_reflect_transmit
-};
 
 //-----------------------------------------------------------------------------
 // define vector types CUDA-like
@@ -316,6 +316,12 @@ BSDF_INLINE TTarget make(const TComponent& ... args)
 
     return res;
 }
+
+
+//-----------------------------------------------------------------------------
+// Swizzle replacement functions
+//-----------------------------------------------------------------------------
+BSDF_INLINE float3 xyz(float4 v) { return  make<float3>(v.x, v.y, v.z); }
 
 
 //-----------------------------------------------------------------------------
@@ -590,6 +596,20 @@ namespace state
     };
 }
 
+/// The kind of BSDF data in case of BSDF data textures (otherwise BDK_NONE).
+/// Must be in-sync with mi::mdl::IValue_texture::Bsdf_data_kind.
+enum Bsdf_data_kind {
+    BDK_NONE,
+    BDK_SIMPLE_GLOSSY_MULTISCATTER,
+    BDK_BACKSCATTERING_GLOSSY_MULTISCATTER,
+    BDK_BECKMANN_SMITH_MULTISCATTER,
+    BDK_GGX_SMITH_MULTISCATTER,
+    BDK_BECKMANN_VC_MULTISCATTER,
+    BDK_GGX_VC_MULTISCATTER,
+    BDK_WARD_GEISLER_MORODER_MULTISCATTER,
+    BDK_SHEEN_MULTISCATTER,
+};
+
 class State
 {
 public:
@@ -607,6 +627,14 @@ public:
     char const *get_arg_block() const;
     float call_lambda_float(int index) const;
     float3 call_lambda_float3(int index) const;
+    unsigned int call_lambda_uint(int index) const;
+    float get_arg_block_float(int offset) const;
+    float3 get_arg_block_float3(int offset) const;
+    unsigned int get_arg_block_uint(int offset) const;
+    bool get_arg_block_bool(int offset) const;
+    float3 get_material_ior() const;
+    float3 get_measured_curve_value(int measured_curve_idx, int value_idx);
+    unsigned int get_thin_walled() const;
 
     uint3 bsdf_measurement_resolution(
         int bsdf_measurement_index,
@@ -645,6 +673,28 @@ public:
     float light_profile_pdf(
         int light_profile_index,
         const float2& theta_phi) const;
+
+    float3 tex_lookup_float3_2d(
+        int texture_index,
+        const float2& coord,
+        int wrap_u,
+        int wrap_v,
+        const float2& crop_u,
+        const float2& crop_v) const;
+
+    float3 tex_lookup_float3_3d(
+        int texture_index,
+        const float3& coord,
+        int wrap_u,
+        int wrap_v,
+        int wrap_w,
+        const float2& crop_u,
+        const float2& crop_v,
+        const float2& crop_w) const;
+
+    unsigned get_bsdf_data_texture_id(Bsdf_data_kind bsdf_data_kind) const;
+
+    float2 adapt_microfacet_roughness(const float2& roughness_uv) const;
 };
 
 #include "libbsdf_runtime.h"
@@ -652,13 +702,31 @@ public:
 
 struct BSDF
 {
-    void (*sample)(BSDF_sample_data *data, State *state, float3 const &inherited_normal);
-    void (*evaluate)(BSDF_evaluate_data *data, State *state, float3 const &inherited_normal);
-    void (*pdf)(BSDF_pdf_data *data, State *state, float3 const &inherited_normal);
+    void(*sample)(
+        BSDF_sample_data *data, 
+        State *state, 
+        float3 const &inherited_normal);
+
+    void(*evaluate)(
+        BSDF_evaluate_data *data,
+        State *state,
+        float3 const &inherited_normal,
+        float3 const &inherited_weight);
+
+    void(*pdf)(
+        BSDF_pdf_data *data, 
+        State *state, 
+        float3 const &inherited_normal);
+
+    void(*auxiliary)(
+        BSDF_auxiliary_data *data, 
+        State *state, 
+        float3 const &inherited_normal,
+        float3 const &inherited_weight);
 
     // returns true, if the attached BSDF is "bsdf()".
     // note: this is currently unsupported for BSDFs in BSDF_component
-    bool (*is_black)();
+    bool(*is_black)();
 };
 
 struct BSDF_component
@@ -675,9 +743,27 @@ struct color_BSDF_component
 
 struct EDF
 {
-    void(*sample)(EDF_sample_data *data, State *state, float3 const &inherited_normal);
-    void(*evaluate)(EDF_evaluate_data *data, State *state, float3 const &inherited_normal);
-    void(*pdf)(EDF_pdf_data *data, State *state, float3 const &inherited_normal);
+    void(*sample)(
+        EDF_sample_data *data, 
+        State *state, 
+        float3 const &inherited_normal);
+
+    void(*evaluate)(
+        EDF_evaluate_data *data,
+        State *state,
+        float3 const &inherited_normal,
+        float3 const &inherited_weight);
+
+    void(*pdf)(
+        EDF_pdf_data *data, 
+        State *state, 
+        float3 const &inherited_normal);
+
+    void(*auxiliary)(
+        EDF_auxiliary_data *data, 
+        State *state, 
+        float3 const &inherited_normal,
+        float3 const &inherited_weight);
 
     // returns true, if the attached BSDF is "edf()".
     // note: this is currently unsupported for EDFs in EDF_component

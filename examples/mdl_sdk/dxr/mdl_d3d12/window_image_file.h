@@ -1,5 +1,5 @@
 /******************************************************************************
- * Copyright (c) 2019, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2019-2020, NVIDIA CORPORATION. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -34,11 +34,18 @@
 #include "common.h"
 #include "window.h"
 
-namespace mdl_d3d12
+namespace mi { namespace examples { namespace gui
+{
+    class Root;
+}}}
+
+namespace mi { namespace examples { namespace mdl_d3d12
 {
     class Base_application;
     class Base_application_message_interface;
     class Texture;
+
+    // ------------------------------------------------------------------------
 
     class Window_image_file : public IWindow
     {
@@ -46,7 +53,7 @@ namespace mdl_d3d12
 
     public:
         explicit Window_image_file(
-            Base_application_message_interface& message_pump_interface, 
+            Base_application_message_interface& message_pump_interface,
             std::string file_path,
             size_t iteration_count);
 
@@ -54,6 +61,7 @@ namespace mdl_d3d12
 
         int show(int nCmdShow) override;
         void close() override { m_close = true; }
+        bool has_focus() const override { return false; }
 
         Texture* get_back_buffer() const override { return m_back_buffer; }
         D3D12_CPU_DESCRIPTOR_HANDLE get_back_buffer_rtv() const override;
@@ -73,6 +81,8 @@ namespace mdl_d3d12
         void set_window_mode(IWindow::Mode mode) override { };
         IWindow::Mode get_window_mode() const override { return IWindow::Mode::Windowed; }
 
+        // get the windows main UI instance
+        mi::examples::gui::Root* get_gui() final { return nullptr; };
 
     private:
         Base_application* m_app;
@@ -92,5 +102,6 @@ namespace mdl_d3d12
 
         bool m_close;
     };
-}
+
+}}} // mi::examples::mdl_d3d12
 #endif

@@ -1,5 +1,5 @@
 /***************************************************************************************************
- * Copyright (c) 2010-2019, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2010-2020, NVIDIA CORPORATION. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -70,6 +70,7 @@ namespace DB { class Transaction; }
 namespace NEURAY {
 
 class Recording_transaction;
+class Transaction_impl;
 
 class Impexp_utilities : public boost::noncopyable
 {
@@ -95,9 +96,7 @@ public:
     /// \param rootgroup          The rootgroup to set in the import result.
     /// \param camera_inst        The camera_inst to set in the import result.
     /// \param options            The options to set in the import result.
-    /// \param list_elements      If \c true, the list of imported tags is retrieved from
-    ///                           \p transaction (which must wrap a #Recording_transaction) and
-    ///                           converted to names.
+    /// \param elements           The elements to set in the import result.
     /// \return                   The created instance of #mi::neuraylib::IImport_result.
     static mi::neuraylib::IImport_result* create_import_result(
         mi::neuraylib::ITransaction* transaction,
@@ -185,7 +184,8 @@ public:
         mi::neuraylib::IImport_result* import_result);
 
     /// Returns the elements names recorded by the recording transaction.
-    static std::vector<std::string> get_recorded_elements( Recording_transaction* transaction);
+    static std::vector<std::string> get_recorded_elements(
+        const Transaction_impl* transaction, Recording_transaction* recording_transaction);
 
     /// Return the file name extension of given URI
     ///
@@ -374,28 +374,6 @@ public:
         bool recurse,
         DB::Tag_version* time_stamp,
         bool shortcuts_mdl);
-
-    // Convenience 
-    // ==================
-
-    /// Resolves a string containing a UDIM/uv-tile marker and a corresponding u,v pair
-    /// to a pattern as used in the filename of a udim/uv-tile sequence.
-    ///
-    /// \param marker string containing a valid MDL UDIM/uv-tile marker.
-    /// \param u      uv-tile position in u-direction
-    /// \param v      uv-tile position in v-direction
-    /// \return       a string containing the resolved pattern. 
-    static mi::IString* uvtile_marker_to_string(
-        const char* marker, mi::Sint32 u, mi::Sint32 v);
-
-    /// Replaces the pattern describing the tile index of a UDIM/uv-tile image sequence 
-    /// by the given marker, if the pattern exists in the string.
-    ///
-    /// \param str      string containing the pattern, e.g. _u1_v1
-    /// \param marker   the marker to replace the pattern with
-    /// \return string with marker or \p NULL, if a corresponding pattern could not be found.
-    static mi::IString* uvtile_string_to_marker(
-        const std::string& str, const std::string& marker);
 
 private:
 

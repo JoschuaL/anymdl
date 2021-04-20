@@ -1,5 +1,5 @@
 /******************************************************************************
- * Copyright (c) 2018-2019, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2018-2020, NVIDIA CORPORATION. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -26,7 +26,7 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *****************************************************************************/
 
-// examples/example_df_cuda.cpp
+// examples/mdl_core/df_cuda/example_df_cuda.cpp
 //
 // Simple renderer using compiled BSDFs with a material parameter editor GUI.
 
@@ -82,7 +82,7 @@ inline float3 normalize(const float3 &d)
 /////////////////
 
 // Initialize OpenGL and create a window with an associated OpenGL context.
-static GLFWwindow *init_opengl(std::string& version_string)
+static GLFWwindow *init_opengl(unsigned res_x, unsigned res_y, std::string& version_string)
 {
     // Initialize GLFW
     check_success(glfwInit());
@@ -94,7 +94,7 @@ static GLFWwindow *init_opengl(std::string& version_string)
 
     // Create an OpenGL window and a context
     GLFWwindow *window = glfwCreateWindow(
-        1024, 768, WINDOW_TITLE, nullptr, nullptr);
+        int(res_x), int(res_y), WINDOW_TITLE, nullptr, nullptr);
     if (!window) {
         std::cerr << "Error creating OpenGL window!" << std::endl;
         terminate();
@@ -349,14 +349,22 @@ static void resize_buffers(
     // Register GL display buffer to CUDA
     if (*display_buffer_cuda)
         check_cuda_success(cuGraphicsUnregisterResource(*display_buffer_cuda));
-    check_cuda_success(
-        cuGraphicsGLRegisterBuffer(
-            display_buffer_cuda, display_buffer, CU_GRAPHICS_REGISTER_FLAGS_WRITE_DISCARD));
+
+    if (width == 0 || height == 0)
+        *display_buffer_cuda = 0;
+    else
+        check_cuda_success(
+            cuGraphicsGLRegisterBuffer(
+                display_buffer_cuda, display_buffer, CU_GRAPHICS_REGISTER_FLAGS_WRITE_DISCARD));
 
     // Allocate CUDA accumulation buffer
     if (*accum_buffer_cuda)
         check_cuda_success(cuMemFree(*accum_buffer_cuda));
-    check_cuda_success(cuMemAlloc(accum_buffer_cuda, width * height * sizeof(float3)));
+
+    if (width == 0 || height == 0)
+        *accum_buffer_cuda = 0;
+    else
+        check_cuda_success(cuMemAlloc(accum_buffer_cuda, width * height * sizeof(float3)));
 }
 
 // Helper for create_environment()
@@ -447,9 +455,9 @@ static void create_environment(
     // Copy the image data to a CUDA array
     const cudaChannelFormatDesc channel_desc = cudaCreateChannelDesc<float4>();
     check_cuda_success(cudaMallocArray(env_tex_data, &channel_desc, rx, ry));
-    check_cuda_success(cudaMemcpyToArray(
+    check_cuda_success(cudaMemcpy2DToArray(
         *env_tex_data, 0, 0, pixels,
-        rx * ry * sizeof(float4), cudaMemcpyHostToDevice));
+        rx * sizeof(float4), rx * sizeof(float4), ry, cudaMemcpyHostToDevice));
 
     // Create a CUDA texture
     cudaResourceDesc res_desc;
@@ -788,7 +796,7 @@ static void render_scene(
     if (options.opengl) {
         // Init OpenGL window
         std::string version_string;
-        window = init_opengl(version_string);
+        window = init_opengl(options.res_x, options.res_y, version_string);
         glfwSetWindowUserPointer(window, &window_context);
         glfwSetKeyCallback(window, handle_key);
         glfwSetScrollCallback(window, handle_scroll);
@@ -898,8 +906,10 @@ static void render_scene(
     {
         // Prepare the needed data of all target codes for the GPU
         Material_gpu_context material_gpu_context(options.enable_derivatives);
-        if (!material_gpu_context.prepare_target_code_data(target_codes[0].get()))
+        if (!material_gpu_context.prepare_target_code_data(target_codes[0].get())) {
+            fprintf(stderr, "Error: preparing data for GPU failed\n");
             terminate();
+        }
         kernel_params.tc_data = reinterpret_cast<Target_code_data *>(
             material_gpu_context.get_device_target_code_data_list());
         kernel_params.arg_block_list = reinterpret_cast<char const **>(
@@ -1002,16 +1012,24 @@ static void render_scene(
                     enum_type);
 
                 // Check for annotation info
-                int dag_param_index = cur_inst.get_dag_parameter_index(name);
-                if (dag_param_index >= 0) {
-                    int anno_count = cur_inst.get_dag_parameter_annotation_count(dag_param_index);
-                    for (int anno_ind = 0; anno_ind < anno_count; ++anno_ind) {
+                size_t dag_param_index = cur_inst.get_dag_parameter_index(name);
+                if (dag_param_index != ~0) {
+                    bool has_soft_range = false;
+                    size_t anno_count = cur_inst.get_dag_parameter_annotation_count(dag_param_index);
+                    for (size_t anno_ind = 0; anno_ind < anno_count; ++anno_ind) {
                         if (mi::mdl::DAG_call const *anno = mi::mdl::as<mi::mdl::DAG_call>(
                                 cur_inst.get_dag_parameter_annotation(dag_param_index, anno_ind))) {
                             switch (anno->get_semantic()) {
-                            case mi::mdl::IDefinition::DS_HARD_RANGE_ANNOTATION:
+                            case mi::mdl::IDefinition::DS_SOFT_RANGE_ANNOTATION:
+                                has_soft_range = true;
                                 get_annotation_argument_value(anno, 0, param_info.range_min());
                                 get_annotation_argument_value(anno, 1, param_info.range_max());
+                                break;
+                            case mi::mdl::IDefinition::DS_HARD_RANGE_ANNOTATION:
+                                if (!has_soft_range) {
+                                    get_annotation_argument_value(anno, 0, param_info.range_min());
+                                    get_annotation_argument_value(anno, 1, param_info.range_max());
+                                }
                                 break;
                             case mi::mdl::IDefinition::DS_DISPLAY_NAME_ANNOTATION:
                                 get_annotation_argument_value(anno, 0, param_info.display_name());
@@ -1073,9 +1091,6 @@ static void render_scene(
 
                 // Poll for events and process them
                 glfwPollEvents();
-                ImGui_ImplOpenGL3_NewFrame();
-                ImGui_ImplGlfw_NewFrame();
-                ImGui::NewFrame();
 
                 // Check if buffers need to be resized
                 int nwidth, nheight;
@@ -1095,6 +1110,17 @@ static void render_scene(
                     kernel_params.resolution.y = height;
                     kernel_params.iteration_start = 0;
                 }
+
+                // Don't render anything, if minimized
+                if (width == 0 || height == 0) {
+                    // Wait until something happens
+                    glfwWaitEvents();
+                    continue;
+                }
+
+                ImGui_ImplOpenGL3_NewFrame();
+                ImGui_ImplGlfw_NewFrame();
+                ImGui::NewFrame();
 
                 // Create material parameter editor window
                 ImGui::SetNextWindowPos(ImVec2(0, 0), ImGuiCond_FirstUseEver);
@@ -1467,11 +1493,13 @@ static void usage(const char *name)
     exit(EXIT_FAILURE);
 }
 
-int main(int argc, char* argv[])
+int MAIN_UTF8(int argc, char* argv[])
 {
     // Parse commandline options
     Options options;
     options.mdl_paths.push_back(get_samples_mdl_root());
+
+    bool use_default_window_size = true;
 
     for (int i = 1; i < argc; ++i) {
         const char *opt = argv[i];
@@ -1485,6 +1513,7 @@ int main(int argc, char* argv[])
             } else if (strcmp(opt, "--res") == 0 && i < argc - 2) {
                 options.res_x = std::max(atoi(argv[++i]), 1);
                 options.res_y = std::max(atoi(argv[++i]), 1);
+                use_default_window_size = false;
             } else if (strcmp(opt, "--hdr") == 0 && i < argc - 1) {
                 options.hdrfile = argv[++i];
             } else if (strcmp(opt, "-o") == 0 && i < argc - 1) {
@@ -1532,6 +1561,11 @@ int main(int argc, char* argv[])
             options.material_names.push_back(std::string(opt));
     }
 
+    if (options.opengl && use_default_window_size) {
+        options.res_x = 1024;
+        options.res_y = 768;
+    }
+
     // Access the MDL Core compiler
     mi::base::Handle<mi::mdl::IMDL> mdl_compiler(load_mdl_compiler());
     check_success(mdl_compiler);
@@ -1547,7 +1581,8 @@ int main(int argc, char* argv[])
         Material_ptx_compiler mc(
             mdl_compiler.get(),
             16,
-            options.enable_derivatives);
+            options.enable_derivatives,
+            /*df_handle_mode*/ "none");
         for (std::size_t i = 0; i < options.mdl_paths.size(); ++i)
             mc.add_module_path(options.mdl_paths[i].c_str());
 
@@ -1646,3 +1681,6 @@ int main(int argc, char* argv[])
     keep_console_open();
     return EXIT_SUCCESS;
 }
+
+// Convert command line arguments to UTF8 on Windows
+COMMANDLINE_TO_UTF8

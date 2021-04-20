@@ -1,5 +1,5 @@
 /******************************************************************************
- * Copyright (c) 2011-2019, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2011-2020, NVIDIA CORPORATION. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -292,6 +292,13 @@ public:
     ///
     /// \return the unsigned integer option value or its default value if not set
     unsigned get_unsigned_option(char const *name) const;
+
+    /// Get a float option.
+    ///
+    /// \param name         The name of the option.
+    ///
+    /// \return the float option value or its default value if not set
+    float get_float_option(char const *name) const;
 
     /// Get a version option.
     ///

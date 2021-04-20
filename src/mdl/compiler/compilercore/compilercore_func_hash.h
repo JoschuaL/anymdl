@@ -1,5 +1,5 @@
 /******************************************************************************
- * Copyright (c) 2019, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2019-2020, NVIDIA CORPORATION. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -59,7 +59,7 @@ private:
     void compute_hashes();
 
     /// Post visit a call expression.
-    void post_visit(IExpression_call *expr) MDL_FINAL;
+    IExpression *post_visit(IExpression_call *expr) MDL_FINAL;
 
     /// Get the allocator.
     IAllocator *get_allocator() const { return m_cg.get_allocator(); }

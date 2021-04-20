@@ -1,5 +1,5 @@
 #*****************************************************************************
-# Copyright (c) 2018-2019, NVIDIA CORPORATION. All rights reserved.
+# Copyright (c) 2018-2020, NVIDIA CORPORATION. All rights reserved.
 #
 # Redistribution and use in source and binary forms, with or without
 # modification, are permitted provided that the following conditions
@@ -43,4 +43,10 @@ set(PROJECT_SOURCES
 create_from_base_preset(
     TARGET ${PROJECT_NAME}
     SOURCES ${PROJECT_SOURCES}
+    )
+
+# add dependencies
+target_add_dependencies(TARGET ${PROJECT_NAME} 
+    DEPENDS 
+        boost
     )

@@ -1,5 +1,5 @@
 /***************************************************************************************************
- * Copyright (c) 2015-2019, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2015-2020, NVIDIA CORPORATION. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -547,6 +547,12 @@ public:
 
     /// Returns the type of this value.
     virtual const IType_texture* get_type() const = 0;
+
+    /// Returns the gamma value of this texture.
+    ///
+    /// \note: A gamma value of 0 corresponds to the default gamma value for the given texture
+    ///        kind.
+    virtual Float32 get_gamma() const = 0;
 };
 
 /// A light profile value.

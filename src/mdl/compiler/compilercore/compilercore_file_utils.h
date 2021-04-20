@@ -1,5 +1,5 @@
 /******************************************************************************
- * Copyright (c) 2016-2019, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2016-2020, NVIDIA CORPORATION. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -130,12 +130,24 @@ bool is_path_absolute(
 /// preserved.
 ///
 /// \param file_path  the file path to simplify
-/// \param sep        the separator (as string)
+/// \param sep        the separator (single character)
 /// The input must be valid w.r.t. to the number of directory names "..".
 string simplify_path(
     IAllocator   *alloc,
     string const &file_path,
     char         sep);
+
+/// Simplifies a file path by removing directory names "." and pairs of directory names like
+/// ("foo", ".."). Slashes are used as separators. Leading and trailing slashes in the input are
+/// preserved.
+///
+/// \param file_path  the file path to simplify
+/// \param sep        the separator (as string, possibly multiple characters like '::')
+/// The input must be valid w.r.t. to the number of directory names "..".
+string simplify_path(
+    IAllocator   *alloc,
+    string const &file_path,
+    string const &sep);
 
 /// Converts OS-specific directory separators into slashes.
 ///
@@ -161,10 +173,14 @@ public:
 
     /// Open a directory for reading names in it.
     ///
-    /// \param utf8_path  UFT8 encoded path to open
+    /// \param utf8_path    UFT8 encoded path to open
+    /// \param utf8_filter  an optional filter for the entries to be read, will be ignored
+    ///                    if not supported
     ///
     /// \return true on success
-    bool open(char const *utf8_path);
+    bool open(
+        char const *utf8_path,
+        char const *utf8_filter = NULL);
 
     /// Close directory.
     /// \return success

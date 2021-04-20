@@ -1,5 +1,5 @@
 /******************************************************************************
- * Copyright (c) 2016-2019, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2016-2020, NVIDIA CORPORATION. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -590,8 +590,8 @@ public:
     CharT *erase(CharT *first, CharT *last) {
         if (first != last) {
             // The move includes the terminating _CharT().
+            Traits::move(first, last, end() - last + 1);
             this->m_size -= (last - first);
-            Traits::move(first, last, last - first);
         }
         return first;
     }

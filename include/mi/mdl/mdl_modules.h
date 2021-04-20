@@ -1,5 +1,5 @@
 /******************************************************************************
- * Copyright (c) 2011-2019, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2011-2020, NVIDIA CORPORATION. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -45,6 +45,49 @@ namespace mdl {
 
 class IModule;
 class IThread_context;
+class IQualified_name;
+
+/// Handle that is passed to \c IModule_cache::lookup in order to identify an requested module from
+/// first successful file resolution to notifications about success or failure.
+class IModule_cache_lookup_handle
+{
+public:
+    /// Get an identifier to be used throughout the loading of a module.
+    virtual const char *get_lookup_name() const = 0;
+
+    /// Returns true if this handle belongs to context that loads module.
+    /// If the module is already loaded or the handle belongs to a waiting context, false will be
+    /// returned.
+    virtual bool is_processing() const = 0;
+};
+
+/// The Interface of a module loaded callback.
+///
+/// An implementation can be registered on the IModule_cache to get notified when a module is
+/// successfully loaded. It is used to communicate to the cache that a new entry can be made.
+class IModule_loaded_callback
+{
+public:
+    /// Function that is called when the \c module was loaded successfully so that it can be cached.
+    ///
+    /// \param module   The loaded, valid, module.
+    virtual bool register_module(
+        IModule const *module) = 0;
+
+    /// Function that is called when a module was not found or when loading failed.
+    ///
+    /// \param handle   A handle created by \c create_lookup_handle which is used throughout the
+    ///                 loading process of a module
+    virtual void module_loading_failed(
+        IModule_cache_lookup_handle const &handle) = 0;
+
+    /// Called while loading a module to check if the built-in modules are already registered.
+    ///
+    /// \param absname  the absolute name of the built-in module to check.
+    /// \return         If false, the built-in will be registered shortly after.
+    virtual bool is_builtin_module_registered(
+        char const *absname) const = 0;
+};
 
 /// The Interface of a module cache.
 ///
@@ -57,14 +100,34 @@ class IThread_context;
 /// IModule_cache if one was passed.
 class IModule_cache {
 public:
+    /// Create an \c IModule_cache_lookup_handle for this \c IModule_cache implementation.
+    /// Has to be freed using \c free_lookup_handle.
+    virtual IModule_cache_lookup_handle *create_lookup_handle() const = 0;
+
+    /// Free a handle created by \c create_lookup_handle.
+    /// \param handle       a handle created by this module cache.
+    virtual void free_lookup_handle(
+        IModule_cache_lookup_handle *handle) const = 0;
+
     /// Lookup a module.
     ///
-    /// \param absname  the absolute name of a MDL module as returns my the module resolver
+    /// \param absname      the absolute name of a MDL module as returned by the module resolver
+    /// \param handle       a handle created by \c create_lookup_handle which is used throughout the
+    ///                     loading process of a module or NULL in case the goal is to just check
+    ///                     if a module is loaded.
     ///
-    /// \return  If this module is already known, return it, otherwise NULL.
+    /// \return             If this module is already known, return it, otherwise NULL.
     ///
     /// \note  The module must be returned with increased reference count.
-    virtual IModule const *lookup(char const *absname) const = 0;
+    virtual IModule const *lookup(
+        char const                  *absname,
+        IModule_cache_lookup_handle *handle) const = 0;
+
+    /// Get the module loading callback which is used to notify the cache or the integration
+    /// about successfully loaded modules.
+    ///
+    /// \return                 The callback implementation.
+    virtual IModule_loaded_callback *get_module_loading_callback() const = 0;
 };
 
 /// Helper interface to represent an overload resolution result set returned by
@@ -121,6 +184,11 @@ public:
     ///
     /// \return The absolute name of this MDL module.
     virtual char const *get_name() const = 0;
+
+    /// Get the qualified name of the module.
+    ///
+    /// \return The qualfief name of this MDL module.
+    virtual IQualified_name const *get_qualified_name() const = 0;
 
     /// Get the absolute name of the file from which the module was loaded.
     ///
@@ -219,7 +287,7 @@ public:
     /// Get the absolute name of the module a definitions belongs to.
     ///
     /// \param def  the definition
-    /// 
+    ///
     /// \note  def must be owned by this module, i.e. a definition of this module OR
     ///        an imported definition of this module.
     virtual char const *get_owner_module_name(IDefinition const *def) const = 0;
@@ -227,7 +295,7 @@ public:
     /// Get the module a definition belongs to.
     ///
     /// \param def  the definition
-    /// 
+    ///
     /// \return the owner module, refcount increased
     ///
     /// \note  def must be owned by this module, i.e. a definition of this module OR
@@ -299,6 +367,9 @@ public:
     /// Returns true if this is a module is the one and only builtins module.
     virtual bool is_builtins() const = 0;
 
+    /// Returns true if this is an MDLE module.
+    virtual bool is_mdle() const = 0;
+
     /// Returns the amount of used memory by this module.
     virtual size_t get_memory_size() const = 0;
 
@@ -314,19 +385,18 @@ public:
     /// \note Note that modules with missing import entries cannot be compiled.
     virtual bool restore_import_entries(IModule_cache *cache) const = 0;
 
-    /// Lookup a function definition given by its name and a comma separated list
-    /// of (positional) parameter types.
+    /// Lookup a function definition given by its name and an array of (positional) parameter
+    /// types. Apply overload rules.
     ///
-    /// This function uses the MDL overload rules to find definitions if the
-    /// type signature is not complete.
+    /// \param func_name              the name of the function
+    /// \param param_type_names       the parameter type names
+    /// \param num_param_type_names   the number of parameter type names
     ///
-    /// \param func_name   the name of the function
-    /// \param param_sig   a comma separated list of MDL types, NULL means NO parameter
-    ///
-    /// \return the definition of the function if there is exactly one match, NULL otherwise
+    /// \return the found overload set if there is at least one match, NULL otherwise
     virtual IOverload_result_set const *find_overload_by_signature(
-        char const *func_name,
-        char const *param_sig) const = 0;
+        char const         *func_name,
+        char const * const param_type_names[],
+        size_t             num_param_type_names) const = 0;
 
     /// Returns the mangled MDL name of a definition that is owned by the current module
     /// if one exists.
@@ -352,38 +422,42 @@ public:
         IDefinition const *def,
         IThread_context   *context) const = 0;
 
-    /// Lookup an exact annotation definition given by its name and a comma separated list
-    /// of all (positional) parameter types.
+    /// Lookup an exact annotation definition given by its name and an array of all (positional)
+    /// parameter types.
     ///
-    /// \param anno_name   the name of the annotation
-    /// \param param_sig   a comma separated list of MDL types, NULL means NO parameter
+    /// \param anno_name              the name of the annotation
+    /// \param param_type_names       the parameter type names
+    /// \param num_param_type_names   the number of parameter type names
     ///
     /// \return the definition of the function if there is exactly one match, NULL otherwise
     ///
     /// \note This method currently does not support the lookup of annotations with deferred size
     ///       parameters.
     virtual IDefinition const *find_annotation(
-        char const *anno_name,
-        char const *param_sig) const = 0;
+        char const         *anno_name,
+        char const * const param_type_names[],
+        size_t             num_param_type_names) const = 0;
 
-    /// Lookup an annotation definition given by its name and a comma separated list
-    /// of (positional) parameter types.
+    /// Lookup an annotation definition given by its name and an array of (positional) parameter
+    /// types. Apply overload rules.
     ///
     /// This function uses the MDL overload rules to find definitions if the
     /// type signature is not complete.
     ///
-    /// \param anno_name   the name of the annotation
-    /// \param param_sig   a comma separated list of MDL types, NULL means NO parameter
+    /// \param anno_name              the name of the annotation
+    /// \param param_type_names       the parameter type names
+    /// \param num_param_type_names   the number of parameter type names
     ///
     /// \return the definition of the function if there is exactly one match, NULL otherwise
     virtual IOverload_result_set const *find_annotation_by_signature(
-        char const *anno_name,
-        char const *param_sig) const = 0;
+        char const         *anno_name,
+        char const * const param_type_names[],
+        size_t             num_param_type_names) const = 0;
 
     /// Get the module declaration of this module if any.
     ///
     /// \return the module declaration or NULL if there was none.
-    virtual IDeclaration_module const *get_module_declararation() const = 0;
+    virtual IDeclaration_module const *get_module_declaration() const = 0;
 
     /// Get the semantic version of this module if one was set.
     virtual ISemantic_version const *get_semantic_version() const = 0;

@@ -1,5 +1,5 @@
 /******************************************************************************
- * Copyright (c) 2012-2019, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2012-2020, NVIDIA CORPORATION. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -43,6 +43,7 @@
 #include <mdl/codegenerators/generator_dag/generator_dag_lambda_function.h>
 #include <mdl/codegenerators/generator_dag/generator_dag_tools.h>
 
+#include "generator_jit_generated_code_value_layout.h"
 #include "generator_jit_res_manager.h"
 
 namespace llvm {
@@ -83,115 +84,6 @@ typedef struct {
     unsigned short children_state_offs;  ///< state offset for children
 } Layout_struct;
 
-
-/// Represents the layout of an argument value block with support for nested elements.
-/// Implementation of #mi::mdl::IGenerated_code_value_layout.
-class Generated_code_value_layout : public
-    Allocator_interface_implement<IGenerated_code_value_layout>
-{
-    typedef Allocator_interface_implement<IGenerated_code_value_layout> Base;
-
-public:
-    /// Constructor.
-    ///
-    /// \param alloc     The allocator.
-    /// \param code_gen  The LLVM code generator providing the information about the captured
-    ///                  arguments and the type mapper.
-    Generated_code_value_layout(
-        IAllocator          *alloc,
-        LLVM_code_generator *code_gen);
-
-    /// Constructor from layout data block.
-    ///
-    /// \param alloc                  The allocator.
-    /// \param layout_data_block      The data block containing the layout data.
-    /// \param layout_data_size       The size of the layout data block.
-    /// \param strings_mapped_to_ids  True, if strings are mapped to IDs.
-    Generated_code_value_layout(
-        IAllocator *alloc,
-        char const *layout_data_block,
-        size_t     layout_data_size,
-        bool       strings_mapped_to_ids);
-
-    /// Returns the size of the target argument block.
-    size_t get_size() const MDL_FINAL;
-
-    /// Returns the number of arguments / elements at the given layout state.
-    ///
-    /// \param state  The layout state representing the current nesting within the
-    ///               argument value block. The default value is used for the top-level.
-    size_t get_num_elements(State state = State()) const MDL_FINAL;
-
-    /// Get the offset, the size and the kind of the argument / element inside the argument
-    /// block at the given layout state.
-    ///
-    /// \param[out]  kind      Receives the kind of the argument.
-    /// \param[out]  arg_size  Receives the size of the argument.
-    /// \param       state     The layout state representing the current nesting within the
-    ///                        argument value block. The default value is used for the top-level.
-    ///
-    /// \returns the offset of the requested argument / element or ~size_t  (0) if the state
-    ///          is invalid.
-    size_t get_layout(
-        mi::mdl::IValue::Kind &kind,
-        size_t                &arg_size,
-        State                 state = State()) const MDL_FINAL;
-
-    /// Get the layout state for the i'th argument / element inside the argument value block
-    /// at the given layout state.
-    ///
-    /// \param i      The index of the argument / element.
-    /// \param state  The layout state representing the current nesting within the argument
-    ///               value block. The default value is used for the top-level.
-    ///
-    /// \returns the layout state for the nested element or a state with m_state_offs set to
-    ///          ~mi::Uint32(0) if the element is atomic.
-    IGenerated_code_value_layout::State get_nested_state(
-        size_t i,
-        State  state = State()) const MDL_FINAL;
-
-    /// Set the value inside the given block at the given layout state.
-    ///
-    /// \param[inout] block           The argument value block buffer to be modified.
-    /// \param[in]    value           The value to be set. It has to match the expected kind.
-    /// \param[in]    value_callback  Callback for retrieving resource indices for resource values.
-    /// \param[in]    state           The layout state representing the current nesting within the
-    ///                               argument value block.
-    ///                               The default value is used for the top-level.
-    ///
-    /// \return
-    ///                      -  0: Success.
-    ///                      - -1: Invalid parameters, block or value is a \c NULL pointer.
-    ///                      - -2: Invalid state provided.
-    ///                      - -3: Value kind does not match expected kind.
-    ///                      - -4: Size of compound value does not match expected size.
-    ///                      - -5: Unsupported value type.
-    int set_value(
-        char                           *block,
-        mi::mdl::IValue const          *value,
-        IGenerated_code_value_callback *value_callback,
-        State                          state = State()) const MDL_FINAL;
-
-    // Non-API methods
-
-    /// Get the layout data buffer and its size.
-    char const *get_layout_data(size_t &size) const;
-
-private:
-    /// The layout data buffer.
-    vector<char>::Type m_layout_data;
-
-    /// If true, string argument values are mapped to string identifiers.
-    bool m_strings_mapped_to_ids;
-};
-
-// Allow impl_cast on Generated_code_value_layout
-template<>
-inline Generated_code_value_layout const *impl_cast(IGenerated_code_value_layout const *t) {
-    return static_cast<Generated_code_value_layout const *>(t);
-}
-
-
 /// Structure containing information about a function in a generated executable code object.
 struct Generated_code_function_info
 {
@@ -199,18 +91,21 @@ struct Generated_code_function_info
         string const &name,
         IGenerated_code_executable::Distribution_kind dist_kind,
         IGenerated_code_executable::Function_kind kind,
-        size_t arg_block_index)
+        size_t arg_block_index,
+        IGenerated_code_executable::State_usage state_usage)
     : m_name(name)
     , m_dist_kind(dist_kind)
     , m_kind(kind)
     , m_prototypes(name.get_allocator())
     , m_arg_block_index(arg_block_index)
+    , m_df_handle_name_table(name.get_allocator())
+    , m_state_usage(state_usage)
     {}
 
     /// The name of the function.
     string m_name;
 
-    /// The kind of the function.
+    /// The kind of distribution function, if it is a distribution function.
     IGenerated_code_executable::Distribution_kind m_dist_kind;
 
     /// The kind of the function.
@@ -222,6 +117,12 @@ struct Generated_code_function_info
 
     /// The index of the target argument block associated with this function, or ~0 if not used.
     size_t m_arg_block_index;
+
+    /// The DF handle name table.
+    vector<string>::Type m_df_handle_name_table;
+
+    /// The state usage of the function.
+    IGenerated_code_executable::State_usage m_state_usage;
 };
 
 
@@ -300,13 +201,49 @@ public:
     /// \param dist_kind        the kind of distribution to add
     /// \param func_kind        the kind of the function to add
     /// \param arg_block_index  the argument block index for this function or ~0 if not used
+    /// \param state_usage      the state usage of the function to add
     ///
     /// \returns the function index of the added function
     size_t add_function_info(
         char const *name,
         IGenerated_code_executable::Distribution_kind dist_kind,
         IGenerated_code_executable::Function_kind func_kind,
-        size_t arg_block_index) MDL_FINAL;
+        size_t arg_block_index,
+        IGenerated_code_executable::State_usage state_usage) MDL_FINAL;
+
+    /// Get the number of distribution function handles referenced by a function.
+    ///
+    /// \param func_index   the index of the function
+    ///
+    /// \return The number of distribution function handles referenced or \c 0, if the
+    ///         function is not a distribution function.
+    size_t get_function_df_handle_count(size_t func_index) const MDL_FINAL;
+
+    /// Get the name of a distribution function handle referenced by a function.
+    ///
+    /// \param func_index     The index of the function.
+    /// \param handle_index   The index of the handle.
+    ///
+    /// \return The name of the distribution function handle or \c NULL, if the
+    ///         function is not a distribution function or \p index is invalid.
+    char const *get_function_df_handle(size_t func_index, size_t handle_index) const MDL_FINAL;
+
+    /// Add the name of a distribution function handle referenced by a function.
+    ///
+    /// \param func_index     The index of the function.
+    /// \param handle_name    The name of the handle.
+    ///
+    /// \return The index of the added handle.
+    size_t add_function_df_handle(
+        size_t func_index,
+        char const *handle_name) MDL_FINAL;
+
+    /// Get the state properties used by a function.
+    ///
+    /// \param func_index     The index of the function.
+    ///
+    /// \return The state usage or 0, if the \p func_index was invalid.
+    IGenerated_code_executable::State_usage get_function_state_usage(size_t func_index) const MDL_FINAL;
 
 private:
     typedef vector<Generated_code_function_info>::Type Func_info_vec;
@@ -498,35 +435,44 @@ public:
         /// Constructor.
         ///
         /// \param alloc         The allocator.
-        /// \param resource_map  If non-NULL, use this map to resolve resources
+        /// \param resource_attr_map  If non-NULL, import this map to resolve resources
         Source_res_manag(
             IAllocator              *alloc,
-            Resource_attr_map const *resource_map);
+            Resource_attr_map const *resource_attr_map);
 
-        /// Register the given resource value and return its 1-based index in the resource table.
-        /// Index 0 represents an invalid resource reference.
+        /// Returns the resource index for the given resource usable by the target code resource
+        /// handler for the corresponding resource type.
         ///
-        /// \param resource  the MDL resource to register
-        size_t get_resource_index(IValue_resource const *resource) MDL_FINAL;
+        /// \param kind        the resource kind
+        /// \param url         the resource url (might be NULL)
+        /// \param tag         the resource tag (if assigned)
+        /// \param shape       if the resource is a texture: its shape
+        /// \param gamma_mode  if the resource is a texture: its gamma mode
+        ///
+        /// \returns a resource index or 0 if no resource index can be returned
+        size_t get_resource_index(
+            Resource_tag_tuple::Kind   kind,
+            char const                 *url,
+            int                        tag,
+            IType_texture::Shape       shape,
+            IValue_texture::gamma_mode gamma_mode) MDL_FINAL;
 
         /// Register a string constant and return its 1 based index in the string table.
         ///
         /// \param string  the MDL string value to register
         size_t get_string_index(IValue_string const *string) MDL_FINAL;
 
-        /// Sets a new resource attribute map.
+        /// Imports a new resource attribute map.
         ///
-        /// \param resource_map  if non-NULL, the new map to be used
-        void set_resource_attribute_map(Resource_attr_map const *resource_map) {
-            m_resource_map = resource_map;
-        }
+        /// \param resource_attr_map  if non-NULL, the map to be imported
+        void import_resource_attribute_map(Resource_attr_map const *resource_attr_map);
 
     private:
         /// The current allocator.
         IAllocator              *m_alloc;
 
-        /// The resource-attribute-map if given.
-        Resource_attr_map const *m_resource_map;
+        /// The accumulated resource-attribute-map.
+        Resource_attr_map       m_resource_attr_map;
 
         /// Lookup-table for resource indexes.
         Tag_index_map           m_res_indexes;
@@ -686,40 +632,57 @@ class Generated_code_lambda_function :
     class Resource_entry {
     public:
         /// Constructor.
-        Resource_entry(mi::Uint32 tag, IType_resource const *type)
-        : m_tag(tag)
-        , m_type(type)
-        , m_gamma_mode(IValue_texture::gamma_default)
-        {
-        }
-
-        /// Constructor for texture entries.
         Resource_entry(
-            mi::Uint32                 tag,
-            IType_texture const        *tex_type,
-            IValue_texture::gamma_mode gamma_mode)
+            mi::Uint32                  tag,
+            Resource_tag_tuple::Kind    kind,
+            IType_texture::Shape        shape = IType_texture::TS_2D)
         : m_tag(tag)
-        , m_type(tex_type)
-        , m_gamma_mode(gamma_mode)
+        , m_kind(kind)
+        , m_tex_shape(shape)
         {
         }
 
         /// Get the tag of this resource entry.
         mi::Uint32 get_tag() const { return m_tag; }
 
-        /// Get the type of this resource entry.
-        IType_resource const *get_type() const { return m_type; }
+        /// Get the value kind of this resource entry.
+        Resource_tag_tuple::Kind get_kind() const { return m_kind; }
+
+        /// Get the shape of this texture entry.
+        IType_texture::Shape get_shape() const { return m_tex_shape; }
 
         /// Get the gamma mode of this texture entry.
-        IValue_texture::gamma_mode get_gamma_mode() const { return m_gamma_mode; }
+        IValue_texture::gamma_mode get_gamma_mode() const {
+            switch (m_kind) {
+            case Resource_tag_tuple::RK_TEXTURE_GAMMA_DEFAULT:
+                return IValue_texture::gamma_default;
+            case Resource_tag_tuple::RK_TEXTURE_GAMMA_LINEAR:
+                return IValue_texture::gamma_linear;
+            case Resource_tag_tuple::RK_TEXTURE_GAMMA_SRGB:
+                return IValue_texture::gamma_srgb;
+            case Resource_tag_tuple::RK_SIMPLE_GLOSSY_MULTISCATTER:
+            case Resource_tag_tuple::RK_BACKSCATTERING_GLOSSY_MULTISCATTER:
+            case Resource_tag_tuple::RK_BECKMANN_SMITH_MULTISCATTER:
+            case Resource_tag_tuple::RK_GGX_SMITH_MULTISCATTER:
+            case Resource_tag_tuple::RK_BECKMANN_VC_MULTISCATTER:
+            case Resource_tag_tuple::RK_GGX_VC_MULTISCATTER:
+            case Resource_tag_tuple::RK_WARD_GEISLER_MORODER_MULTISCATTER:
+            case Resource_tag_tuple::RK_SHEEN_MULTISCATTER:
+                // always linear for BSDF data
+                return IValue_texture::gamma_linear;
+            default:
+                // not a real texture
+                return IValue_texture::gamma_default;
+            }
+        }
 
     private:
         /// The tag.
         mi::Uint32                 m_tag;
-        /// The resource type of the tag.
-        IType_resource const       *m_type;
-        /// If the type is a texture type, the MDL gamma mode of this texture.
-        IValue_texture::gamma_mode m_gamma_mode;
+        /// The resource kind of the tag.
+        Resource_tag_tuple::Kind   m_kind;
+        /// If the kind is a texture kind, the shape of this texture.
+        IType_texture::Shape       m_tex_shape;
     };
 
 public:
@@ -740,11 +703,22 @@ public:
             Generated_code_lambda_function &lambda,
             Resource_attr_map const       *resource_map);
 
-        /// Register the given resource value and return its 1-based index in the resource table.
-        /// Index 0 represents an invalid resource reference.
+        /// Returns the resource index for the given resource usable by the target code resource
+        /// handler for the corresponding resource type.
         ///
-        /// \param resource  the MDL resource to register
-        size_t get_resource_index(IValue_resource const *resource) MDL_FINAL;
+        /// \param kind        the resource kind
+        /// \param url         the resource url (might be NULL)
+        /// \param tag         the resource tag (if assigned)
+        /// \param shape       if the resource is a texture: its shape
+        /// \param gamma_mode  if the resource is a texture: its gamma mode
+        ///
+        /// \returns a resource index or 0 if no resource index can be returned
+        size_t get_resource_index(
+            Resource_tag_tuple::Kind   kind,
+            char const                 *url,
+            int                        tag,
+            IType_texture::Shape       shape,
+            IValue_texture::gamma_mode gamma_mode) MDL_FINAL;
 
         /// Register a string constant and return its 1 based index in the string table.
         ///
@@ -1137,19 +1111,19 @@ private:
     /// Register a new non-texture resource tag.
     ///
     /// \param tag   the tag
-    /// \param type  the type of this resource
+    /// \param kind  the resource kind of this resource
     size_t register_resource_tag(
-        unsigned tag,
-        IType_resource const *type);
+        unsigned                 tag,
+        Resource_tag_tuple::Kind kind);
 
     /// Register a new texture resource tag.
     ///
     /// \param tag         the texture tag
-    /// \param gamma_mode  the MDl gamma mode
-    /// \param tex_type    the type of this texture
+    /// \param tex_shape   the shape of this texture
+    /// \param gamma_mode  the MDL gamma mode
     size_t register_texture_tag(
         unsigned                   tag,
-        IType_texture const        *tex_type,
+        IType_texture::Shape       tex_shape,
         IValue_texture::gamma_mode gamma_mode);
 
     /// Register a new string.

@@ -1,5 +1,5 @@
 /******************************************************************************
- * Copyright (c) 2018-2019, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2018-2020, NVIDIA CORPORATION. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -110,7 +110,7 @@ public:
     virtual ~Mdl_browser_node();
 
     // simple name of the package or module
-    const char* get_simple_name() const;
+    const char* get_entity_name() const;
 
     // qualified name of the package or module
     const char* get_qualified_name() const;

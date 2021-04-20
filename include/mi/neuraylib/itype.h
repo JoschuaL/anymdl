@@ -1,5 +1,5 @@
 /***************************************************************************************************
- * Copyright (c) 2015-2019, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2015-2020, NVIDIA CORPORATION. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -336,6 +336,11 @@ public:
 /// by the size of the underlying compound, see #mi::neuraylib::IType_compound::get_size(). The
 /// number of matrix rows is given by the dimension of a column vector. Both dimensions are either
 /// 2, 3, or 4.
+///
+/// \note MDL matrix types are named \c TypeColxRow where \c Type is one of \c float or \c double,
+///       \c Col is the number of columns and \c Row is the number of rows (see also section 6.9 in
+///       [\ref MDLLS]). This convention is different from the convention used by
+///       #mi::math::Matrix.
 class IType_matrix : public
     mi::base::Interface_declare<0x6b76570e,0x51b2,0x4e9b,0x9f,0xe7,0xda,0x03,0x1c,0x37,0xbc,0x75,
                                 neuraylib::IType_compound>
@@ -474,6 +479,8 @@ public:
         TS_3D           = 1,            ///< Three-dimensional texture.
         TS_CUBE         = 2,            ///< Cube map texture.
         TS_PTEX         = 3,            ///< PTEX texture.
+        TS_BSDF_DATA    = 4,            ///< Three-dimensional texture representing
+                                        ///  a BSDF data table.
         TS_FORCE_32_BIT = 0xffffffffU   //   Undocumented, for alignment only.
     };
 

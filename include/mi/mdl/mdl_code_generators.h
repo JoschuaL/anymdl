@@ -1,5 +1,5 @@
 /******************************************************************************
- * Copyright (c) 2011-2019, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2011-2020, NVIDIA CORPORATION. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -54,8 +54,20 @@ class ICode_generator : public
 {
 public:
 
-    /// The name of the option to set the internal space of a code generator.
+    /// The name of the code generator option to set the internal space.
     #define MDL_CG_OPTION_INTERNAL_SPACE "internal_space"
+
+    /// The name of the code generator option to enable or disable folding of meters_per_scene_unit.
+    #define MDL_CG_OPTION_FOLD_METERS_PER_SCENE_UNIT "fold_meters_per_scene_unit"
+
+    /// The name of the code generator option to set meters_per_scene_unit.
+    #define MDL_CG_OPTION_METERS_PER_SCENE_UNIT "meters_per_scene_unit"
+
+    /// The name of the code generator option to set wavelength_min.
+    #define MDL_CG_OPTION_WAVELENGTH_MIN "wavelength_min"
+
+    /// The name of the code generator option to set wavelength_max.
+    #define MDL_CG_OPTION_WAVELENGTH_MAX "wavelength_max"
 
     /// Get the name of the target language.
     virtual char const *get_target_language() const = 0;
@@ -81,6 +93,9 @@ public:
             IGenerated_code_executable::Function_kind func_kind;
             char const *prototypes[IGenerated_code_executable::PL_NUM_LANGUAGES];
             size_t arg_block_index;
+            size_t num_df_handles;
+            char const **df_handles;
+            IGenerated_code_executable::State_usage state_usage;
         };
 
         /// Constructor.
@@ -124,6 +139,14 @@ public:
                 sz += strlen(func_infos[i].name) + 1;
                 for (int j = 0 ; j < int(IGenerated_code_executable::PL_NUM_LANGUAGES); ++j) {
                     sz += strlen(func_infos[i].prototypes[j]) + 1;
+                }
+                if (func_infos[i].num_df_handles != 0) {
+                    // align
+                    sz = (sz + sizeof(char *) - 1) & ~(sizeof(char *) - 1);
+                    sz += func_infos[i].num_df_handles * sizeof(char *);
+                    for (size_t j = 0; j < func_infos[i].num_df_handles; ++j) {
+                        sz += strlen(func_infos[i].df_handles[j]) + 1;
+                    }
                 }
             }
             // align
@@ -175,6 +198,15 @@ public:
     ///
     /// \returns the owning module of this entity if found, NULL otherwise
     virtual IModule const *get_owner_module(char const *entity_name) const = 0;
+
+    /// Find the owner code DAG of a given entity name.
+    /// If the entity name does not contain a colon, you should return the builtins DAG,
+    /// which you can identify by calling its oner module's IModule::is_builtins().
+    ///
+    /// \param entity_name    the entity name
+    ///
+    /// \returns the owning module of this entity if found, NULL otherwise
+    virtual IGenerated_code_dag const *get_owner_dag(char const *entity_name) const = 0;
 };
 
 /// A resource modifier interface.
@@ -212,10 +244,33 @@ public:
 class ILambda_resource_enumerator
 {
 public:
+    /// The potential texture usage properties (maybe-analysis).
+    enum Texture_usage_property {
+        TU_NONE            = 0u,
+        TU_HEIGHT          = 1u <<  0,     ///< uses tex::height()
+        TU_WIDTH           = 1u <<  1,     ///< uses tex::width()
+        TU_DEPTH           = 1u <<  2,     ///< uses tex::depth()
+        TU_LOOKUP_FLOAT    = 1u <<  3,     ///< uses tex::lookup_float()
+        TU_LOOKUP_FLOAT2   = 1u <<  4,     ///< uses tex::lookup_float2()
+        TU_LOOKUP_FLOAT3   = 1u <<  5,     ///< uses tex::lookup_float3()
+        TU_LOOKUP_FLOAT4   = 1u <<  6,     ///< uses tex::lookup_float4()
+        TU_LOOKUP_COLOR    = 1u <<  7,     ///< uses tex::lookup_color()
+        TU_TEXEL_FLOAT     = 1u <<  8,     ///< uses tex::texel_float()
+        TU_TEXEL_FLOAT2    = 1u <<  9,     ///< uses tex::texel_float2()
+        TU_TEXEL_FLOAT3    = 1u << 10,     ///< uses tex::texel_float3()
+        TU_TEXEL_FLOAT4    = 1u << 11,     ///< uses tex::texel_float4()
+        TU_TEXEL_COLOR     = 1u << 12,     ///< uses tex::texel_color()
+        TU_TEXTURE_ISVALID = 1u << 13,     ///< uses tex::texture_isvalid()
+    }; // can be or'ed
+
+    /// The usage of a texture resource.
+    typedef unsigned Texture_usage;
+
     /// Called for a texture resource.
     ///
-    /// \param t  the texture resource or an invalid_ref
-    virtual void texture(IValue const *t) = 0;
+    /// \param t          the texture resource or an invalid_ref
+    /// \param tex_usage  the potential usage of the texture
+    virtual void texture(IValue const *t, Texture_usage tex_usage) = 0;
 
     /// Called for a light profile resource.
     ///
@@ -395,38 +450,54 @@ public:
 
     /// Enumerate all used texture resources of this lambda function.
     ///
+    /// \param resolver    a call name resolver
     /// \param enumerator  the enumerator interface
     /// \param root        if non-NULL, the root expression to enumerate, else enumerate
     ///                    all roots of a switch function
     virtual void enumerate_resources(
+        ICall_name_resolver const   &resolver,
         ILambda_resource_enumerator &enumerator,
         DAG_node const              *root = NULL) const = 0;
 
     /// Register a texture resource mapping.
     ///
-    /// \param res     the texture resource value (or an invalid ref)
-    /// \param idx     the mapped index value representing the resource in a lookup table
-    /// \param valid   true if this is a valid resource, false otherwise
-    /// \param width   the width of the texture
-    /// \param height  the height of the texture
-    /// \param depth   the depth of the texture
+    /// \param res_kind        the kind of the resource (texture or invalid reference)
+    /// \param res_url         the URL of the texture resource if any
+    /// \param gamma           the gamma mode of this resource
+    /// \param bsdf_data_kind  the kind of BSDF data in case of BSDF data textures
+    /// \param shape           the shape of this resource
+    /// \param res_tag         the tag of the texture resource
+    /// \param idx             the mapped index value representing the resource in a lookup table
+    /// \param valid           true if this is a valid resource, false otherwise
+    /// \param width           the width of the texture
+    /// \param height          the height of the texture
+    /// \param depth           the depth of the texture
     virtual void map_tex_resource(
-        IValue const *res,
-        size_t       idx,
-        bool         valid,
-        int          width,
-        int          height,
-        int          depth) = 0;
+        IValue::Kind                   res_kind,
+        char const                     *res_url,
+        IValue_texture::gamma_mode     gamma,
+        IValue_texture::Bsdf_data_kind bsdf_data_kind,
+        IType_texture::Shape           shape,
+        int                            res_tag,
+        size_t                         idx,
+        bool                           valid,
+        int                            width,
+        int                            height,
+        int                            depth) = 0;
 
     /// Register a light profile resource mapping.
     ///
-    /// \param res      the light profile resource value (or an invalid ref)
-    /// \param idx      the mapped index value representing the resource in a lookup table
-    /// \param valid    true if this is a valid resource, false otherwise
-    /// \param power    the power of this light profile
-    /// \param maximum  the maximum of this light profile
+    /// \param res_kind  the kind of the resource (texture or invalid reference)
+    /// \param res_url   the URL of the texture resource if any
+    /// \param res_tag   the tag of the texture resource
+    /// \param idx       the mapped index value representing the resource in a lookup table
+    /// \param valid     true if this is a valid resource, false otherwise
+    /// \param power     the power of this light profile
+    /// \param maximum   the maximum of this light profile
     virtual void map_lp_resource(
-        IValue const *res,
+        IValue::Kind res_kind,
+        char const   *res_url,
+        int          res_tag,
         size_t       idx,
         bool         valid,
         float        power,
@@ -434,11 +505,15 @@ public:
 
     /// Register a bsdf measurement resource mapping.
     ///
-    /// \param res      the bsdf measurement resource value (or an invalid ref)
-    /// \param idx      the mapped index value representing the resource in a lookup table
-    /// \param valid    true if this is a valid resource, false otherwise
+    /// \param res_kind  the kind of the resource (texture or invalid reference)
+    /// \param res_url   the URL of the texture resource if any
+    /// \param res_tag   the tag of the texture resource
+    /// \param idx       the mapped index value representing the resource in a lookup table
+    /// \param valid     true if this is a valid resource, false otherwise
     virtual void map_bm_resource(
-        IValue const *res,
+        IValue::Kind res_kind,
+        char const   *res_url,
+        int          res_tag,
         size_t       idx,
         bool         valid) = 0;
 
@@ -460,7 +535,7 @@ public:
     /// \param[in]  call_evaluator  a call evaluator for handling some intrinsic functions
     virtual void optimize(
         ICall_name_resolver const *name_resolver,
-        ICall_evaluator *call_evaluator) = 0;
+        ICall_evaluator           *call_evaluator) = 0;
 
     /// Returns true if a switch function was "modified", by adding a new
     /// root expression.
@@ -552,6 +627,28 @@ public:
 
     /// Sets whether the resource attribute table contains valid attributes.
     virtual void set_has_resource_attributes(bool avail) = 0;
+
+    /// Set a tag, version pair for a resource value that might be reachable from this
+    /// function.
+    ///
+    /// \param res_kind        the resource kind
+    /// \param res_url         the resource url
+    /// \param tag             the tag value
+    virtual void set_resource_tag(
+        Resource_tag_tuple::Kind const res_kind,
+        char const                     *res_url,
+        int                            tag) = 0;
+
+    /// Remap a resource value according to the resource map.
+    ///
+    /// \param r  the resource
+    virtual int get_resource_tag(IValue_resource const *r) const = 0;
+
+    /// Get the number of resource map entries.
+    virtual size_t get_resource_entries_count() const = 0;
+
+    /// Get the i'th resource table entry.
+    virtual Resource_tag_tuple const *get_resource_entry(size_t index) const = 0;
 };
 
 /// An interface used to manage the DF and non-DF parts of an MDL material surface.
@@ -559,17 +656,22 @@ public:
 /// With an #mi::mdl::IGenerated_code_dag::IMaterial_instance at hand, compiling a distribution
 /// function usually consists of these steps:
 ///  - Create the object with #mi::mdl::ICode_generator_dag::create_distribution_function().
-///  - Get the main lambda function with #mi::mdl::IDistribution_function::get_main_df().
-///  - Set the base function name in the main lambda via #mi::mdl::ILambda_function::set_name().
+///  - Get the root lambda function with #mi::mdl::IDistribution_function::get_root_lambda().
+///  - Set the name of the init function in the root lambda via
+///    #mi::mdl::ILambda_function::set_name().
 ///  - If class compilation was used, add and map all material parameters of the material
-///    instance to the main lambda via #mi::mdl::ILambda_function::add_parameter() and
+///    instance to the root lambda via #mi::mdl::ILambda_function::add_parameter() and
 ///    #mi::mdl::ILambda_function::set_parameter_mapping().
-///  - Import the material constructor of the material instance into the main lambda
+///  - Import the material constructor of the material instance into the root lambda
 ///    via #mi::mdl::ILambda_function::import_expr().
-///  - Walk the resulting material constructor DAG node to find the distribution function.
+///  - Create a list of #mi::mdl::IDistribution_function::Requested_function elements refering
+///    to the expressions, which shall be generated, and specifying the names / base-names of the
+///    functions. These will be registered as main functions.
 ///  - Call #mi::mdl::IDistribution_function::initialize().
-///  - Enumerate the resources used by the main lambda function and all expression lambda functions
-///    of the distribution function object and map them in the main lambda function.
+///  - Enumerate the resources used by all main functions and all expression lambda functions
+///    of the distribution function object and map them in the root lambda function.
+///  - Then, after all body resources are processed, enumerate the resources from the material
+///    arguments and also map them in the root lambda function.
 ///  - Compile the distribution function object or add it to a link unit.
 ///  - If class compilation was used, use the argument block layout of the result to construct an
 ///    argument block from the parameter default values of the used material instance.
@@ -596,19 +698,37 @@ public:
         EC_INVALID_PARAMETERS,              ///< Invalid parameters were provided.
         EC_INVALID_PATH,                    ///< The path could not be resolved with the given
                                             ///< material constructor.
-        EC_UNSUPPORTED_DISTRIBUTION_TYPE,   ///< Currently only BSDFs and EDFs are supported.
+        EC_UNSUPPORTED_EXPRESSION_TYPE,     ///< The type of a given expression is not supported.
+        EC_UNSUPPORTED_DISTRIBUTION_TYPE,   ///< Currently only BSDFs, hair BSDFs and EDFs are
+                                            ///< supported.
         EC_UNSUPPORTED_BSDF,                ///< An unsupported BSDF was provided.
         EC_UNSUPPORTED_EDF,                 ///< An unsupported EDF was provided.
     };
 
+    /// The description of a function for which code generation is requested.
+    struct Requested_function {
+        Requested_function(
+            char const *path,
+            char const *base_fname)
+        : path(path)
+        , base_fname(base_fname)
+        , error_code(EC_NONE)
+        {}
+
+        char const *path;          ///< The MDL expression path
+        char const *base_fname;    ///< The name or base-name for the function
+        Error_code  error_code;    ///< An error code in case of an error
+    };
+
     /// Initialize this distribution function object for the given material
-    /// with the given distribution function node. Any additionally required
-    /// expressions from the material will also be handled.
-    /// Any material parameters must already be registered in the main DF lambda at this point.
-    /// The DAG nodes must already be owned by the main DF lambda.
+    /// with the given requested functions.
+    /// Any additionally required expressions from the material will also be handled.
+    /// Any material parameters must already be registered in the root lambda at this point.
+    /// The DAG nodes must already be owned by the root lambda.
     ///
     /// \param material_constructor       the DAG node of the material constructor
-    /// \param path                       the path of the distribution function
+    /// \param requested_functions        the expressions for which functions will be generated
+    /// \param num_functions              the number of requested functions
     /// \param include_geometry_normal    if true, the geometry normal will be handled
     /// \param calc_derivative_infos      if true, derivative information will be calculated
     /// \param allow_double_expr_lambdas  if true, expression lambdas may be created for double
@@ -618,14 +738,25 @@ public:
     /// \returns EC_NONE, if initialization was successful, an error code otherwise.
     virtual Error_code initialize(
         DAG_node const            *material_constructor,
-        char const                *path,
+        Requested_function        *requested_functions,
+        size_t                     num_functions,
         bool                       include_geometry_normal,
         bool                       calc_derivative_infos,
         bool                       allow_double_expr_lambdas,
         ICall_name_resolver const *name_resolver) = 0;
 
-    /// Get the main DF function representing a DF DAG call.
-    virtual ILambda_function *get_main_df() const = 0;
+    /// Get the root lambda function used to build nodes and manage parameters and resources.
+    virtual ILambda_function *get_root_lambda() const = 0;
+
+    /// Get the main lambda function for the given index, representing a requested function.
+    ///
+    /// \param index  the index of the main lambda function
+    ///
+    /// \returns  the requested main lambda function or NULL, if the index is invalid
+    virtual ILambda_function *get_main_function(size_t index) const = 0;
+
+    /// Get the number of main lambda functions.
+    virtual size_t get_main_function_count() const = 0;
 
     /// Add the given expression lambda function to the distribution function.
     /// The index as a decimal string can be used as name in DAG call nodes with the semantics
@@ -661,6 +792,43 @@ public:
     /// \returns  the requested expression lambda index or ~0, if the index is invalid or
     ///           the special lambda function has not been set
     virtual size_t get_special_lambda_function_index(Special_kind kind) const = 0;
+
+    /// Returns the number of distribution function handles referenced by this
+    /// distribution function.
+    virtual size_t get_df_handle_count() const = 0;
+
+    /// Returns a distribution function handle referenced by this distribution function.
+    ///
+    /// \param index  the index of the handle to return
+    ///
+    /// \return the name of the handle, or \c NULL, if the \p index was out of range.
+    virtual const char* get_df_handle(size_t index) const = 0;
+
+    /// Returns the number of distribution function handles referenced by a given main function.
+    ///
+    /// \param main_func_index  the index of the main function
+    ///
+    /// \returns  the requested count or ~0, if the index is invalid
+    virtual size_t get_main_func_df_handle_count(size_t main_func_index) const = 0;
+
+    /// Returns a distribution function handle referenced by a given main function.
+    ///
+    /// \param main_func_index  the index of the main function
+    /// \param index            the index of the handle to return
+    ///
+    /// \return the name of the handle, or \c NULL, if the \p index was out of range.
+    virtual const char* get_main_func_df_handle(size_t main_func_index, size_t index) const = 0;
+
+    /// Set a tag, version pair for a resource value that might be reachable from this
+    /// function.
+    ///
+    /// \param res_kind        the resource kind
+    /// \param res_url         the resource url
+    /// \param tag             the tag value
+    virtual void set_resource_tag(
+        Resource_tag_tuple::Kind const res_kind,
+        char const                     *res_url,
+        int                            tag) = 0;
 };
 
 /// A Link unit used by code generators.
@@ -702,19 +870,21 @@ public:
     /// the map_*_resource functions of #mi::mdl::ILambda_function. It is also recommended
     /// to already map the resources of the default arguments of the used material instance.
     ///
-    /// \param dist_func            the distribution function to compile
-    /// \param name_resolver        the call name resolver
-    /// \param arg_block_index      this variable will receive the index of the target argument
-    ///                             block used for this distribution function or ~0 if none is used
-    /// \param function_index       the index of the callable function in the created target code.
-    ///                             This parameter is optional, provide NULL if not required.
+    /// \param dist_func                  the distribution function to compile
+    /// \param name_resolver              the call name resolver
+    /// \param arg_block_index            variable receiving the index of the target argument block
+    ///                                   used for this distribution function or ~0 if none is used
+    /// \param main_function_indices      array receiving the (first) indices of the main functions.
+    ///                                   This parameter is optional, provide NULL if not required.
+    /// \param num_main_function_indices  the size of \p main_function_indices in number of entries
     ///
     /// \return true on success
     virtual bool add(
         IDistribution_function const  *dist_func,
         ICall_name_resolver const     *name_resolver,
         size_t                        *arg_block_index,
-        size_t                        *function_index) = 0;
+        size_t                        *main_function_indices,
+        size_t                         num_main_function_indices) = 0;
 
     /// Get the number of functions in this link unit.
     virtual size_t get_function_count() const = 0;
@@ -796,6 +966,12 @@ public:
     /// The name of the option to forbid local functions inside material bodies.
     #define MDL_CG_DAG_OPTION_NO_LOCAL_FUNC_CALLS "no_local_func_calls"
 
+    /// The name of the option that enables unsafe math optimizations.
+    #define MDL_CG_DAG_OPTION_UNSAFE_MATH_OPTIMIZATIONS "unsafe_math_optimizations"
+
+    /// The name of the option that exposes names of let expressions as named temporaries.
+    #define MDL_CG_DAG_OPTION_EXPOSE_NAMES_OF_LET_EXPRESSIONS "expose_names_of_let_expressions"
+
     /// Compile a module.
     /// \param      module  The module to compile.
     /// \returns            The generated code.
@@ -852,11 +1028,20 @@ class ICode_generator_jit : public
     /// The name of the option to steer linking of libdevice.
     #define MDL_JIT_OPTION_LINK_LIBDEVICE "jit_link_libdevice"
 
+    /// The name of the option to steer linking version of libbsdf to be linked.
+    #define MDL_JIT_OPTION_LINK_LIBBSDF_DF_HANDLE_SLOT_MODE "jit_link_libbsdf_df_handle_slot_mode"
+
     /// The name of the option to map strings to IDs.
     #define MDL_JIT_OPTION_MAP_STRINGS_TO_IDS "jit_map_strings_to_ids"
 
     /// The name of the option to set the optimization level of the JIT code generator.
     #define MDL_JIT_OPTION_OPT_LEVEL "jit_opt_level"
+
+    /// The name of the option to inline functions aggressively.
+    #define MDL_JIT_OPTION_INLINE_AGGRESSIVELY "jit_inline_aggressively"
+
+    /// The name of the option to evaluate the ternary operator on the DAG strictly.
+    #define MDL_JIT_OPTION_EVAL_DAG_TERNARY_STRICTLY "jit_eval_dag_ternary_strictly"
 
     /// The name of the option that steers the call mode for the GPU texture lookup.
     #define MDL_JIT_OPTION_TEX_LOOKUP_CALL_MODE "jit_tex_lookup_call_mode"
@@ -867,19 +1052,42 @@ class ICode_generator_jit : public
     /// The name of the option to use bitangent instead of tangent_u, tangent_v in the MDL state.
     #define MDL_JIT_OPTION_USE_BITANGENT "jit_use_bitangent"
 
+    /// The name of the option to generate auxiliary methods on distribution functions.
+    #define MDL_JIT_OPTION_ENABLE_AUXILIARY "jit_enable_auxiliary"
 
     /// The name of the option to let the the JIT code generator create a LLVM bitcode
-    /// instead of LLVM IR (ascii) code
+    /// instead of LLVM IR (ascii) code.
     #define MDL_JIT_OPTION_WRITE_BITCODE "jit_write_bitcode"
-
-    /// The name of the option to set a user-specified LLVM implementation for the state module.
-    #define MDL_JIT_BINOPTION_LLVM_STATE_MODULE "jit_llvm_state_module"
 
     /// The name of the option to enable/disable the builtin texture runtime of the native backend
     #define MDL_JIT_USE_BUILTIN_RESOURCE_HANDLER_CPU "jit_use_builtin_resource_handler_cpu"
 
     /// The name of the option to enable the HLSL resource data struct argument.
     #define MDL_JIT_OPTION_HLSL_USE_RESOURCE_DATA "jit_hlsl_use_resource_data"
+
+    /// The name of the option to enable using a renderer provided function to adapt microfacet
+    /// roughness.
+    #define MDL_JIT_OPTION_USE_RENDERER_ADAPT_MICROFACET_ROUGHNESS \
+        "jit_use_renderer_adapt_microfacet_roughness"
+
+    /// The name of the option specifying a comma-separated list of names for which scene data
+    /// may be available in the renderer.
+    /// For names not in the list, scene::data_isvalid will always return false and
+    /// the scene::data_lookup_* functions will always return the provided default value.
+    /// Use "*" to specify that scene data for any name may be available.
+    #define MDL_JIT_OPTION_SCENE_DATA_NAMES "jit_scene_data_names"
+
+    /// The name of the option specifying a comma-separated list of names of functions which will be
+    /// visible in the generated code (empty string means no special restriction).
+    /// Can especially be used in combination with \c "jit_llvm_renderer_module" to limit
+    /// the number of functions for which target code will be generated.
+    #define MDL_JIT_OPTION_VISIBLE_FUNCTIONS "jit_visible_functions"
+
+    /// The name of the option to set a user-specified LLVM implementation for the state module.
+    #define MDL_JIT_BINOPTION_LLVM_STATE_MODULE "jit_llvm_state_module"
+
+    /// The name of the option to set a user-specified LLVM renderer module.
+    #define MDL_JIT_BINOPTION_LLVM_RENDERER_MODULE "jit_llvm_renderer_module"
 
 public:
     /// The compilation mode for whole module compilation.
@@ -958,6 +1166,7 @@ public:
     ///
     /// The generated function will have the signature #mi::mdl::Lambda_switch_function.
     ///
+    /// \param code_cache           If non-NULL, a code cache
     /// \param lambda               the lambda function to compile
     /// \param name_resolver        the call name resolver
     /// \param num_texture_spaces   the number of supported texture spaces
@@ -966,6 +1175,7 @@ public:
     ///
     /// \return the compiled function or NULL on compilation errors
     virtual IGenerated_code_executable *compile_into_switch_function_for_gpu(
+        ICode_cache               *code_cache,
         ILambda_function const    *lambda,
         ICall_name_resolver const *name_resolver,
         unsigned                  num_texture_spaces,
@@ -1106,6 +1316,30 @@ public:
     virtual unsigned char const *get_libdevice_for_gpu(
         size_t   &size) = 0;
 
+    /// Get the resolution of the libbsdf multi-scattering lookup table data.
+    ///
+    /// \param bsdf_data_kind   the kind of the BSDF data, has to be a multiscatter kind
+    /// \param[out] theta       will contain the number of IOR values when data is available
+    /// \param[out] roughness   will contain the number of roughness values when data is available
+    /// \param[out] ior         will contain the number of theta values when data is available
+    ///
+    /// \returns                true if there is data for this semantic (BSDF)
+    virtual bool get_libbsdf_multiscatter_data_resolution(
+        IValue_texture::Bsdf_data_kind bsdf_data_kind,
+        size_t &theta,
+        size_t &roughness,
+        size_t &ior) const = 0;
+
+    /// Get access to the libbsdf multi-scattering lookup table data.
+    ///
+    /// \param bsdf_data_kind  the kind of the BSDF data, has to be a multiscatter kind
+    /// \param[out] size       the size of the data
+    ///
+    /// \returns               the lookup data if available for this semantic (BSDF), NULL otherwise
+    virtual unsigned char const *get_libbsdf_multiscatter_data(
+        IValue_texture::Bsdf_data_kind bsdf_data_kind,
+        size_t                         &size) const = 0;
+
     /// Create a link unit.
     ///
     /// \param mode                 the compilation mode
@@ -1130,6 +1364,9 @@ public:
     /// \return the compiled function or NULL on compilation errors
     virtual IGenerated_code_executable *compile_unit(
         ILink_unit const *unit) = 0;
+
+    /// Create a blank layout used for deserialization of target codes.
+    virtual IGenerated_code_value_layout *create_value_layout() const = 0;
 };
 
 /*!
@@ -1152,19 +1389,24 @@ These options are specific to the MDL DAG code generator:
 
 These options are specific to the MDL JIT code generator:
 
-- \ref mdl_option_jit_disable_exceptions      "jit_disable_exceptions"
-- \ref mdl_option_jit_enable_ro_segment       "jit_enable_ro_segment"
-- \ref mdl_option_jit_fast_math               "jit_fast_math"
-- \ref mdl_option_jit_include_uniform_state   "jit_include_uniform_state"
-- \ref mdl_option_jit_link_libdevice          "jit_link_libdevice"
-- \ref mdl_option_jit_llvm_state_module       "jit_llvm_state_module"
-- \ref mdl_option_jit_map_strings_to_ids      "jit_map_strings_to_ids"
-- \ref mdl_option_jit_opt_level               "jit_opt_level"
-- \ref mdl_option_jit_tex_lookup_call_mode    "jit_tex_lookup_call_mode"
-- \ref mdl_option_jit_tex_runtime_with_derivs "jit_tex_runtime_with_derivs"
-- \ref mdl_option_jit_use_bitangent           "jit_use_bitangent"*/
+- \ref mdl_option_jit_disable_exceptions         "jit_disable_exceptions"
+- \ref mdl_option_jit_enable_ro_segment          "jit_enable_ro_segment"
+- \ref mdl_option_jit_fast_math                  "jit_fast_math"
+- \ref mdl_option_jit_include_uniform_state      "jit_include_uniform_state"
+- \ref mdl_option_jit_inline_aggressively        "jit_inline_aggressively"
+- \ref mdl_option_jit_eval_dag_ternary_strictly  "jit_eval_dag_ternary_strictly"
+- \ref mdl_option_jit_link_libdevice             "jit_link_libdevice"
+- \ref mdl_option_jit_llvm_state_module          "jit_llvm_state_module"
+- \ref mdl_option_jit_llvm_renderer_module       "jit_llvm_renderer_module"
+- \ref mdl_option_jit_map_strings_to_ids         "jit_map_strings_to_ids"
+- \ref mdl_option_jit_opt_level                  "jit_opt_level"
+- \ref mdl_option_jit_tex_lookup_call_mode       "jit_tex_lookup_call_mode"
+- \ref mdl_option_jit_tex_runtime_with_derivs    "jit_tex_runtime_with_derivs"
+- \ref mdl_option_jit_use_bitangent              "jit_use_bitangent"*/
 /*!
-- \ref mdl_option_jit_use_builtin_res_h       "jit_use_builtin_resource_handler_cpu"
+- \ref mdl_option_jit_use_builtin_res_h          "jit_use_builtin_resource_handler_cpu"
+- \ref mdl_option_jit_use_renderer_adapt_rough   "jit_use_renderer_adapt_microfacet_roughness"
+- \ref mdl_option_jit_visible_functions          "jit_visible_functions"
 
 \section mdl_cg_options Generic MDL code generator options
 
@@ -1222,6 +1464,16 @@ These options are specific to the MDL JIT code generator:
   math optimizations (this corresponds to the \c -ffast-math option of the GCC compiler).
   Default: \c "true"
 
+\anchor mdl_option_jit_inline_aggressively
+- <b>jit_inline_aggressively</b>: If set to \c "true", the JIT code generator will add the LLVM
+  AlwaysInline attribute to most generated functions to force aggressive inlining.
+  Default: \c "false"
+
+\anchor mdl_option_jit_eval_dag_ternary_strictly
+- <b>jit_eval_dag_ternary_strictly</b>: If set to \c "true", the JIT code generator will evaluate
+  ternary operators strictly instead of lazily.
+  Default: \c "true"
+
 \anchor mdl_option_jit_include_uniform_state
 - <b>jit_include_uniform_state</b>: If set to \c "true", the uniform state (the world-to-object and
   object-to-world transforms and the object ID) are expected to be part of the renderer provided
@@ -1234,8 +1486,12 @@ These options are specific to the MDL JIT code generator:
   linked before generating PTX code.
   Default: \c "true"
 
+\anchor mdl_option_jit_llvm_renderer_module
+- <b>jit_llvm_renderer_module</b>: A binary option which allows you to set a user-defined LLVM
+  renderer module which will be linked and optimized together with the generated code.
+
 \anchor mdl_option_jit_llvm_state_module
-- <b>jit_llvm_state_module</b>: A binary option which allows you to set a user-specified LLVM
+- <b>jit_llvm_state_module</b>: A binary option which allows you to set a user-defined LLVM
   implementation for the state module.
 
 \anchor mdl_option_jit_map_strings_to_ids
@@ -1273,9 +1529,25 @@ These options are specific to the MDL JIT code generator:
 
 \anchor mdl_option_jit_use_builtin_res_h
 - <b>jit_use_builtin_resource_handler_cpu</b>: If set to \c "false", the built-in texture handler
-  is not used when running cpu code. Instead, the user needs to provide a vtable of texture
+  is not used when running CPU code. Instead, the user needs to provide a vtable of texture
   functions via the tex_data parameter.
   Default: \c "false"
+
+\anchor mdl_option_jit_use_renderer_adapt_rough
+- <b>jit_use_renderer_adapt_microfacet_roughness</b>: If set to \c "true", the generated code
+  expects the renderer to provide a function with the prototype
+  \c "float2 mdl_adapt_microfacet_roughness(Shading_state_material state, float2 roughness_uv)"
+  which can adapt the roughness of microfacet BSDFs. For sheen_bsdf, the same roughness will
+  be provided in both dimensions and only the \c x component of the result will be used.
+  Currently only supported for HLSL.
+  Default: \c "false"
+
+\anchor mdl_option_jit_visible_functions
+- <b>jit_visible_functions</b>: Specifies a comma-separated list of names of functions which will be
+  visible in the generated code (empty string means no special restriction).
+  Can especially be used in combination with \ref mdl_option_jit_llvm_renderer_module to limit
+  the number of functions for which target code will be generated.
+  Default: \c ""
 */
 
 

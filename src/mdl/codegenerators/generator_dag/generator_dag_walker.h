@@ -1,5 +1,5 @@
 /******************************************************************************
- * Copyright (c) 2012-2019, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2012-2020, NVIDIA CORPORATION. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -73,8 +73,12 @@ class DAG_ir_walker {
 public:
     /// Constructor.
     ///
-    /// \param alloc  an allocator for temporary memory
-    explicit DAG_ir_walker(IAllocator *alloc);
+    /// \param alloc    an allocator for temporary memory
+    /// \param as_tree  if true, walk the DAG as a Tree, NOT as a DAG, i.e. a node that has several
+    ///                 users will be visited more than one.
+    explicit DAG_ir_walker(
+        IAllocator *alloc,
+        bool       as_tree);
 
     /// Walk the IR nodes of a material, including temporaries.
     ///
@@ -104,6 +108,16 @@ public:
         Generated_code_dag::Material_instance::Slot slot,
         IDAG_ir_visitor                             *visitor);
 
+    /// Walk the IR nodes of a function, including temporaries.
+    ///
+    /// \param dag         the code DAG that will be visited
+    /// \param func_index  the index of the function to walk
+    /// \param visitor     the visitor
+    void walk_function(
+        Generated_code_dag *dag,
+        int                func_index,
+        IDAG_ir_visitor    *visitor);
+
     /// Walk a DAG IR node.
     ///
     /// \param node       the DAG IR node that will be visited
@@ -131,6 +145,9 @@ private:
 private:
     /// The allocator.
     IAllocator *m_alloc;
+
+    /// If true, walk as a Tree.
+    bool m_as_tree;
 };
 
 /// Helper class: hashes a DAG.

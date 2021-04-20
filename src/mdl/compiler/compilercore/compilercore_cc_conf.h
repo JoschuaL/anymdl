@@ -1,5 +1,5 @@
 /******************************************************************************
- * Copyright (c) 2015-2019, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2015-2020, NVIDIA CORPORATION. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -68,7 +68,6 @@
 /// Use to mark functions as uncallable.
 #if (__cplusplus >= 201103L) || __has_feature(cxx_deleted_functions) \
     || (defined(_MSC_VER) && _MSC_VER >= 1900)
-// No version of MSVC currently supports this.
 #define MDL_DELETED_FUNCTION = delete
 #else
 #define MDL_DELETED_FUNCTION
@@ -130,6 +129,15 @@
 #define MDL_ALWAYS_INLINE __forceinline
 #else
 #define MDL_ALWAYS_INLINE
+#endif
+
+/// MDL_CHECK_RESULT - Mark function whose return value should not be ignored.
+#if defined(__GNUC__) && (__GNUC__ >= 4)
+#define MDL_CHECK_RESULT __attribute__ ((warn_unused_result))
+#elif defined(_MSC_VER) && (_MSC_VER >= 1700)
+#define MDL_CHECK_RESULT _Check_return_
+#else
+#define MDL_CHECK_RESULT
 #endif
 
 #if __cplusplus >= 201103L

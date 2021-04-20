@@ -1,5 +1,5 @@
 /***************************************************************************************************
- * Copyright (c) 2010-2019, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2010-2020, NVIDIA CORPORATION. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -32,6 +32,7 @@
 
 #include "pch.h"
 
+#include "neuray_class_factory.h"
 #include "neuray_impexp_utilities.h"
 #include "neuray_recording_transaction.h"
 #include "neuray_transaction_impl.h"
@@ -55,9 +56,14 @@
 #include <base/util/string_utils/i_string_utils.h>
 #include <base/system/main/access_module.h>
 #include <base/lib/path/i_path.h>
+
+#include <io/scene/dbimage/i_dbimage.h>
+#include <io/scene/bsdf_measurement/i_bsdf_measurement.h>
+#include <io/scene/lightprofile/i_lightprofile.h>
 #include <io/scene/mdl_elements/i_mdl_elements_function_definition.h>
 #include <io/scene/mdl_elements/i_mdl_elements_material_definition.h>
 #include <io/scene/mdl_elements/i_mdl_elements_module.h>
+
 
 #include <regex>
 
@@ -169,7 +175,7 @@ mi::neuraylib::IReader* Impexp_utilities::create_reader(
 {
     path = convert_uri_to_filename( uri);
     if( path.empty())
-        return 0;
+        return nullptr;
 
     DISK::File_reader_impl* file_reader_impl = new DISK::File_reader_impl();
 
@@ -188,13 +194,13 @@ mi::neuraylib::IReader* Impexp_utilities::create_reader(
         }
 
         file_reader_impl->release();
-        return 0;
+        return nullptr;
     }
 
     // handle non-${shader} paths
     if( !file_reader_impl->open( path.c_str())) {
         file_reader_impl->release();
-        return 0;
+        return nullptr;
     }
 
     return file_reader_impl;
@@ -205,12 +211,12 @@ mi::neuraylib::IWriter* Impexp_utilities::create_writer(
 {
     path = convert_uri_to_filename( uri);
     if( path.empty())
-        return 0;
+        return nullptr;
 
     DISK::File_writer_impl* file_writer_impl = new DISK::File_writer_impl();
     if( !file_writer_impl->open( path.c_str())) {
         file_writer_impl->release();
-        return 0;
+        return nullptr;
     }
 
     return file_writer_impl;
@@ -243,8 +249,9 @@ mi::neuraylib::IImport_result_ext* Impexp_utilities::create_import_result_ext(
 }
 
 std::vector<std::string> Impexp_utilities::get_recorded_elements(
-    Recording_transaction* recording_transaction)
+    const Transaction_impl* transaction, Recording_transaction* recording_transaction)
 {
+    const Class_factory* class_factory = transaction->get_class_factory();
     const std::vector<DB::Tag>& tags = recording_transaction->get_stored_tags();
 
     std::vector<std::string> names;
@@ -252,6 +259,17 @@ std::vector<std::string> Impexp_utilities::get_recorded_elements(
         const char* name = recording_transaction->tag_to_name( *it);
         if( name)
             names.push_back( name);
+
+        // Skip DB elements that have not been registered with the API's class factory.
+        SERIAL::Class_id class_id = class_factory->get_class_id( transaction, *it);
+        if( !class_factory->is_class_registered( class_id))
+            continue;
+
+        // Implementation classes of resources should have been skipped. They are an internal
+        // implementation detail and not visible in the API.
+        ASSERT( M_NEURAY_API, class_id != DBIMAGE::ID_IMAGE_IMPL);
+        ASSERT( M_NEURAY_API, class_id != LIGHTPROFILE::ID_LIGHTPROFILE_IMPL);
+        ASSERT( M_NEURAY_API, class_id != BSDFM::ID_BSDF_MEASUREMENT_IMPL);
     }
 
     return names;
@@ -540,89 +558,7 @@ bool Impexp_utilities::is_drive_letter( char c)
     return ((c >= 'A') && (c <= 'Z')) || ((c >= 'a') && (c <= 'z'));
 }
 
-mi::IString*  Impexp_utilities::uvtile_marker_to_string(
-    const char* marker, mi::Sint32 u, mi::Sint32 v)
-{
-    if( !marker)
-        return NULL;
-
-    std::stringstream uvstr;
-    std::string filename( marker);
-    
-    size_t p1 = filename.find( "<UVTILE0>");
-    if( p1 == std::string::npos)
-    {
-        p1 = filename.find("<UVTILE1>");
-        if( p1 != std::string::npos)
-        {
-            u ++;
-            v ++;
-        }
-    }
-    size_t p2;
-    if( p1 != std::string::npos)
-    {
-        uvstr << "_u" << u << "_v" << v; 
-        p2 = p1 + 9;
-    }
-    else
-    {
-        p1 = filename.find( "<UDIM>");
-        if( p1 != std::string::npos)
-        {
-            if(u < 0 || v < 0)
-                return NULL;
-            int uv = 1000 + v * 10 + u + 1;
-            uvstr << uv;
-            p2 = p1 + 6;
-        }
-        else
-            return NULL; // no valid match
-    }
-    std::string postfix = filename.substr( p2);
-
-    std::stringstream result;
-    result << filename.substr( 0, p1) << uvstr.str() << postfix;
-
-    mi::IString* istring = new String_impl();
-    istring->set_c_str( result.str().c_str());
-    return istring;
-}
-
-mi::IString*  Impexp_utilities::uvtile_string_to_marker(
-    const std::string& str, const std::string& marker)
-{
-    if (str.empty() || marker.empty())
-        return NULL;
-
-    std::regex regex;
-    if(marker == "<UVTILE0>" || marker == "<UVTILE1>")
-    {
-        regex = ".*(_u-?[0-9]+_v-?[0-9]+)(.*)";
-    }
-    else if(marker == "<UDIM>")
-    {
-        regex = ".*([1-9][0-9][0-9][0-9])(.*)";
-    }
-    else 
-        return NULL;
-
-    std::smatch matches;
-    if ( !regex_match(str, matches, regex))
-        return NULL;
-
-    ASSERT(M_NEURAY_API, matches.size() == 3);
-    auto p0 = matches.position(1);
-    auto p1 = matches.position(2);
-
-    std::string result(str);
-    result.replace(p0, p1-p0, marker);
-
-    mi::IString* istring = new String_impl();
-    istring->set_c_str( result.c_str());
-    return istring;
-}
-
 } // namespace NEURAY
 
 } // namespace MI
+

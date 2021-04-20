@@ -1,5 +1,5 @@
 /******************************************************************************
- * Copyright (c) 2013-2019, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2013-2020, NVIDIA CORPORATION. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -57,7 +57,12 @@ public:
     void update(char c) { update((unsigned char const *)&c, 1); }
 
     /// Update the MD5 sum by a string.
-    void update(char const *s) { update((unsigned char const *)s, strlen(s)); }
+    void update(char const *s) {
+        if (s == NULL)
+            update(char(0));
+        else
+            update((unsigned char const *)s, strlen(s));
+    }
 
     /// Update the MD5 sum by an unsigned 32bit.
     void update(mi::Uint32 v) {
@@ -67,6 +72,20 @@ public:
                 static_cast<unsigned char>(v >> 16),
                 static_cast<unsigned char>(v >> 24) };
         update(buf, 4);
+    }
+
+    /// Update the MD5 sum by an unsigned 64bit.
+    void update(mi::Uint64 v) {
+        unsigned char buf[8] = {
+            static_cast<unsigned char>(v),
+            static_cast<unsigned char>(v >> 8),
+            static_cast<unsigned char>(v >> 16),
+            static_cast<unsigned char>(v >> 24),
+            static_cast<unsigned char>(v >> 32),
+            static_cast<unsigned char>(v >> 40),
+            static_cast<unsigned char>(v >> 48),
+            static_cast<unsigned char>(v >> 56) };
+        update(buf, 8);
     }
 
     /// Update the MD5 sum by a signed 32bit.

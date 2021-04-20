@@ -1,5 +1,5 @@
 /******************************************************************************
- * Copyright (c) 2018-2019, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2018-2020, NVIDIA CORPORATION. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -26,7 +26,7 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *****************************************************************************/
 
-// examples/compiled_material_traverser_print.h
+// examples/mdl_sdk/traversal/compiled_material_traverser_print.h
 //
 // Example class that implements the base traverser.
 // It allows to generate MDL code from compiled materials that can be compiled 
@@ -37,9 +37,11 @@
 #define COMPILED_MATERIAL_TRAVERSER_PRINT_H
 
 #include "compiled_material_traverser_base.h"
+
 #include <stack>
 #include <set>
 #include <map>
+#include <sstream>
 
 // An implementation of the Compiled_material_traverser_base to demonstrate a 
 // valid traversal mechanism. In this case to print MDL code from a compiled material. 
@@ -58,14 +60,14 @@ public:
         // configurations.
         //
         // Param:  transaction     The DB transaction to resolve resources.
-        // Param:  compiler        The instance of the mdl compiler.
         // Param:  keep_structure  The structures produced by the compiler do not always 
         //                         match the structure of the input material, e.g., constants are 
         //                         transformed to parameters this printer focuses on producing mdl 
         //                         code. However, it could be interesting to see an output that is 
         //                         closer to the compiler output. Therefore, set true.
-        Context(mi::neuraylib::ITransaction* transaction, mi::neuraylib::IMdl_compiler* compiler,
-                bool keep_structure);
+        Context(
+            mi::neuraylib::ITransaction* transaction,
+            bool keep_structure);
 
         // modules that have been imported directly by the module and used by the input material
         const std::set<std::string>& get_used_modules() const { return m_used_modules; }
@@ -87,7 +89,6 @@ public:
 
         // required to resolve resources
         mi::neuraylib::ITransaction* m_transaction;
-        mi::neuraylib::IMdl_compiler* m_compiler;
 
         // stream to build up the mdl code
         std::stringstream m_print;
@@ -130,7 +131,7 @@ public:
     std::string print_mdl(const mi::neuraylib::ICompiled_material* material,
                                 Context& context,
                                 const std::string& original_module_name,
-                                const std::string& output_material_name) const;
+                                const std::string& output_material_name);
 
 protected:
 
@@ -141,7 +142,7 @@ protected:
     // Param: [in,out] context     The context that is passed through without changes.
     void stage_begin(const mi::neuraylib::ICompiled_material* material,
                      Compiled_material_traverser_base::Traveral_stage stage,
-                     void* context) const /*override*/;
+                     void* context) override;
 
     // Called at the end of each traversal stage: Parameters, Temporaries and Body.
     //
@@ -150,7 +151,7 @@ protected:
     // Param: [in,out] context     The context that is passed through without changes.
     void stage_end(const mi::neuraylib::ICompiled_material* material,
                    Compiled_material_traverser_base::Traveral_stage stage,
-                   void* context) const /*override*/;
+                   void* context) override;
 
 
     // Called when the traversal reaches a new element.
@@ -160,7 +161,7 @@ protected:
     // Param: [in,out] context     The context that is passed through without changes.
     void visit_begin(const mi::neuraylib::ICompiled_material* material,
                      const Compiled_material_traverser_base::Traversal_element& element,
-                     void* context) const /*override*/;
+                     void* context) override;
 
     // In that case, the method is called before each of the children are traversed, e.g.,
     // before each argument of a function call.
@@ -173,7 +174,7 @@ protected:
     void visit_child(const mi::neuraylib::ICompiled_material* material,
                      const Compiled_material_traverser_base::Traversal_element& element,
                      mi::Size children_count, mi::Size child_index,
-                     void* context) const /*override*/;
+                     void* context) override;
 
 
     // Called when the traversal reaches finishes an element.
@@ -183,7 +184,7 @@ protected:
     // Param: [in,out] context     The context that is passed through without changes.
     void visit_end(const mi::neuraylib::ICompiled_material* material,
                    const Compiled_material_traverser_base::Traversal_element& element,
-                   void* context) const /*override*/;
+                   void* context) override;
 
 private:
 

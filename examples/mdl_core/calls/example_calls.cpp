@@ -1,5 +1,5 @@
 /******************************************************************************
- * Copyright (c) 2018-2019, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2018-2020, NVIDIA CORPORATION. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -26,7 +26,7 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *****************************************************************************/
 
-// examples/example_calls.cpp
+// examples/mdl_core/calls/example_calls.cpp
 //
 // Uses function calls to create a textured material.
 
@@ -43,8 +43,8 @@ using Call_argument = mi::mdl::DAG_call::Call_argument;
 void create_textured_material(Material_compiler &mc, bool use_class_compilation)
 {
     // Load the "example" and "base" modules found via the configured module search path.
-    mi::base::Handle<mi::mdl::IGenerated_code_dag> example_dag(mc.compile_module("::nvidia::sdk_examples::tutorials"));
-    mi::base::Handle<mi::mdl::IGenerated_code_dag> base_dag(mc.compile_module("::base"));
+    mi::base::Handle<mi::mdl::IGenerated_code_dag const> example_dag(mc.compile_module("::nvidia::sdk_examples::tutorials"));
+    mi::base::Handle<mi::mdl::IGenerated_code_dag const> base_dag(mc.compile_module("::base"));
 
     // Create a material instance which we will use to create DAG nodes for the material arguments
     Material_instance mat_instance(
@@ -73,7 +73,8 @@ void create_textured_material(Material_compiler &mc, bool use_class_compilation)
     // We don't provide a full signature here, but just take the first with a matching name
     mi::mdl::DAG_node const *file_texture_call = mat_instance.create_call(
         base_dag.get(),
-        "::base::file_texture",
+        "::base::file_texture(texture_2d,color,color,::base::mono_mode,"
+        "::base::texture_coordinate_info,float2,float2,::tex::wrap_mode,::tex::wrap_mode,bool)",
         { Call_argument(mat_instance->create_constant(tex), "texture") });
     check_success(file_texture_call);
 
@@ -114,7 +115,7 @@ void usage()
     exit(EXIT_FAILURE);
 }
 
-int main(int argc, char *argv[])
+int MAIN_UTF8(int argc, char *argv[])
 {
     // Collect command line parameters
     std::vector<std::string> mdl_paths;
@@ -157,3 +158,6 @@ int main(int argc, char *argv[])
     keep_console_open();
     return EXIT_SUCCESS;
 }
+
+// Convert command line arguments to UTF8 on Windows
+COMMANDLINE_TO_UTF8

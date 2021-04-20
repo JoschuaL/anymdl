@@ -1,5 +1,5 @@
 /***************************************************************************************************
- * Copyright (c) 2010-2019, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2010-2020, NVIDIA CORPORATION. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -171,7 +171,7 @@ private:
 /// itself.
 ///
 /// \tparam I   interface from public/mi/neuraylib, e.g., mi::neuraylib::IOptions
-/// \tparam D   DB class from io/scene, e.g., MI::OPTIONS::Options
+/// \tparam D   DB class from io/scene, e.g., OPTIONS::Options
 template <typename I, typename D>
 class Db_element_impl
   : public mi::base::Interface_merger<mi::base::Interface_implement<I>, Db_element_impl_base >

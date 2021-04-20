@@ -1,5 +1,5 @@
 /******************************************************************************
- * Copyright (c) 2014-2019, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2014-2020, NVIDIA CORPORATION. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -69,8 +69,8 @@ protected:
     /// \param type   the node's type: 't for temporary, 'a' for argument
     /// \param index  the node's index
     void node_name(
-        char type,
-        int index);
+        char   type,
+        size_t index);
 
     /// Print a DAG IR node.
     ///
@@ -95,7 +95,7 @@ protected:
     /// \param color  the color of the node, NULL for default
     void argument(
         char const *name,
-        int        index,
+        size_t     index,
         char const *color = NULL);
 
     /// Print a dependence edge.
@@ -119,7 +119,7 @@ protected:
     /// \param color  the color of the edge, NULL for default
     void edge(
         char           type,
-        int            src,
+        size_t         src,
         DAG_node const *dst,
         char const     *label,
         char const     *color = NULL);

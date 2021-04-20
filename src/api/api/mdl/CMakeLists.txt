@@ -1,5 +1,5 @@
 #*****************************************************************************
-# Copyright (c) 2018-2019, NVIDIA CORPORATION. All rights reserved.
+# Copyright (c) 2018-2020, NVIDIA CORPORATION. All rights reserved.
 #
 # Redistribution and use in source and binary forms, with or without
 # modification, are permitted provided that the following conditions
@@ -31,11 +31,9 @@ set(PROJECT_NAME api-api-mdl)
 
 # collect sources
 set(PROJECT_HEADERS
-    "mdl_logger.h"
-    "mdl_mdl_backend_impl.h"
-    "mdl_mdl_compiler_impl.h"
-    "mdl_mdl_entity_resolver_impl.h"
-    "mdl_neuray_impl.h"
+    "../mdl/mdl_logger.h"
+    "../mdl/mdl_mdl_compiler_impl.h"
+    "../mdl/mdl_neuray_impl.h"
     "../neuray/i_neuray_attribute_context.h"
     "../neuray/i_neuray_transaction.h"
     "../neuray/i_neuray_db_element.h"
@@ -66,17 +64,23 @@ set(PROJECT_HEADERS
     "../neuray/neuray_map_impl.h"
     "../neuray/neuray_material_instance_impl.h"
     "../neuray/neuray_mdl_archive_api_impl.h"
+    "../neuray/neuray_mdl_backend_api_impl.h"
+    "../neuray/neuray_mdl_backend_impl.h"
     "../neuray/neuray_mdl_compatibility_api_impl.h"
     "../neuray/neuray_mdl_configuration_impl.h"
     "../neuray/neuray_mdl_discovery_api_impl.h"
+    "../neuray/neuray_mdl_entity_resolver_impl.h"
     "../neuray/neuray_mdl_evaluator_api_impl.h"
     "../neuray/neuray_mdl_execution_context_impl.h"
     "../neuray/neuray_mdl_factory_impl.h"
     "../neuray/neuray_mdl_i18n_configuration_impl.h"
+    "../neuray/neuray_mdl_impexp_api_impl.h"
+    "../neuray/neuray_mdl_module_transformer_impl.h"
     "../neuray/neuray_mdl_resource_callback.h"
     "../neuray/neuray_mdle_api_impl.h"
     "../neuray/neuray_module_impl.h"
     "../neuray/neuray_number_impl.h"
+    "../neuray/neuray_plugin_configuration_impl.h"
     "../neuray/neuray_pointer_impl.h"
     "../neuray/neuray_recording_transaction.h"
     "../neuray/neuray_ref_impl.h"
@@ -99,11 +103,9 @@ set(PROJECT_HEADERS
 )
 
 set(PROJECT_SOURCES 
-    "mdl_logger.cpp"
-    "mdl_mdl_backend_impl.cpp"
-    "mdl_mdl_compiler_impl.cpp"
-    "mdl_mdl_entity_resolver_impl.cpp"
-    "mdl_neuray_impl.cpp"
+    "../mdl/mdl_logger.cpp"
+    "../mdl/mdl_mdl_compiler_impl.cpp"
+    "../mdl/mdl_neuray_impl.cpp"
     "../neuray/neuray_array_impl.cpp"
     "../neuray/neuray_array_impl_proxy.cpp"
     "../neuray/neuray_attribute_container_impl.cpp"
@@ -132,17 +134,23 @@ set(PROJECT_SOURCES
     "../neuray/neuray_material_definition_impl.cpp"
     "../neuray/neuray_material_instance_impl.cpp"
     "../neuray/neuray_mdl_archive_api_impl.cpp"
+    "../neuray/neuray_mdl_backend_api_impl.cpp"
+    "../neuray/neuray_mdl_backend_impl.cpp"
     "../neuray/neuray_mdl_compatibility_api_impl.cpp"
     "../neuray/neuray_mdl_configuration_impl.cpp"
     "../neuray/neuray_mdl_discovery_api_impl.cpp"
+    "../neuray/neuray_mdl_entity_resolver_impl.cpp"
     "../neuray/neuray_mdl_evaluator_api_impl.cpp"
     "../neuray/neuray_mdl_execution_context_impl.cpp"
     "../neuray/neuray_mdl_factory_impl.cpp"
     "../neuray/neuray_mdl_i18n_configuration_impl.cpp"
+    "../neuray/neuray_mdl_impexp_api_impl.cpp"
+    "../neuray/neuray_mdl_module_transformer_impl.cpp"
     "../neuray/neuray_mdl_resource_callback.cpp"
     "../neuray/neuray_mdle_api_impl.cpp"
     "../neuray/neuray_module_impl.cpp"
     "../neuray/neuray_number_impl.cpp"
+    "../neuray/neuray_plugin_configuration_impl.cpp"
     "../neuray/neuray_pointer_impl.cpp"
     "../neuray/neuray_ref_impl.cpp"
     "../neuray/neuray_recording_transaction.cpp"

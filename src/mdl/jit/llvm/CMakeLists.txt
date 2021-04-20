@@ -1,5 +1,5 @@
 #*****************************************************************************
-# Copyright (c) 2018-2019, NVIDIA CORPORATION. All rights reserved.
+# Copyright (c) 2018-2020, NVIDIA CORPORATION. All rights reserved.
 #
 # Redistribution and use in source and binary forms, with or without
 # modification, are permitted provided that the following conditions
@@ -133,7 +133,7 @@ set(LLVM_NATIVE_BUILD ${CMAKE_CURRENT_BINARY_DIR}/dist/NATIVE CACHE PATH "Binary
 
 # speed up build is not working properly on all platforms and configurations
 if(WINDOWS)
-    set(_ENABLE_LLVM_NATIVE_BUILD ON)   # speed up build
+    set(_ENABLE_LLVM_NATIVE_BUILD OFF)  # turn ON to speed up build (currently not reliable on windows, too)
 else()
     set(_ENABLE_LLVM_NATIVE_BUILD OFF)  # not working reliably (debug builds could work)
                                         # but, it makes sense to not use an entirely different build for release
@@ -229,6 +229,12 @@ function(LLVM_TARGET_SETUP)
                 "-Wno-implicit-fallthrough"
                 "-Wno-unused-but-set-variable"
             )
+        if(NOT CMAKE_CXX_COMPILER_VERSION VERSION_LESS "8.0")
+            target_compile_options(${LLVM_TARGET_SETUP_TARGET}
+                PRIVATE
+                    "-Wno-cast-function-type"
+            )
+        endif()
     endif()
 
 

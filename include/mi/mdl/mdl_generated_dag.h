@@ -1,5 +1,5 @@
 /******************************************************************************
- * Copyright (c) 2011-2019, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2011-2020, NVIDIA CORPORATION. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -33,6 +33,7 @@
 #include <cstring>
 #include <mi/mdl/mdl_iowned.h>
 #include <mi/mdl/mdl_generated_code.h>
+#include <mi/mdl/mdl_values.h>
 
 namespace mi {
 namespace mdl {
@@ -41,6 +42,7 @@ class ICall_name_resolver;
 class IResource_modifier;
 class IValue;
 class IValue_float;
+class IValue_resource;
 class IValue_factory;
 class Messages;
 class IType_factory;
@@ -278,6 +280,16 @@ public:
     virtual int get_index() const = 0;
 };
 
+/// An interface to interrogate tag values for resource values.
+class IResource_tagger : public Interface_owned {
+public:
+    /// Get a tag,for a resource constant that might be reachable from this DAG.
+    ///
+    /// \param res             a resource
+    virtual int get_resource_tag(
+        IValue_resource const *res) const = 0;
+};
+
 /// A Builder for DAG graphs.
 ///
 /// This interface is implemented by various entities that can build DAG IR
@@ -476,6 +488,15 @@ public:
             NO_RESOURCE_SHARING  = 1 << 2,  ///< CLASS_COMPILATION: Do not share resource arguments.
             NO_STRING_PARAMS     = 1 << 3,  ///< CLASS_COMPILATION: Do not create string parameters.
             NO_TERNARY_ON_DF     = 1 << 4,  ///< CLASS_COMPILATION: Do not allow ?: on df.
+            NO_BOOL_PARAMS       = 1 << 5,  ///< CLASS_COMPILATION: Do not create bool parameters.
+            NO_ENUM_PARAMS       = 1 << 6,  ///< CLASS_COMPILATION: Do not create enum parameters.
+            /// CLASS_COMPILATION: Do not create a parameter for geometry.cutout_opacity if its
+            /// value is constant 0.0f or 1.0f.
+            NO_TRIVIAL_CUTOUT_OPACITY = 1 << 7,
+            /// CLASS_COMPILATION: Do not create layering calls for transparent layers, i.e., with
+            /// weight 0.0f.
+            NO_TRANSPARENT_LAYERS     = 1 << 8,
+            IGNORE_NOINLINE           = 1 << 9,  ///< Ignore anno::noinline() annotations.
 
             DEFAULT_CLASS_COMPILATION =  ///< Do class compilation with default flags.
                 CLASS_COMPILATION |
@@ -519,6 +540,7 @@ public:
             IP_USES_TERNARY_OPERATOR_ON_DF    = 0x10,   ///< uses the ternary operator '?:' on *df
             IP_CLASS_COMPILED                 = 0x20,   ///< was class compiled
             IP_DISTILLED                      = 0x40,   ///< was created by the distiller
+            IP_DEPENDS_ON_UNIFORM_SCENE_DATA  = 0x80,   ///< depends on uniform scene data
         };
 
         /// Opacity of an instance.
@@ -593,9 +615,18 @@ public:
         /// \param flags                      Instantiation flags.
         /// \param evaluator                  If non-NULL, use this evaluator additionally to fold
         ///                                   intrinsic functions first.
-        /// \param mdl_meters_per_scene_unit  The value for the meter/scene unit conversion.
+        /// \param fold_meters_per_scene_unit
+        ///                                   If true, occurrences of the functions
+        ///                                   state::meters_per_scene_unit() and
+        ///                                   state::scene_units_per_meter() will be folded
+        ///                                   using the \c mdl_meters_per_scene_unit parameter.
+        /// \param mdl_meters_per_scene_unit  The value for the meter/scene unit conversion
+        ///                                   only used when folding is enabled.
         /// \param wavelength_min             The value for the state::wavelength_min() function.
         /// \param wavelength_max             The value for the state::wavelength_max() function.
+        /// \param fold_params                Names of parameters to be folded in class-compilation
+        ///                                   mode (in addition to flags).
+        /// \param num_fold_params            The number of parameter names to be folded.
         ///
         /// \returns                The error code of the initialization.
         ///
@@ -605,14 +636,17 @@ public:
             ICall_name_resolver       *resolver,
             IResource_modifier        *resource_modifier,
             IGenerated_code_dag const *code_dag,
-            int                       argc,
+            size_t                    argc,
             DAG_node const            *argv[],
             bool                      use_temporaries,
             unsigned                  flags,
             ICall_evaluator           *evaluator,
+            bool                      fold_meters_per_scene_unit,
             float                     mdl_meters_per_scene_unit,
             float                     wavelength_min,
-            float                     wavelength_max) = 0;
+            float                     wavelength_max,
+            char const * const        fold_params[],
+            size_t                    num_fold_params) = 0;
 
         /// Return the material constructor of this instance.
         ///
@@ -673,8 +707,22 @@ public:
         /// might depend on the MDL edf with global distribution.
         virtual bool depends_on_global_distribution() const = 0;
 
+        /// Returns true if this instance depends on uniform scene data.
+        virtual bool depends_on_uniform_scene_data() const = 0;
+
+        /// Returns the number of scene data attributes referenced by this instance.
+        virtual size_t get_referenced_scene_data_count() const = 0;
+
+        /// Return the name of a scene data attribute referenced by this instance.
+        ///
+        /// \param index  the index of the scene data attribute
+        virtual char const *get_referenced_scene_data_name(size_t index) const = 0;
+
         /// Returns the opacity of this instance.
         virtual Opacity get_opacity() const = 0;
+
+        /// Returns the surface opacity of this instance.
+        virtual Opacity get_surface_opacity() const = 0;
 
         /// Returns the cutout opacity of this instance if it is constant.
         ///
@@ -690,6 +738,26 @@ public:
 
         /// Get the internal space.
         virtual char const *get_internal_space() const = 0;
+
+        /// Set a tag, version pair for a resource constant that might be reachable from this
+        /// instance.
+        ///
+        /// \param res             a resource
+        /// \param tag             the tag value
+        virtual void set_resource_tag(
+            IValue_resource const *res,
+            int                   tag) = 0;
+
+        /// Get the number of resource tag map entries.
+        virtual size_t get_resource_tag_map_entries_count() const = 0;
+
+        /// Get the i'th resource tag map entry or NULL if the index is out of bounds;
+        ///
+        /// \param index  the index of the resource map entry.
+        virtual Resource_tag_tuple const *get_resource_tag_map_entry(size_t index) const = 0;
+
+        /// Get the resource tagger for this material instance.
+        virtual IResource_tagger *get_resource_tagger() const = 0;
     };
 
     // -------------------------- methods --------------------------
@@ -703,49 +771,55 @@ public:
 
     /// Get the number of modules directly imported by the module
     /// from which this code was generated.
-    virtual int get_import_count() const = 0;
+    virtual size_t get_import_count() const = 0;
 
     /// Get the name of module at index imported from the module
     /// from which this code was generated.
     ///
     /// \param index  the index of the requested imported module
-    virtual char const *get_import(int index) const = 0;
+    virtual char const *get_import(size_t index) const = 0;
 
     /// Get the number of functions in the generated code.
     ///
     /// \returns    The number of functions in this generated code.
-    virtual int get_function_count() const = 0;
+    virtual size_t get_function_count() const = 0;
 
     /// Get the return type of the function at function_index.
     ///
     /// \param function_index  The index of the function.
     /// \returns               The return type of the function.
-    virtual IType const *get_function_return_type(int function_index) const = 0;
+    virtual IType const *get_function_return_type(size_t function_index) const = 0;
 
     /// Get the semantics of the function at function_index.
     ///
     /// \param function_index  The index of the function.
     /// \returns               The semantics of the function.
-    virtual IDefinition::Semantics get_function_semantics(int function_index) const = 0;
+    virtual IDefinition::Semantics get_function_semantics(size_t function_index) const = 0;
 
     /// Get the name of the function at function_index.
     ///
     /// \param function_index  The index of the function.
     /// \returns               The name of the function.
-    virtual char const *get_function_name(int function_index) const = 0;
+    virtual char const *get_function_name(size_t function_index) const = 0;
+
+    /// Get the simple name of the function at function_index.
+    ///
+    /// \param function_index  The index of the function.
+    /// \returns               The simple name of the function.
+    virtual char const *get_simple_function_name(size_t function_index) const = 0;
 
     /// Get the original name of the function at function_index if the function name is an alias,
     /// i.e. re-exported from a module.
     ///
     /// \param function_index  The index of the function.
     /// \returns               The original name of the function or NULL.
-    virtual char const *get_original_function_name(int function_index) const = 0;
+    virtual char const *get_original_function_name(size_t function_index) const = 0;
 
     /// Get the parameter count of the function at function_index.
     ///
     /// \param function_index  The index of the function.
     /// \returns               The number of parameters of the function.
-    virtual int get_function_parameter_count(int function_index) const = 0;
+    virtual size_t get_function_parameter_count(size_t function_index) const = 0;
 
     /// Get the parameter type of the parameter at parameter_index
     /// of the function at function_index.
@@ -754,8 +828,17 @@ public:
     /// \param parameter_index The index of the parameter.
     /// \returns               The type of the parameter.
     virtual IType const *get_function_parameter_type(
-        int function_index,
-        int parameter_index) const = 0;
+        size_t function_index,
+        size_t parameter_index) const = 0;
+
+    /// Get the parameter type name of the parameter at parameter_index
+    /// of the function at function_index.
+    /// \param      function_index  The index of the function.
+    /// \param      parameter_index The index of the parameter.
+    /// \returns                    The type name of the parameter.
+    virtual char const *get_function_parameter_type_name(
+        size_t function_index,
+        size_t parameter_index) const = 0;
 
     /// Get the parameter name of the parameter at parameter_index
     /// of the function at function_index.
@@ -764,16 +847,16 @@ public:
     /// \param parameter_index The index of the parameter.
     /// \returns               The name of the parameter.
     virtual char const *get_function_parameter_name(
-        int function_index,
-        int parameter_index) const = 0;
+        size_t function_index,
+        size_t parameter_index) const = 0;
 
     /// Get the index of the parameter parameter_name.
     ///
     /// \param function_index  The index of the function.
     /// \param parameter_name  The name of the parameter.
     /// \returns               The index of the parameter, or -1 if it does not exist.
-    virtual int get_function_parameter_index(
-        int        function_index,
+    virtual size_t get_function_parameter_index(
+        size_t     function_index,
         char const *parameter_name) const = 0;
 
     /// Get the enable_if condition for the given function parameter if one was specified.
@@ -782,8 +865,8 @@ public:
     /// \param parameter_index The index of the parameter.
     /// \returns               The enable_if condition for this parameter or NULL.
     virtual DAG_node const *get_function_parameter_enable_if_condition(
-        int function_index,
-        int parameter_index) const = 0;
+        size_t function_index,
+        size_t parameter_index) const = 0;
 
     /// Get the number of parameters whose enable_if condition depends on this parameter.
     ///
@@ -791,8 +874,8 @@ public:
     /// \param parameter_index The index of the parameter.
     /// \returns               Number of depended parameter conditions.
     virtual size_t get_function_parameter_enable_if_condition_users(
-        int function_index,
-        int parameter_index) const = 0;
+        size_t function_index,
+        size_t parameter_index) const = 0;
 
     /// Get a parameter index whose enable_if condition depends on this parameter.
     ///
@@ -800,10 +883,10 @@ public:
     /// \param parameter_index The index of the parameter.
     /// \param user_index      The index of the user.
     /// \returns               The index of the depended parameter.
-    virtual int get_function_parameter_enable_if_condition_user(
-        int function_index,
-        int parameter_index,
-        int user_index) const = 0;
+    virtual size_t get_function_parameter_enable_if_condition_user(
+        size_t function_index,
+        size_t parameter_index,
+        size_t user_index) const = 0;
 
     /// Get the function hash value for the given function index if available.
     ///
@@ -811,30 +894,36 @@ public:
     /// \returns               The function hash of the function or NULL if no hash
     ///                        value is available or the index is out of bounds.
     virtual DAG_hash const *get_function_hash(
-        int function_index) const = 0;
+        size_t function_index) const = 0;
 
     /// Get the number of materials in the generated code.
     ///
     /// \returns    The number of materials in this generated code.
-    virtual int get_material_count() const = 0;
+    virtual size_t get_material_count() const = 0;
 
     /// Get the name of the material at material_index.
     ///
     /// \param material_index  The index of the material.
     /// \returns               The name of the material.
-    virtual char const *get_material_name(int material_index) const = 0;
+    virtual char const *get_material_name(size_t material_index) const = 0;
+
+    /// Get the simple name of the material at material_index.
+    ///
+    /// \param material_index  The index of the material.
+    /// \returns               The simple name of the material.
+    virtual char const *get_simple_material_name(size_t material_index) const = 0;
 
     /// Get the original name of the material at material_index if the material name is an alias.
     ///
     /// \param material_index  The index of the material.
     /// \returns               The name of the material or NULL.
-    virtual char const *get_original_material_name(int material_index) const = 0;
+    virtual char const *get_original_material_name(size_t material_index) const = 0;
 
     /// Get the parameter count of the material at material_index.
     ///
     /// \param material_index  The index of the material.
     /// \returns               The number of parameters of the material.
-    virtual int get_material_parameter_count(int material_index) const = 0;
+    virtual size_t get_material_parameter_count(size_t material_index) const = 0;
 
     /// Get the parameter type of the parameter at parameter_index
     /// of the material at material_index.
@@ -843,8 +932,8 @@ public:
     /// \param parameter_index  The index of the parameter.
     /// \returns                The type of the parameter.
     virtual IType const *get_material_parameter_type(
-        int material_index,
-        int parameter_index) const = 0;
+        size_t material_index,
+        size_t parameter_index) const = 0;
 
     /// Get the parameter name of the parameter at parameter_index
     /// of the material at material_index.
@@ -853,16 +942,16 @@ public:
     /// \param parameter_index  The index of the parameter.
     /// \returns                The name of the parameter.
     virtual char const *get_material_parameter_name(
-        int material_index,
-        int parameter_index) const = 0;
+        size_t material_index,
+        size_t parameter_index) const = 0;
 
     /// Get the index of the parameter parameter_name.
     ///
     /// \param material_index  The index of the material.
     /// \param parameter_name  The name of the parameter.
     /// \returns               The index of the parameter, or -1 if it does not exist.
-    virtual int get_material_parameter_index(
-        int        material_index,
+    virtual size_t get_material_parameter_index(
+        size_t     material_index,
         char const *parameter_name) const = 0;
 
     /// Get the enable_if condition for the given material parameter if one was specified.
@@ -871,8 +960,8 @@ public:
     /// \param parameter_index  The index of the parameter.
     /// \returns                The enable_if condition for this parameter or NULL.
     virtual DAG_node const *get_material_parameter_enable_if_condition(
-        int material_index,
-        int parameter_index) const = 0;
+        size_t material_index,
+        size_t parameter_index) const = 0;
 
     /// Get the number of parameters whose enable_if condition depends on this parameter.
     ///
@@ -880,8 +969,8 @@ public:
     /// \param parameter_index  The index of the parameter.
     /// \returns                Number of depended parameter conditions.
     virtual size_t get_material_parameter_enable_if_condition_users(
-        int material_index,
-        int parameter_index) const = 0;
+        size_t material_index,
+        size_t parameter_index) const = 0;
 
     /// Get a parameter index whose enable_if condition depends on this parameter.
     ///
@@ -889,10 +978,10 @@ public:
     /// \param parameter_index  The index of the parameter.
     /// \param user_index       The index of the user.
     /// \returns                The index of the depended parameter.
-    virtual int get_material_parameter_enable_if_condition_user(
-        int material_index,
-        int parameter_index,
-        int user_index) const = 0;
+    virtual size_t get_material_parameter_enable_if_condition_user(
+        size_t material_index,
+        size_t parameter_index,
+        size_t user_index) const = 0;
 
     /// Get the node factory.
     virtual DAG_node_factory *get_node_factory() = 0;
@@ -901,8 +990,8 @@ public:
     ///
     /// \param function_index  The index of the function.
     /// \returns               The number of annotations.
-    virtual int get_function_annotation_count(
-        int function_index) const = 0;
+    virtual size_t get_function_annotation_count(
+        size_t function_index) const = 0;
 
     /// Get the annotation at annotation_index of the function at function_index.
     ///
@@ -910,15 +999,15 @@ public:
     /// \param annotation_index  The index of the annotation.
     /// \returns                 The annotation.
     virtual DAG_node const *get_function_annotation(
-        int function_index,
-        int annotation_index) const = 0;
+        size_t function_index,
+        size_t annotation_index) const = 0;
 
     /// Get the number of annotations of the function return type at function_index.
     ///
     /// \param function_index The index of the function.
     /// \returns              The number of annotations.
-    virtual int get_function_return_annotation_count(
-        int function_index) const = 0;
+    virtual size_t get_function_return_annotation_count(
+        size_t function_index) const = 0;
 
     /// Get the annotation at annotation_index of the function return type at function_index.
     ///
@@ -926,8 +1015,8 @@ public:
     /// \param annotation_index  The index of the annotation.
     /// \returns                 The annotation.
     virtual DAG_node const *get_function_return_annotation(
-        int function_index,
-        int annotation_index) const = 0;
+        size_t function_index,
+        size_t annotation_index) const = 0;
 
     /// Get the default initializer of the parameter at parameter_index
     /// of the function at function_index.
@@ -936,8 +1025,8 @@ public:
     /// \param parameter_index  The index of the parameter.
     /// \returns                The default initializer or NULL if not available.
     virtual DAG_node const *get_function_parameter_default(
-        int function_index,
-        int parameter_index) const = 0;
+        size_t function_index,
+        size_t parameter_index) const = 0;
 
     /// Get the number of annotations of the parameter at parameter_index
     /// of the function at function_index.
@@ -945,9 +1034,9 @@ public:
     /// \param function_index   The index of the function.
     /// \param parameter_index  The index of the parameter.
     /// \returns                The number of annotations.
-    virtual int get_function_parameter_annotation_count(
-        int function_index,
-        int parameter_index) const = 0;
+    virtual size_t get_function_parameter_annotation_count(
+        size_t function_index,
+        size_t parameter_index) const = 0;
 
     /// Get the annotation at annotation_index of the parameter at parameter_index
     /// of the function at function_index.
@@ -957,9 +1046,41 @@ public:
     /// \param annotation_index  The index of the annotation.
     /// \returns                 The annotation.
     virtual DAG_node const *get_function_parameter_annotation(
-        int function_index,
-        int parameter_index,
-        int annotation_index) const = 0;
+        size_t function_index,
+        size_t parameter_index,
+        size_t annotation_index) const = 0;
+
+    /// Get the number of temporaries used by the function at function_index.
+    ///
+    /// \param function_index      The index of the function.
+    /// \returns                   The number of temporaries used by material.
+    virtual size_t get_function_temporary_count(
+        size_t function_index) const = 0;
+
+    /// Get the temporary at temporary_index used by the function at function_index.
+    ///
+    /// \param function_index      The index of the function.
+    /// \param temporary_index     The index of the temporary variable.
+    /// \returns                   The value of the temporary variable.
+    virtual DAG_node const *get_function_temporary(
+        size_t function_index,
+        size_t temporary_index) const = 0;
+
+    /// Get the temporary name at temporary_index used by the function at function_index.
+    ///
+    /// \param function_index      The index of the function.
+    /// \param temporary_index     The index of the temporary variable.
+    /// \returns                   The name of the temporary variable.
+    virtual char const *get_function_temporary_name(
+        size_t function_index,
+        size_t temporary_index) const = 0;
+
+    /// Get the body of the function at function_index.
+    ///
+    /// \param function_index      The index of the function.
+    /// \returns                   The body of the function.
+    virtual DAG_node const *get_function_body(
+        size_t function_index) const = 0;
 
     /// Get the property flag of the function at function_index.
     ///
@@ -967,14 +1088,14 @@ public:
     /// \param fp              The requested property.
     /// \returns               True if this function has the property, false if not.
     virtual bool get_function_property(
-        int               function_index,
+        size_t            function_index,
         Function_property fp) const = 0;
 
     /// Get the number of entities referenced by a function.
     ///
     /// \param function_index  The index of the function.
     /// \returns               Number of function that might be called by this function
-    virtual int get_function_references_count(int function_index) const = 0;
+    virtual size_t get_function_references_count(size_t function_index) const = 0;
 
     /// Get the signature of the i'th reference of a function.
     ///
@@ -982,8 +1103,8 @@ public:
     /// \param callee_index    The index of the callee.
     /// \returns               Number of function that might be called by this function
     virtual char const *get_function_reference(
-        int function_index,
-        int callee_index) const = 0;
+        size_t function_index,
+        size_t callee_index) const = 0;
 
     /// Return the original function name of a cloned function or "" if the function
     /// is not a clone.
@@ -991,14 +1112,14 @@ public:
     /// \param function_index   The index of the function.
     /// \returns                The absolute name of the original function or "".
     virtual char const *get_cloned_function_name(
-        int function_index) const = 0;
+        size_t function_index) const = 0;
 
     /// Get the number of annotations of the material at material_index.
     ///
     /// \param material_index  The index of the material.
     /// \returns               The number of annotations.
-    virtual int get_material_annotation_count(
-        int material_index) const = 0;
+    virtual size_t get_material_annotation_count(
+        size_t material_index) const = 0;
 
     /// Get the annotation at annotation_index of the material at material_index.
     ///
@@ -1006,8 +1127,8 @@ public:
     /// \param annotation_index    The index of the annotation.
     /// \returns                   The annotation.
     virtual DAG_node const *get_material_annotation(
-        int material_index,
-        int annotation_index) const = 0;
+        size_t material_index,
+        size_t annotation_index) const = 0;
 
     /// Get the default initializer of the parameter at parameter_index
     /// of the material at material_index.
@@ -1016,8 +1137,8 @@ public:
     /// \param parameter_index     The index of the parameter.
     /// \returns                   The type of the parameter.
     virtual DAG_node const *get_material_parameter_default(
-        int material_index,
-        int parameter_index) const = 0;
+        size_t material_index,
+        size_t parameter_index) const = 0;
 
     /// Get the number of annotations of the parameter at parameter_index
     /// of the material at material_index.
@@ -1025,9 +1146,9 @@ public:
     /// \param material_index      The index of the material.
     /// \param parameter_index     The index of the parameter.
     /// \returns                   The number of annotations.
-    virtual int get_material_parameter_annotation_count(
-        int material_index,
-        int parameter_index) const = 0;
+    virtual size_t get_material_parameter_annotation_count(
+        size_t material_index,
+        size_t parameter_index) const = 0;
 
     /// Get the annotation at annotation_index of the parameter at parameter_index
     /// of the material at material_index.
@@ -1037,16 +1158,16 @@ public:
     /// \param annotation_index    The index of the annotation.
     /// \returns                   The annotation.
     virtual DAG_node const *get_material_parameter_annotation(
-        int material_index,
-        int parameter_index,
-        int annotation_index) const = 0;
+        size_t material_index,
+        size_t parameter_index,
+        size_t annotation_index) const = 0;
 
     /// Get the number of temporaries used by the material at material_index.
     ///
     /// \param material_index      The index of the material.
     /// \returns                   The number of temporaries used by material.
-    virtual int get_material_temporary_count(
-        int material_index) const = 0;
+    virtual size_t get_material_temporary_count(
+        size_t material_index) const = 0;
 
     /// Get the temporary at temporary_index used by the material at material_index.
     ///
@@ -1054,21 +1175,30 @@ public:
     /// \param temporary_index     The index of the temporary variable.
     /// \returns                   The value of the temporary variable.
     virtual DAG_node const *get_material_temporary(
-        int material_index,
-        int temporary_index) const = 0;
+        size_t material_index,
+        size_t temporary_index) const = 0;
+
+    /// Get the temporary name at temporary_index used by the material at material_index.
+    ///
+    /// \param material_index      The index of the material.
+    /// \param temporary_index     The index of the temporary variable.
+    /// \returns                   The name of the temporary variable.
+    virtual char const *get_material_temporary_name(
+        size_t material_index,
+        size_t temporary_index) const = 0;
 
     /// Get the value of the material at material_index.
     ///
     /// \param material_index      The index of the material.
     /// \returns                   The value of the material.
     virtual DAG_node const *get_material_value(
-        int material_index) const = 0;
+        size_t material_index) const = 0;
 
     /// Get the export flags of the material at material_index.
     ///
     /// \param material_index  The index of the material.
     /// \returns               True if this is an exported material, false if it is local.
-    virtual bool get_material_exported(int material_index) const = 0;
+    virtual bool get_material_exported(size_t material_index) const = 0;
 
     /// Return the original material name of a cloned material or "" if the material
     /// is not a clone.
@@ -1076,7 +1206,7 @@ public:
     /// \param material_index   The index of the material.
     /// \returns                The absolute name of the original material or "".
     virtual char const *get_cloned_material_name(
-        int material_index) const = 0;
+        size_t material_index) const = 0;
 
     /// Create a new material instance.
     ///
@@ -1085,46 +1215,46 @@ public:
     /// \returns                The material instance.
     ///
     virtual IMaterial_instance *create_material_instance(
-        int        index,
+        size_t     index,
         Error_code *error_code = NULL) const = 0;
 
     /// Get the number of exported user types.
-    virtual int get_type_count() const = 0;
+    virtual size_t get_type_count() const = 0;
 
     /// Get the name of the type at index.
     ///
     /// \param index  The index of the type.
     /// \returns      The name of the type.
     virtual char const *get_type_name(
-        int index) const = 0;
+        size_t index) const = 0;
 
     /// Get the original name of the type at index if the type is an alias.
     ///
     /// \param index  The index of the type.
     /// \returns      The original name of the type or NULL.
     virtual char const *get_original_type_name(
-        int index) const = 0;
+        size_t index) const = 0;
 
     /// Get the user type at index.
     ///
     /// \param index  The index of the type.
     /// \returns      The type.
     virtual IType const *get_type(
-        int index) const = 0;
+        size_t index) const = 0;
 
     /// Returns true if the type at index is exported.
     ///
     /// \param index  The index of the type.
     /// \returns      true for exported types.
     virtual bool is_type_exported(
-        int index) const = 0;
+        size_t index) const = 0;
 
     /// Get the number of annotations of the type at index.
     ///
     /// \param index  The index of the type.
     /// \return       The number of annotations of the type.
-    virtual int get_type_annotation_count(
-        int index) const = 0;
+    virtual size_t get_type_annotation_count(
+        size_t index) const = 0;
 
     /// Get the annotation at annotation_index of the type at type_index.
     ///
@@ -1132,15 +1262,15 @@ public:
     /// \param annotation_index    The index of the annotation.
     /// \returns                   The annotation.
     virtual DAG_node const *get_type_annotation(
-        int type_index,
-        int annotation_index) const = 0;
+        size_t type_index,
+        size_t annotation_index) const = 0;
 
     /// Get the number of type sub-entities (fields or enum constants).
     ///
     /// \param type_index          The index of the type.
     /// \returns                   The number of sub entities.
-    virtual int get_type_sub_entity_count(
-        int type_index) const = 0;
+    virtual size_t get_type_sub_entity_count(
+        size_t type_index) const = 0;
 
     /// Get the name of a type sub-entity (field or enum constant).
     ///
@@ -1148,8 +1278,8 @@ public:
     /// \param entity_index        The index of the sub entity.
     /// \returns                   The name of a sub-entity.
     virtual char const *get_type_sub_entity_name(
-        int type_index,
-        int entity_index) const = 0;
+        size_t type_index,
+        size_t entity_index) const = 0;
 
     /// Get the type of a type sub-entity (field or enum constant).
     ///
@@ -1157,17 +1287,17 @@ public:
     /// \param entity_index        The index of the sub entity.
     /// \returns                   The type of sub-entity.
     virtual IType const *get_type_sub_entity_type(
-        int type_index,
-        int entity_index) const = 0;
+        size_t type_index,
+        size_t entity_index) const = 0;
 
     /// Get the number of annotations of a type sub-entity (field or enum constant) at index.
     ///
     /// \param type_index          The index of the type.
     /// \param entity_index        The index of the sub entity.
     /// \returns                   The number of annotations of the type sub-entity.
-    virtual int get_type_sub_entity_annotation_count(
-        int type_index,
-        int entity_index) const = 0;
+    virtual size_t get_type_sub_entity_annotation_count(
+        size_t type_index,
+        size_t entity_index) const = 0;
 
     /// Get the annotation at annotation_index of the type sub-entity at (type_index, entity_index).
     ///
@@ -1176,41 +1306,41 @@ public:
     /// \param annotation_index    The index of the annotation.
     /// \returns                   The annotation.
     virtual DAG_node const *get_type_sub_entity_annotation(
-        int type_index,
-        int entity_index,
-        int annotation_index) const = 0;
+        size_t type_index,
+        size_t entity_index,
+        size_t annotation_index) const = 0;
 
     /// Get the number of exported constants.
-    virtual int get_constant_count() const = 0;
+    virtual size_t get_constant_count() const = 0;
 
     /// Get the name of the constant at index.
     ///
     /// \param index  The index of the constant.
     /// \returns      The name of the constant.
     virtual char const *get_constant_name(
-        int index) const = 0;
+        size_t index) const = 0;
 
     /// Get the value of the constant at index.
     ///
     /// \param index  The index of the constant.
     /// \returns      The value of the constant.
     virtual DAG_constant const *get_constant_value(
-        int index) const = 0;
+        size_t index) const = 0;
 
     /// Get the number of annotations of the constant at index.
     ///
     /// \param index  The index of the constant.
-    virtual int get_constant_annotation_count(
-        int index) const = 0;
+    virtual size_t get_constant_annotation_count(
+        size_t index) const = 0;
 
     /// Get the annotation at annotation_index of the constant at constant_index.
-
+    ///
     /// \param constant_index      The index of the constant.
     /// \param annotation_index    The index of the annotation.
     /// \returns                   The annotation.
     virtual DAG_node const *get_constant_annotation(
-        int constant_index,
-        int annotation_index) const = 0;
+        size_t constant_index,
+        size_t annotation_index) const = 0;
 
     /// Access messages.
     virtual Messages const &access_messages() const = 0;
@@ -1221,27 +1351,17 @@ public:
     /// Returns the amount of used memory by this code DAG.
     virtual size_t get_memory_size() const = 0;
 
-    /// Set a tag, version pair for a resource constant.
-    ///
-    /// \param c        a resource constant
-    /// \param tag      the tag value
-    /// \param version  the tag version
-    virtual void set_resource_tag(
-        DAG_constant const *c,
-        int                tag,
-        unsigned           version) = 0;
-
     /// Get the number of annotations of the module.
     ///
     /// \returns                    The number of annotations.
-    virtual int get_module_annotation_count() const = 0;
+    virtual size_t get_module_annotation_count() const = 0;
 
     /// Get the annotation at annotation_index of the module.
     ///
     /// \param annotation_index    The index of the annotation.
     /// \returns                   The annotation.
     virtual DAG_node const *get_module_annotation(
-        int annotation_index) const = 0;
+        size_t annotation_index) const = 0;
 
     /// Get the internal space.
     virtual char const *get_internal_space() const = 0;
@@ -1249,32 +1369,43 @@ public:
     /// Get the number of annotations in the generated code.
     ///
     /// \returns    The number of annotations in this generated code.
-    virtual int get_annotation_count() const = 0;
+    virtual size_t get_annotation_count() const = 0;
 
     /// Get the semantics of the annotation at annotation_index.
     ///
     /// \param annotation_index  The index of the annotation.
     /// \returns                 The semantics of the annotation.
-    virtual IDefinition::Semantics get_annotation_semantics(int annotation_index) const = 0;
+    virtual IDefinition::Semantics get_annotation_semantics(
+        size_t annotation_index) const = 0;
 
     /// Get the name of the annotation at annotation_index.
     ///
     /// \param annotation_index  The index of the annotation.
     /// \returns                 The name of the annotation.
-    virtual char const *get_annotation_name(int annotation_index) const = 0;
+    virtual char const *get_annotation_name(
+        size_t annotation_index) const = 0;
+
+    /// Get the simple name of the annotation at annotation_index.
+    ///
+    /// \param annotation_index  The index of the annotation.
+    /// \returns                 The simple name of the annotation.
+    virtual char const *get_simple_annotation_name(
+        size_t annotation_index) const = 0;
 
     /// Get the original name of the annotation at annotation_index if the annotation name is
     /// an alias, i.e. re-exported from a module.
     ///
     /// \param annotation_index  The index of the annotation.
     /// \returns                 The original name of the annotation or NULL.
-    virtual char const *get_original_annotation_name(int annotation_index) const = 0;
+    virtual char const *get_original_annotation_name(
+        size_t annotation_index) const = 0;
 
     /// Get the parameter count of the annotation at annotation_index.
     ///
     /// \param annotation_index  The index of the annotation.
     /// \returns                 The number of parameters of the annotation.
-    virtual int get_annotation_parameter_count(int annotation_index) const = 0;
+    virtual size_t get_annotation_parameter_count(
+        size_t annotation_index) const = 0;
 
     /// Get the parameter type of the parameter at parameter_index
     /// of the annotation at annotation_index.
@@ -1283,8 +1414,17 @@ public:
     /// \param parameter_index   The index of the parameter.
     /// \returns                 The type of the parameter.
     virtual IType const *get_annotation_parameter_type(
-        int annotation_index,
-        int parameter_index) const = 0;
+        size_t annotation_index,
+        size_t parameter_index) const = 0;
+
+    /// Get the parameter type name of the parameter at parameter_index
+    /// of the annotation at annotation_index.
+    /// \param annotation_index  The index of the annotation.
+    /// \param parameter_index   The index of the parameter.
+    /// \returns                 The type of the parameter.
+    virtual char const *get_annotation_parameter_type_name(
+        size_t annotation_index,
+        size_t parameter_index) const = 0;
 
     /// Get the parameter name of the parameter at parameter_index
     /// of the annotation at annotation_index.
@@ -1293,16 +1433,16 @@ public:
     /// \param parameter_index   The index of the parameter.
     /// \returns                 The name of the parameter.
     virtual char const *get_annotation_parameter_name(
-        int annotation_index,
-        int parameter_index) const = 0;
+        size_t annotation_index,
+        size_t parameter_index) const = 0;
 
     /// Get the index of the parameter parameter_name.
     ///
     /// \param annotation_index  The index of the annotation.
     /// \param parameter_name    The name of the parameter.
     /// \returns                 The index of the parameter, or -1 if it does not exist.
-    virtual int get_annotation_parameter_index(
-        int        annotation_index,
+    virtual size_t get_annotation_parameter_index(
+        size_t     annotation_index,
         char const *parameter_name) const = 0;
 
     /// Get the default initializer of the parameter at parameter_index
@@ -1312,8 +1452,8 @@ public:
     /// \param parameter_index    The index of the parameter.
     /// \returns                  The default initializer or NULL if not available.
     virtual DAG_node const *get_annotation_parameter_default(
-        int annotation_index,
-        int parameter_index) const = 0;
+        size_t annotation_index,
+        size_t parameter_index) const = 0;
 
     /// Get the property flag of the annotation at annotation_index.
     ///
@@ -1321,15 +1461,15 @@ public:
     /// \param ap                The requested annotation property.
     /// \returns                 True if this annotation has the property, false if not.
     virtual bool get_annotation_property(
-        int                 annotation_index,
+        size_t              annotation_index,
         Annotation_property ap) const = 0;
 
     /// Get the number of annotations of the annotation at annotation_index.
     ///
     /// \param annotation_index  The index of the annotation.
     /// \returns               The number of annotations.
-    virtual int get_annotation_annotation_count(
-        int annotation_index) const = 0;
+    virtual size_t get_annotation_annotation_count(
+        size_t annotation_index) const = 0;
 
     /// Get the annotation at annotation_index of the annotation (declaration) at anno_decl_index.
     ///
@@ -1337,8 +1477,33 @@ public:
     /// \param annotation_index   The index of the annotation.
     /// \returns                  The annotation.
     virtual DAG_node const *get_annotation_annotation(
-        int anno_decl_index,
-        int annotation_index) const = 0;
+        size_t anno_decl_index,
+        size_t annotation_index) const = 0;
+
+    /// Get a tag,for a resource constant that might be reachable from this DAG.
+    ///
+    /// \param res             a resource
+    virtual int get_resource_tag(
+        IValue_resource const *res) const = 0;
+
+    /// Set a tag, version pair for a resource constant that might be reachable from this DAG.
+    ///
+    /// \param res             a resource
+    /// \param tag             the tag value
+    virtual void set_resource_tag(
+        IValue_resource const *res,
+        int                   tag) = 0;
+
+    /// Get the number of resource tag map entries.
+    virtual size_t get_resource_tag_map_entries_count() const = 0;
+
+    /// Get the i'th resource tag map entry or NULL if the index is out of bounds;
+    ///
+    /// \param index  the index of the resource map entry.
+    virtual Resource_tag_tuple const *get_resource_tag_map_entry(size_t index) const = 0;
+
+    /// Get the resource tagger for this code DAG.
+    virtual IResource_tagger *get_resource_tagger() const = 0;
 };
 
 /// Check if a DAG node is of a certain type.

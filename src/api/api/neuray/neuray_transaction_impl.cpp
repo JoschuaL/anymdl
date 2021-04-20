@@ -1,5 +1,5 @@
 /***************************************************************************************************
- * Copyright (c) 2008-2019, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2008-2020, NVIDIA CORPORATION. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -53,7 +53,11 @@
 #include <base/data/db/i_db_tag.h>
 #include <base/data/db/i_db_transaction.h>
 #include <base/lib/log/i_log_logger.h>
+#include <base/util/string_utils/i_string_utils.h>
 
+#include <io/scene/dbimage/i_dbimage.h>
+#include <io/scene/bsdf_measurement/i_bsdf_measurement.h>
+#include <io/scene/lightprofile/i_lightprofile.h>
 #include <io/scene/mdl_elements/i_mdl_elements_function_definition.h>
 #include <io/scene/mdl_elements/i_mdl_elements_material_definition.h>
 #include <io/scene/mdl_elements/i_mdl_elements_module.h>
@@ -146,7 +150,7 @@ mi::base::IInterface* Transaction_impl::create(
     const mi::base::IInterface* argv[])
 {
     if( !type_name)
-        return 0;
+        return nullptr;
 
     return m_class_factory->create_type_instance( this, type_name, argc, argv);
 }
@@ -192,11 +196,11 @@ const mi::base::IInterface* Transaction_impl::access(
     const char* name)
 {
     if( !is_open())
-        return 0;
+        return nullptr;
 
     DB::Tag tag = m_db_transaction->name_to_tag( name);
     if( !tag.is_valid())
-        return 0;
+        return nullptr;
 
 #ifdef VERBOSE_TX
     LOG::mod_log->info( SYSTEM::M_NEURAY_API, LOG::Mod_log::C_DATABASE,
@@ -210,11 +214,15 @@ mi::base::IInterface* Transaction_impl::edit(
     const char* name)
 {
     if( !is_open())
-        return 0;
+        return nullptr;
 
     DB::Tag tag = m_db_transaction->name_to_tag( name);
     if( !tag.is_valid())
-        return 0;
+        return nullptr;
+
+    SERIAL::Class_id id = m_db_transaction->get_class_id(tag);
+    if (id == MDL::ID_MDL_MATERIAL_DEFINITION || id == MDL::ID_MDL_FUNCTION_DEFINITION)
+        return nullptr;
 
 #ifdef VERBOSE_TX
     LOG::mod_log->info( SYSTEM::M_NEURAY_API, LOG::Mod_log::C_DATABASE,
@@ -344,7 +352,7 @@ const char* Transaction_impl::name_of(
     const mi::base::IInterface* interface) const
 {
     if( !is_open() || !interface)
-        return 0;
+        return nullptr;
 
     mi::base::Handle<const mi::base::IInterface> api_class( interface, mi::base::DUP_INTERFACE);
 
@@ -352,11 +360,11 @@ const char* Transaction_impl::name_of(
 
     mi::base::Handle<const IDb_element> db_element( api_class->get_interface<IDb_element>());
     if( !db_element.is_valid_interface())
-        return 0;
+        return nullptr;
 
     DB::Tag tag = db_element->get_tag();
     if( !tag)
-        return 0;
+        return nullptr;
 
     return m_db_transaction->tag_to_name( tag);
 }
@@ -378,11 +386,11 @@ const char* Transaction_impl::get_time_stamp() const
 const char* Transaction_impl::get_time_stamp( const char* element) const
 {
     if( !element || !is_open())
-        return 0;
+        return nullptr;
 
     DB::Tag tag = m_db_transaction->name_to_tag( element);
     if( !tag)
-        return 0;
+        return nullptr;
 
     return get_time_stamp( tag);
 }
@@ -417,61 +425,28 @@ mi::neuraylib::IScope* Transaction_impl::get_scope() const
 {
     DB::Scope* db_scope = m_db_transaction->get_scope();
     if( !db_scope)
-        return 0;
+        return nullptr;
 
     return new Scope_impl( db_scope, m_class_factory);
-}
-
-namespace {
-
-/// Maps class names from the old MDL API to the new MDL API
-std::string map_old_mdl_api_class_names( const char* s)
-{
-    struct Mapping { const char* old_name; const char* new_name; };
-    Mapping map[] = {
-        { "Mdl_module", "Module"},
-        { "Mdl_function_definition", "Function_definition" },
-        { "Mdl_material_definition", "Material_definition" },
-        { "Mdl_function_call", "Function_call" },
-        { "Mdl_material_instance", "Material_instance" }
-    };
-
-    mi::Size n = sizeof( map) / sizeof( map[0]);
-    bool starts_with_two_underscores = strlen( s) >= 2 && s[0] == '_' && s[1] == '_';
-    for( mi::Size i = 0; i < n; ++i) {
-        if( strcmp( s, map[i].old_name) == 0) {
-            LOG::mod_log->warning( M_NEURAY_API, LOG::Mod_log::C_DATABASE,
-                "The type name \"%s\" passed to ITransaction::list_elements() is deprecated. "
-                "Please use \"%s\" instead.", s, map[i].new_name);
-            return map[i].new_name;
-        }
-        if( starts_with_two_underscores && strcmp( s+2, map[i].old_name) == 0) {
-            LOG::mod_log->warning( M_NEURAY_API, LOG::Mod_log::C_DATABASE,
-                "The type name \"%s\" passed to ITransaction::list_elements() is deprecated. "
-                "Please use \"%s\" instead.", s, map[i].new_name);
-            return map[i].new_name;
-        }
-    }
-    return s;
-}
-
 }
 
 mi::IArray* Transaction_impl::list_elements(
     const char* root_element, const char* name_pattern, const mi::IArray* type_names) const
 {
     if( !root_element || !is_open())
-        return 0;
+        return nullptr;
     DB::Tag root_tag = m_db_transaction->name_to_tag( root_element);
     if( !root_tag)
-        return 0;
+        return nullptr;
 
-    std::regex name_regex;
+    std::wregex name_regex;
     try {
-        if( name_pattern)
-            name_regex.assign( name_pattern, std::regex::extended);
+        if( name_pattern) {
+            std::wstring name_pattern_wstr = STRING::utf8_to_wchar( name_pattern);
+            name_regex.assign( name_pattern_wstr, std::wregex::extended);
+        }
     } catch( const std::regex_error& ) {
-        return 0;
+        return nullptr;
     }
 
     LOG::mod_log->vdebug( M_NEURAY_API, LOG::Mod_log::C_MISC, "ITransaction::list_elements()");
@@ -480,7 +455,7 @@ mi::IArray* Transaction_impl::list_elements(
 
     // convert type_names to set of SERIAL::Class_id
     std::set<SERIAL::Class_id> class_ids;
-    for( mi::Size i = 0; type_names && i < type_names->get_length(); ++i) {
+    for( size_t i = 0; type_names && i < type_names->get_length(); ++i) {
         mi::base::Handle<const mi::IString> type_name_istring(
             type_names->get_element<mi::IString>( i));
         if( !type_name_istring.is_valid_interface()) {
@@ -488,7 +463,7 @@ mi::IArray* Transaction_impl::list_elements(
             LOG::mod_log->vdebug( M_NEURAY_API, LOG::Mod_log::C_MISC, s, i);
             continue;
         }
-        std::string type_name = map_old_mdl_api_class_names( type_name_istring->get_c_str());
+        std::string type_name = type_name_istring->get_c_str();
         SERIAL::Class_id class_id = m_class_factory->get_class_id( type_name.c_str());
         if( class_id == 0) {
             // try again with "__" prefix
@@ -508,13 +483,13 @@ mi::IArray* Transaction_impl::list_elements(
 
     // create result array
     mi::IDynamic_array* result
-        = m_class_factory->create_type_instance<mi::IDynamic_array>( 0, "String[]", 0, 0);
+        = m_class_factory->create_type_instance<mi::IDynamic_array>( nullptr, "String[]", 0, nullptr);
 
     // start DFS post-order graph traversal at root_tag
     std::set<DB::Tag> tags_seen;
     tags_seen.insert( root_tag); // not really needed if the graph is acyclic
     list_elements_internal(
-        root_tag, name_pattern ? &name_regex : 0, type_names ? &class_ids : 0, result, tags_seen);
+        root_tag, name_pattern ? &name_regex : nullptr, type_names ? &class_ids : nullptr, result, tags_seen);
 
     return result;
 }
@@ -557,7 +532,7 @@ DB::Transaction* Transaction_impl::get_db_transaction() const
 mi::base::IInterface* Transaction_impl::edit( DB::Tag tag)
 {
     if( !is_open())
-        return 0;
+        return nullptr;
 
     return m_class_factory->create_class_instance( this, tag, true);
 }
@@ -565,7 +540,7 @@ mi::base::IInterface* Transaction_impl::edit( DB::Tag tag)
 const mi::base::IInterface* Transaction_impl::access( DB::Tag tag)
 {
     if( !is_open())
-        return 0;
+        return nullptr;
 
     return m_class_factory->create_class_instance( this, tag, false);
 }
@@ -687,11 +662,21 @@ void Transaction_impl::check_no_referenced_elements( const char* committed_or_ab
 
 void Transaction_impl::list_elements_internal(
     DB::Tag tag,
-    const std::regex* name_regex,
+    const std::wregex* name_regex,
     const std::set<SERIAL::Class_id>* class_ids,
     mi::IDynamic_array* result,
     std::set<DB::Tag>& tags_seen) const
 {
+    // Skip DB elements that have not been registered with the API's class factory.
+    SERIAL::Class_id class_id = m_class_factory->get_class_id( this, tag);
+    if( !m_class_factory->is_class_registered( class_id))
+        return;
+
+    // Implementation classes of resources should have been skipped. They are an internal
+    // implementation detail and not visible in the API.
+    ASSERT( M_NEURAY_API, class_id != DBIMAGE::ID_IMAGE_IMPL);
+    ASSERT( M_NEURAY_API, class_id != LIGHTPROFILE::ID_LIGHTPROFILE_IMPL);
+    ASSERT( M_NEURAY_API, class_id != BSDFM::ID_BSDF_MEASUREMENT_IMPL);
 
     // get references of tag
     DB::Access<DB::Element_base> element( tag, m_db_transaction);
@@ -707,7 +692,6 @@ void Transaction_impl::list_elements_internal(
 
     // skip tag if it has the wrong class ID
     if( class_ids) {
-        SERIAL::Class_id class_id = m_class_factory->get_class_id( this, tag);
         if( class_ids->find( class_id) == class_ids->end())
             return;
     }
@@ -718,12 +702,15 @@ void Transaction_impl::list_elements_internal(
         return;
 
     // skip tag if its name does not match the regular expression
-    if( name_regex && !std::regex_search( name, *name_regex))
-        return;
+    if( name_regex) {
+        std::wstring name_wstr = STRING::utf8_to_wchar( name);
+        if( !std::regex_search( name_wstr, *name_regex))
+            return;
+    }
 
     // tag matches criteria, store its name in the result
     mi::base::Handle<mi::IString> s(
-        m_class_factory->create_type_instance<mi::IString>( 0, "String", 0, 0));
+        m_class_factory->create_type_instance<mi::IString>( nullptr, "String", 0, nullptr));
     s->set_c_str( name);
     result->push_back( s.get());
 }
